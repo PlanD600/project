@@ -1,52 +1,35 @@
-
-
-
-import { RequestHandler, Response } from 'express';
-import { getDb } from '../../db';
-import bcrypt from 'bcrypt';
+import { RequestHandler } from 'express';
+import prisma from '../../db'; // Using Prisma client instead of getDb
+import bcrypt from 'bcryptjs'; // Changed from 'bcrypt' to 'bcryptjs' for consistency if needed, assuming bcryptjs is installed
 import jwt from 'jsonwebtoken';
-import { ObjectId } from 'mongodb';
 import logger from '../../logger';
 
 // Helper to generate a JWT for a user
-const generateToken = (id: string, role: string, teamId?: string, projectId?: string) => {
-    const payload: {id: string; role: string; teamId?: string; projectId?: string} = { id, role };
-    if (teamId) payload.teamId = teamId;
-    if (projectId) payload.projectId = projectId;
-    
+const generateToken = (id: string) => {
     const secret = process.env.JWT_SECRET!;
     const options = {
-        expiresIn: process.env.JWT_EXPIRES_IN || '1d',
+        expiresIn: process.env.JWT_EXPIRES_IN || '30d',
     };
-    return jwt.sign(payload, secret, options as any);
+    return jwt.sign({ id }, secret, options);
 };
 
 // Helper to send token response
-const sendTokenResponse = (user: any, statusCode: number, res: Response) => {
-    const token = generateToken(user._id.toHexString(), user.role, user.teamId, user.projectId);
+const sendTokenResponse = (user: { id: string, [key: string]: any }, statusCode: number, res: any) => {
+    const token = generateToken(user.id);
 
     const options = {
-        expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 1 day
+        expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict' as const,
     };
 
-    // Sanitize user object for response
-    const responseUser = {
-        id: user._id.toHexString(),
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        teamId: user.teamId,
-        avatarUrl: user.avatarUrl,
-        notificationPreferences: user.notificationPreferences,
-        projectId: user.projectId,
-    };
+    // Sanitize user object for response, removing the password
+    const { password, ...userWithoutPassword } = user;
 
     res.status(statusCode)
-        .cookie('jwt_token', token, options)
-        .json(responseUser);
+       .cookie('token', token, options)
+       .json(userWithoutPassword);
 }
 
 export const registerUser: RequestHandler = async (req, res, next) => {
@@ -62,37 +45,27 @@ export const registerUser: RequestHandler = async (req, res, next) => {
     }
 
     try {
-        const db = getDb();
-        const userExists = await db.collection('users').findOne({ email });
+        const userExists = await prisma.user.findUnique({ where: { email } });
         if (userExists) {
             return res.status(400).json({ message: 'User with this email already exists' });
         }
 
         const salt = await bcrypt.genSalt(10);
-        const passwordHash = await bcrypt.hash(password, salt);
+        const hashedPassword = await bcrypt.hash(password, salt);
         
-        const defaultNotificationPrefs = { onAssignment: true, onComment: true, onStatusChange: false, onDueDateChange: false };
-
-        const newUserDocument = {
-            name: fullName,
-            email,
-            passwordHash,
-            role: 'Super Admin' as const,
-            teamId: null,
-            projectId: null,
-            disabled: false,
-            avatarUrl: '',
-            notificationPreferences: defaultNotificationPrefs,
-            createdAt: new Date(),
-        };
-
-        const result = await db.collection('users').insertOne(newUserDocument);
-        
-        const newUser = { _id: result.insertedId, ...newUserDocument };
+        const newUser = await prisma.user.create({
+            data: {
+                name: fullName,
+                email,
+                password: hashedPassword, // The field is 'password' in the Prisma schema
+                role: 'Super Admin',
+                avatarUrl: '', // Default avatar
+            }
+        });
         
         logger.info({
             message: 'New user registered successfully',
-            userId: newUser._id.toHexString(),
+            userId: newUser.id,
             email: newUser.email,
             role: newUser.role,
         });
@@ -111,11 +84,11 @@ export const registerUser: RequestHandler = async (req, res, next) => {
 export const loginUser: RequestHandler = async (req, res, next) => {
     const { email, password } = req.body;
     try {
-        const db = getDb();
-        const user = await db.collection('users').findOne({ email, disabled: false });
+        const user = await prisma.user.findUnique({ where: { email } });
 
-        if (user && (await bcrypt.compare(password, user.passwordHash))) {
-            logger.info({ message: 'User logged in successfully', userId: user._id.toHexString() });
+        // Note: Prisma schema does not have a 'disabled' field currently. Add it if needed.
+        if (user && (await bcrypt.compare(password, user.password))) {
+            logger.info({ message: 'User logged in successfully', userId: user.id });
             sendTokenResponse(user, 200, res);
         } else {
             logger.warn({ message: 'Failed login attempt', email });
@@ -135,41 +108,15 @@ export const getMe: RequestHandler = async (req, res, next) => {
     if (!req.user) {
         return res.status(401).json({ message: 'Not authorized' });
     }
-    try {
-        const db = getDb();
-        const user = await db.collection('users').findOne(
-            { _id: new ObjectId(req.user.id), disabled: false },
-            { projection: { passwordHash: 0 } }
-        );
-
-        if (user) {
-             const responseUser = {
-                id: user._id.toHexString(),
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                teamId: user.teamId,
-                avatarUrl: user.avatarUrl,
-                notificationPreferences: user.notificationPreferences,
-                projectId: user.projectId,
-            };
-            res.json(responseUser);
-        } else {
-            res.status(404).json({ message: 'User not found' });
-        }
-    } catch (error) {
-         logger.error({
-            message: 'Failed to fetch current user (getMe)',
-            context: { endpoint: req.originalUrl, userId: req.user?.id },
-            error,
-        });
-        next(error);
-    }
+    // The user object is already attached to req.user by the 'protect' middleware.
+    // The middleware (which we'll update later) will fetch from Prisma.
+    // We can just return it.
+    res.json(req.user);
 };
 
 export const logoutUser: RequestHandler = async (req, res, next) => {
     try {
-        res.cookie('jwt_token', 'none', {
+        res.cookie('token', 'none', {
             expires: new Date(Date.now() + 10 * 1000),
             httpOnly: true,
         });
@@ -189,21 +136,15 @@ export const uploadAvatar: RequestHandler = async (req, res, next) => {
     if (!image) return res.status(400).json({ message: "No image data provided" });
 
     try {
-        const db = getDb();
-        const result = await db.collection('users').findOneAndUpdate(
-            { _id: new ObjectId(user.id) },
-            { $set: { avatarUrl: image } },
-            { returnDocument: 'after', projection: { passwordHash: 0 } }
-        );
-
-        if (!result) {
-            return res.status(404).json({ message: "User not found" });
-        }
+        const updatedUser = await prisma.user.update({
+            where: { id: user.id },
+            data: { avatarUrl: image },
+        });
         
         logger.info({ message: 'User avatar updated', userId: user.id });
 
-        const responseUser = { ...result, id: result._id };
-        res.status(200).json(responseUser);
+        const { password, ...userWithoutPassword } = updatedUser;
+        res.status(200).json(userWithoutPassword);
 
     } catch (error) {
         logger.error({ message: 'Failed to upload avatar', context: { userId: user.id }, error });

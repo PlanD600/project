@@ -1,56 +1,87 @@
-
-
-
 import { RequestHandler } from 'express';
-import { getDb } from '../../db';
-import { ObjectId } from 'mongodb';
+import prisma from '../../db';
 import logger from '../../logger';
-
-const getFullTaskViewModel = (task: any, userMap: Map<string, any>) => {
-    const commentsWithUsers = (task.comments || []).map((c: any) => ({
-        ...c,
-        user: userMap.get(c.userId) || { id: c.userId, name: 'Unknown User', avatarUrl: '', role: 'Guest' }
-    }));
-    return { ...task, id: task._id.toHexString(), comments: commentsWithUsers };
-};
 
 export const getInitialData: RequestHandler = async (req, res, next) => {
     const user = req.user;
     if (!user) return res.status(401).json({ message: 'Not authorized' });
 
     try {
-        const db = getDb();
+        // 1. Fetch data that is not dependent on the user role first
+        const allUsersQuery = prisma.user.findMany({
+            select: { id: true, name: true, email: true, role: true, teamId: true, avatarUrl: true }
+        });
+        const allTeamsQuery = prisma.team.findMany();
 
-        const allUsers = await db.collection('users').find({}, { projection: { passwordHash: 0 } }).sort({ name: 1 }).toArray();
-        const userMap = new Map(allUsers.map(u => [u._id.toHexString(), u]));
-        
-        const teams = await db.collection('teams').find({}).toArray();
-        
-        let projectsQuery: any = { deletedAt: null };
-        if (user.role === 'Team Leader') {
-            projectsQuery.teamId = user.teamId;
-        } else if (user.role === 'Employee' || user.role === 'Guest') {
-            const userDoc = await db.collection('users').findOne({ _id: new ObjectId(user.id) });
-            const tasksForUser = await db.collection('tasks').find({ assigneeIds: user.id }).project({ projectId: 1 }).toArray();
-            const projectIdsFromTasks = tasksForUser.map(t => t.projectId);
-            const allProjectIds = [...new Set([...projectIdsFromTasks, userDoc?.projectId].filter(Boolean))];
-            projectsQuery._id = { $in: allProjectIds.map(id => new ObjectId(id)) };
+        // 2. Determine which projects the user can see based on their role
+        let projectsQuery;
+        if (user.role === 'Super Admin') {
+            projectsQuery = prisma.project.findMany({
+                where: { status: 'active' },
+                orderBy: { startDate: 'desc' }
+            });
+        } else if (user.role === 'Team Leader' && user.teamId) {
+            projectsQuery = prisma.project.findMany({
+                where: { teamId: user.teamId, status: 'active' },
+                orderBy: { startDate: 'desc' }
+            });
+        } else { // Employee or Guest
+            const tasksForUser = await prisma.task.findMany({
+                where: {
+                    assigneeIds: { has: user.id }
+                },
+                select: { projectId: true }
+            });
+            // Fixed: Added explicit type for 't'
+            const projectIdsFromTasks = tasksForUser.map((t: { projectId: string }) => t.projectId);
+            
+            const projectIds = [...new Set(projectIdsFromTasks)];
+            
+            projectsQuery = prisma.project.findMany({
+                where: { id: { in: projectIds }, status: 'active' },
+                orderBy: { startDate: 'desc' }
+            });
         }
+
+        // 3. Execute main queries concurrently
+        const [allUsers, allTeams, projects] = await Promise.all([allUsersQuery, projectsQuery, allTeamsQuery]);
         
-        const projects = await db.collection('projects').find(projectsQuery).sort({ startDate: -1 }).toArray();
-        const projectIds = projects.map(p => p._id.toHexString());
-        
-        const tasks = projectIds.length > 0 ? await db.collection('tasks').find({ projectId: { $in: projectIds } }).toArray() : [];
-        const financials = projectIds.length > 0 ? await db.collection('financials').find({ projectId: { $in: projectIds } }).toArray() : [];
-        
+        // Fixed: Added explicit type for 'p'
+        const projectIds = projects.map((p: { id: string }) => p.id);
+
+        // 4. Fetch data related to the visible projects
+        let tasksQuery, financialsQuery;
+        if (projectIds.length > 0) {
+            tasksQuery = prisma.task.findMany({
+                where: { projectId: { in: projectIds } },
+                include: {
+                    comments: {
+                        include: {
+                            user: { select: { id: true, name: true, avatarUrl: true } }
+                        },
+                        orderBy: { timestamp: 'asc' }
+                    }
+                }
+            });
+            financialsQuery = prisma.financialTransaction.findMany({
+                where: { projectId: { in: projectIds } }
+            });
+        } else {
+            tasksQuery = Promise.resolve([]);
+            financialsQuery = Promise.resolve([]);
+        }
+
+        const [tasks, financials] = await Promise.all([tasksQuery, financialsQuery]);
+
+        // 5. Hardcoded organization settings
         const organizationSettings = { name: 'מנהל פרויקטים חכם', logoUrl: '' };
 
         res.json({
-            users: allUsers.map(u => ({ ...u, id: u._id.toHexString() })),
-            teams: teams.map(t => ({ ...t, id: t._id.toHexString() })),
-            projects: projects.map(p => ({ ...p, id: p._id.toHexString() })),
-            tasks: tasks.map(t => getFullTaskViewModel(t, userMap)),
-            financials: financials.map(f => ({ ...f, id: f._id.toHexString() })),
+            users: allUsers,
+            teams: allTeams,
+            projects: projects,
+            tasks: tasks,
+            financials: financials,
             organizationSettings,
         });
 

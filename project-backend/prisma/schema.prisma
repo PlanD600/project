@@ -1,94 +1,104 @@
-// הגדרת החיבור למסד הנתונים
-datasource db {
-  provider = "mongodb"
-  url      = env("DATABASE_URL")
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
 }
 
-// הגדרת יצירת ה-client
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider = "prisma-client-js"
 }
 
-// --- מודלים של הנתונים (גרסה מתוקנת ומלאה) ---
-
-model User {
-  id                      String    @id @default(auto()) @map("_id") @db.ObjectId
-  email                   String    @unique
-  name                    String?
-  password                String
-  role                    String
-  avatarUrl               String?
-  disabled                Boolean   @default(false)
-  notificationPreferences Json?
-  
-  projects  Project[] @relation("UserProjects")
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
-model Project {
-  id          String    @id @default(auto()) @map("_id") @db.ObjectId
-  name        String
-  description String?
-  startDate   DateTime?
-  endDate     DateTime?
-  status      String?
-  
-  ownerId     String    @db.ObjectId
-  owner       User      @relation("UserProjects", fields: [ownerId], references: [id])
-  
-  teams       Team[]
-  tasks       Task[]
-  finances    FinancialTransaction[]
-  
-  createdAt   DateTime  @default(now())
+model User {
+  id        String    @id @default(cuid())
+  email     String    @unique
+  name      String
+  password  String
+  avatarUrl String?
+  role      String    @default("Employee")
+  teamId    String?
+  team      Team?     @relation(fields: [teamId], references: [id])
+  projects  Project[] @relation("Owner")
+  tasks     Task[]    @relation("Assignees")
+  comments  Comment[]
 }
 
 model Team {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  name      String
-  
-  projectId String   @db.ObjectId
-  project   Project  @relation(fields: [projectId], references: [id])
-  
-  leaderId  String?  @db.ObjectId
-  memberIds String[] @db.ObjectId 
+  id      String   @id @default(cuid())
+  name    String
+  members User[]
+  Project Project?
+}
+
+model Project {
+  id           String    @id @default(cuid())
+  name         String
+  description  String?
+  ownerId      String
+  owner        User      @relation("Owner", fields: [ownerId], references: [id])
+  teamId       String?   @unique
+  team         Team?     @relation(fields: [teamId], references: [id])
+  startDate    DateTime
+  endDate      DateTime
+  budget       Float
+  status       String    @default("active")
+  tasks        Task[]
+  financials   FinancialTransaction[]
 }
 
 model Task {
-  id            String    @id @default(auto()) @map("_id") @db.ObjectId
-  title         String
-  content       String?
-  status        String    @default("TODO")
-  columnId      String?
-  dependencies  String[]  @db.ObjectId
-  
-  projectId     String    @db.ObjectId
-  project       Project   @relation(fields: [projectId], references: [id])
-  
-  assigneeIds   String[]  @db.ObjectId
-  
-  comments      Comment[]
-
-  createdAt   DateTime @default(now())
-  dueDate     DateTime?
+  id                 String    @id @default(cuid())
+  title              String
+  description        String?
+  projectId          String
+  project            Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  columnId           String
+  assigneeIds        String[]
+  assignees          User[]    @relation("Assignees", fields: [assigneeIds], references: [id])
+  startDate          DateTime
+  endDate            DateTime
+  baselineStartDate  DateTime?
+  baselineEndDate    DateTime?
+  dependencies       String[]
+  comments           Comment[]
 }
-    
+
 model Comment {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  id        String    @id @default(cuid())
   text      String
-  authorId  String   @db.ObjectId
-  taskId    String   @db.ObjectId
-  task      Task     @relation(fields: [taskId], references: [id])
-  createdAt DateTime @default(now())
+  timestamp DateTime  @default(now())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  taskId    String
+  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  parentId  String?
+  parent    Comment?  @relation("Replies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies   Comment[] @relation("Replies")
 }
 
 model FinancialTransaction {
-  id          String    @id @default(auto()) @map("_id") @db.ObjectId
-  description String
-  amount      Float
-  type        String
+  id          String   @id @default(cuid())
+  type        String // 'Income' or 'Expense'
   date        DateTime
-  source      String?
-  
-  projectId   String    @db.ObjectId
-  project     Project   @relation(fields: [projectId], references: [id])
+  source      String
+  description String?
+  amount      Float
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }

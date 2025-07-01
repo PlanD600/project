@@ -1,9 +1,5 @@
-
-
-
 import { RequestHandler } from 'express';
-import { getDb } from '../../db';
-import { ObjectId } from 'mongodb';
+import prisma from '../../db';
 import logger from '../../logger';
 
 export const addFinancialEntry: RequestHandler = async (req, res, next) => {
@@ -23,20 +19,21 @@ export const addFinancialEntry: RequestHandler = async (req, res, next) => {
     }
 
     try {
-        const db = getDb();
-        const newEntry = {
-            type,
-            amount: parsedAmount,
-            description,
-            date,
-            projectId,
-            source,
-            createdAt: new Date()
-        };
-        const result = await db.collection('financials').insertOne(newEntry);
+        const newEntry = await prisma.financialTransaction.create({
+            data: {
+                type,
+                amount: parsedAmount,
+                description,
+                date: new Date(date),
+                source,
+                project: {
+                    connect: { id: projectId }
+                }
+            }
+        });
         
-        logger.info({ message: 'Financial entry added', entryId: result.insertedId, userId: user?.id });
-        res.status(201).json({ id: result.insertedId, ...newEntry });
+        logger.info({ message: 'Financial entry added', entryId: newEntry.id, userId: user?.id });
+        res.status(201).json(newEntry);
     } catch (error) {
         logger.error({ message: 'Failed to add financial entry', context: { body: req.body, userId: user?.id }, error });
         next(error);
@@ -45,40 +42,57 @@ export const addFinancialEntry: RequestHandler = async (req, res, next) => {
 
 export const getFinancialSummary: RequestHandler = async (req, res, next) => {
     const user = req.user;
-    const { team_id } = req.query;
+    const { team_id } = req.query as { team_id?: string };
 
     try {
-        const db = getDb();
         if (user?.role === 'Super Admin') {
-            const projectMatch = team_id ? 
-                { $lookup: { from: 'projects', localField: 'projectId', foreignField: '_id', as: 'project' } } : 
-                { $addFields: {} };
-            const teamMatch = team_id ? { $match: { 'project.teamId': team_id } } : { $match: {} };
+            let whereClause: any = {};
+            // If filtering by a specific team, find that team's projects first
+            if (team_id) {
+                const projectsInTeam = await prisma.project.findMany({
+                    where: { teamId: team_id },
+                    select: { id: true }
+                });
+                const projectIds = projectsInTeam.map(p => p.id);
+                whereClause.projectId = { in: projectIds };
+            }
 
-            const result = await db.collection('financials').aggregate([
-                projectMatch as any, // Cast because lookup type is complex
-                teamMatch,
-                {
-                    $group: {
-                        _id: null,
-                        totalIncome: { $sum: { $cond: [{ $eq: ['$type', 'Income'] }, '$amount', 0] } },
-                        totalExpense: { $sum: { $cond: [{ $eq: ['$type', 'Expense'] }, '$amount', 0] } }
-                    }
+            // Run two separate aggregations for income and expense
+            const totalIncomeResult = await prisma.financialTransaction.aggregate({
+                _sum: { amount: true },
+                where: { ...whereClause, type: 'Income' }
+            });
+            const totalExpenseResult = await prisma.financialTransaction.aggregate({
+                _sum: { amount: true },
+                where: { ...whereClause, type: 'Expense' }
+            });
+
+            res.json({
+                totalIncome: totalIncomeResult._sum.amount || 0,
+                totalExpense: totalExpenseResult._sum.amount || 0,
+            });
+
+        } else if (user?.role === 'Team Leader' && user.teamId) {
+            // Find all projects for the team leader's team
+            const projectsInTeam = await prisma.project.findMany({
+                where: { teamId: user.teamId },
+                select: { id: true }
+            });
+            const projectIds = projectsInTeam.map(p => p.id);
+
+            // Aggregate expenses ONLY for those projects
+            const result = await prisma.financialTransaction.aggregate({
+                _sum: { amount: true },
+                where: {
+                    projectId: { in: projectIds },
+                    type: 'Expense'
                 }
-            ]).toArray();
-
-            res.json(result[0] || { totalIncome: 0, totalExpense: 0 });
-
-        } else if (user?.role === 'Team Leader') {
-            const projectsInTeam = await db.collection('projects').find({ teamId: user.teamId }).project({ _id: 1 }).toArray();
-            const projectIds = projectsInTeam.map(p => p._id.toHexString());
-
-            const result = await db.collection('financials').aggregate([
-                { $match: { projectId: { $in: projectIds }, type: 'Expense' } },
-                { $group: { _id: null, totalTeamExpenses: { $sum: '$amount' } } }
-            ]).toArray();
+            });
             
-            res.json(result[0] || { totalTeamExpenses: 0 });
+            res.json({ totalTeamExpenses: result._sum.amount || 0 });
+        } else {
+            // No data for other roles, or team leader without a team
+            res.status(403).json({ message: 'Not authorized to view financial summary' });
         }
     } catch (error) {
         logger.error({ message: 'Failed to get financial summary', context: { query: req.query, userId: user?.id }, error });

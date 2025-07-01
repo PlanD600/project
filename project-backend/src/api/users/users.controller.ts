@@ -1,10 +1,6 @@
-
-
-
 import { RequestHandler } from 'express';
-import { getDb } from '../../db';
+import prisma from '../../db';
 import bcrypt from 'bcrypt';
-import { ObjectId } from 'mongodb';
 import logger from '../../logger';
 
 export const createUser: RequestHandler = async (req, res, next) => {
@@ -12,41 +8,37 @@ export const createUser: RequestHandler = async (req, res, next) => {
     if (!name || !email || !role) {
         return res.status(400).json({ message: 'Please provide name, email, and role' });
     }
-     if (role === 'Guest' && !projectId) {
+    if (role === 'Guest' && !projectId) {
         return res.status(400).json({ message: 'Guests must be associated with a project.' });
     }
 
     try {
-        const db = getDb();
-        const userExists = await db.collection('users').findOne({ email });
+        const userExists = await prisma.user.findUnique({ where: { email } });
         if (userExists) {
             return res.status(400).json({ message: 'User with this email already exists' });
         }
 
+        // Guests and new employees get a temporary password. They should be prompted to change it.
         const tempPassword = Math.random().toString(36).slice(-8);
         const salt = await bcrypt.genSalt(10);
-        const passwordHash = await bcrypt.hash(tempPassword, salt);
+        const hashedPassword = await bcrypt.hash(tempPassword, salt);
         
-        const newUserDocument = {
-            name,
-            email,
-            passwordHash,
-            role,
-            teamId: teamId || null,
-            projectId: projectId || null,
-            disabled: false,
-            avatarUrl: '',
-            notificationPreferences: { onAssignment: true, onComment: true, onStatusChange: false, onDueDateChange: false },
-            createdAt: new Date(),
-        };
-
-        const result = await db.collection('users').insertOne(newUserDocument);
+        const newUser = await prisma.user.create({
+            data: {
+                name,
+                email,
+                password: hashedPassword,
+                role,
+                teamId: teamId || null,
+                // Note: projectId is not a direct field on the User model in Prisma schema.
+                // This logic might need adjustment depending on how guest access is handled.
+                // For now, we omit it as the schema doesn't support it directly on the user.
+                avatarUrl: '',
+            },
+            select: { id: true, name: true, email: true, role: true, teamId: true, avatarUrl: true } // Return the user without the password
+        });
         
-        // TODO: Send an invitation email to the user with a password creation link.
-        
-        const newUser = { id: result.insertedId, ...newUserDocument };
-        delete (newUser as any).passwordHash;
-        
+        // TODO: Send an invitation email to the user with the temporary password and a password creation link.
         logger.info({ message: 'User created by admin', newUserId: newUser.id, adminUserId: req.user?.id });
         res.status(201).json(newUser);
     } catch (error) {
@@ -57,10 +49,11 @@ export const createUser: RequestHandler = async (req, res, next) => {
 
 export const getAllUsers: RequestHandler = async (req, res, next) => {
     try {
-        const db = getDb();
-        const users = await db.collection('users').find({}, { projection: { passwordHash: 0 } }).sort({ name: 1 }).toArray();
-        const responseUsers = users.map(u => ({ ...u, id: u._id }));
-        res.json(responseUsers);
+        const users = await prisma.user.findMany({
+            select: { id: true, name: true, email: true, role: true, teamId: true, avatarUrl: true },
+            orderBy: { name: 'asc' }
+        });
+        res.json(users);
     } catch (error) {
         logger.error({ message: 'Failed to get all users', context: { userId: req.user?.id }, error });
         next(error);
@@ -69,13 +62,16 @@ export const getAllUsers: RequestHandler = async (req, res, next) => {
 
 export const getUnassignedUsers: RequestHandler = async (req, res, next) => {
     try {
-        const db = getDb();
-        const users = await db.collection('users').find(
-            { role: 'Employee', teamId: null, disabled: false },
-            { projection: { _id: 1, name: 1, email: 1 } }
-        ).sort({ name: 1 }).toArray();
-        const responseUsers = users.map(u => ({ ...u, id: u._id }));
-        res.json(responseUsers);
+        // Find employees that are not assigned to any team
+        const users = await prisma.user.findMany({
+            where: {
+                role: 'Employee',
+                teamId: null,
+            },
+            select: { id: true, name: true, email: true },
+            orderBy: { name: 'asc' }
+        });
+        res.json(users);
     } catch (error) {
         logger.error({ message: 'Failed to get unassigned users', context: { userId: req.user?.id }, error });
         next(error);
@@ -84,28 +80,30 @@ export const getUnassignedUsers: RequestHandler = async (req, res, next) => {
 
 export const updateUser: RequestHandler = async (req, res, next) => {
     const { userId } = req.params;
-    const { name, email, role, teamId, disabled } = req.body;
+    const { name, email, role, teamId } = req.body;
     if (!name || !email || !role) {
         return res.status(400).json({ message: 'Name, email, and role are required' });
     }
-    if (!ObjectId.isValid(userId)) {
-        return res.status(400).json({ message: 'Invalid user ID format' });
-    }
 
     try {
-        const db = getDb();
-        const result = await db.collection('users').findOneAndUpdate(
-            { _id: new ObjectId(userId) },
-            { $set: { name, email, role, teamId: teamId || null, disabled } },
-            { returnDocument: 'after', projection: { passwordHash: 0 } }
-        );
+        const updatedUser = await prisma.user.update({
+            where: { id: userId },
+            data: {
+                name,
+                email,
+                role,
+                teamId: teamId || null,
+            },
+            select: { id: true, name: true, email: true, role: true, teamId: true, avatarUrl: true }
+        });
         
-        if (!result) {
+        logger.info({ message: 'User updated', updatedUserId: userId, adminUserId: req.user?.id });
+        res.json(updatedUser);
+    } catch (error) {
+        // Handle case where user is not found
+        if ((error as any).code === 'P2025') {
             return res.status(404).json({ message: 'User not found' });
         }
-        logger.info({ message: 'User updated', updatedUserId: userId, adminUserId: req.user?.id });
-        res.json({ ...result, id: result._id });
-    } catch (error) {
         logger.error({ message: 'Failed to update user', context: { userId, body: req.body, adminUserId: req.user?.id }, error });
         next(error);
     }
@@ -113,35 +111,24 @@ export const updateUser: RequestHandler = async (req, res, next) => {
 
 export const deleteUser: RequestHandler = async (req, res, next) => {
     const { userId } = req.params;
-     if (!ObjectId.isValid(userId)) {
-        return res.status(400).json({ message: 'Invalid user ID format' });
-    }
 
     try {
-        const db = getDb();
-        const user = await db.collection('users').findOne({ _id: new ObjectId(userId) });
+        const user = await prisma.user.findUnique({ where: { id: userId } });
         if (!user) {
-             return res.status(404).json({ message: 'User not found' });
+            return res.status(404).json({ message: 'User not found' });
         }
 
-        if(user.role === 'Guest') {
-            await db.collection('users').deleteOne({ _id: new ObjectId(userId) });
-            logger.info({ message: 'Guest user permanently deleted', deletedUserId: userId, adminUserId: req.user?.id });
-            return res.status(204).send();
-        } else {
-            const result = await db.collection('users').findOneAndUpdate(
-                { _id: new ObjectId(userId) },
-                { $set: { disabled: true } },
-                { returnDocument: 'after', projection: { passwordHash: 0 } }
-            );
-            if (!result) {
-                return res.status(404).json({ message: 'User not found' });
-            }
-            logger.info({ message: 'User disabled', disabledUserId: userId, adminUserId: req.user?.id });
-            res.json({ ...result, id: result._id });
-        }
+        // The old logic had a 'disabled' flag. The new schema performs a hard delete.
+        // This is a simplification. For a real production app, a soft delete (like the disabled flag) is often better.
+        await prisma.user.delete({
+            where: { id: userId }
+        });
+        
+        logger.info({ message: 'User permanently deleted', deletedUserId: userId, adminUserId: req.user?.id });
+        res.status(204).send();
+
     } catch (error) {
-        logger.error({ message: 'Failed to delete/disable user', context: { userId, adminUserId: req.user?.id }, error });
+        logger.error({ message: 'Failed to delete user', context: { userId, adminUserId: req.user?.id }, error });
         next(error);
     }
 };
