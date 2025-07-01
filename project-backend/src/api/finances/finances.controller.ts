@@ -53,7 +53,8 @@ export const getFinancialSummary: RequestHandler = async (req, res, next) => {
                     where: { teamId: team_id },
                     select: { id: true }
                 });
-                const projectIds = projectsInTeam.map(p => p.id);
+                // This is where the fix is applied
+                const projectIds = projectsInTeam.map((p: any) => p.id);
                 whereClause.projectId = { in: projectIds };
             }
 
@@ -78,7 +79,8 @@ export const getFinancialSummary: RequestHandler = async (req, res, next) => {
                 where: { teamId: user.teamId },
                 select: { id: true }
             });
-            const projectIds = projectsInTeam.map(p => p.id);
+            // This is where the fix is applied
+            const projectIds = projectsInTeam.map((p: any) => p.id);
 
             // Aggregate expenses ONLY for those projects
             const result = await prisma.financialTransaction.aggregate({
