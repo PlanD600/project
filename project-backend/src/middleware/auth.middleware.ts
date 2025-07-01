@@ -2,6 +2,7 @@ import { RequestHandler } from 'express';
 import jwt from 'jsonwebtoken';
 import prisma from '../db';
 import logger from '../logger';
+import { UserRole } from '../types/express'; // Import the UserRole type
 
 export const protect: RequestHandler = async (req, res, next) => {
     let token;
@@ -13,18 +14,15 @@ export const protect: RequestHandler = async (req, res, next) => {
     }
 
     if (!token) {
-        logger.warn({ message: 'Authorization attempt with no token' });
         return res.status(401).json({ message: 'Not authorized, no token' });
     }
 
     try {
-        // Verify token
         const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { id: string };
 
-        // Get user from the db using Prisma
         const currentUser = await prisma.user.findUnique({
             where: { id: decoded.id },
-            select: { // Select only the necessary fields, excluding the password
+            select: {
                 id: true,
                 name: true,
                 email: true,
@@ -35,12 +33,11 @@ export const protect: RequestHandler = async (req, res, next) => {
         });
 
         if (!currentUser) {
-            logger.warn({ message: 'Authorization attempt with a valid token but user not found', userId: decoded.id });
             return res.status(401).json({ message: 'Not authorized, user not found' });
         }
 
-        // Attach user to the request object
-        req.user = currentUser;
+        // Cast role to UserRole to satisfy the type definition
+        req.user = { ...currentUser, role: currentUser.role as UserRole };
         next();
     } catch (error) {
         logger.error({ message: 'Token verification failed', error });

@@ -1,7 +1,6 @@
 
 import express from 'express';
 import { addFinancialEntry, getFinancialSummary } from './finances.controller';
-import { protect, authorize } from '../../middleware/auth.middleware';
 
 const router = express.Router();
 router.use(protect);
