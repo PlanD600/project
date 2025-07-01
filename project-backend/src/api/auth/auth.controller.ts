@@ -1,6 +1,6 @@
 import { RequestHandler } from 'express';
 import prisma from '../../db'; // Using Prisma client instead of getDb
-import bcrypt from 'bcryptjs'; // Changed from 'bcrypt' to 'bcryptjs' for consistency if needed, assuming bcryptjs is installed
+import bcrypt from 'bcrypt'; // Changed from 'bcrypt' to 'bcryptjs' for consistency if needed, assuming bcryptjs is installed
 import jwt from 'jsonwebtoken';
 import logger from '../../logger';
 
