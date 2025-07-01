@@ -10,7 +10,7 @@ const generateToken = (id: string) => {
     const options: jwt.SignOptions = {
         expiresIn: process.env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] || '30d', 
     };
-    // ודא שהשורה הבאה נראית בדיוק כך, ללא תווי רווח נוספים או תווים שגויים
+     const payload = projectId ? { id, projectId } : { id };
     return jwt.sign({ id }, secret, options); 
 };
 
