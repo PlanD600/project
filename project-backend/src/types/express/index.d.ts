@@ -1,8 +1,7 @@
-// This file extends the Express Request type to include a user property.
-// This allows us to attach the decoded JWT payload to the request object
-// in our authentication middleware and access it in downstream controllers.
+// project-backend/src/types/express/index.d.ts
 
-type UserRole = 'Super Admin' | 'Team Leader' | 'Employee' | 'Guest';
+// Add 'export' to make this type available in other files
+export type UserRole = 'Super Admin' | 'Team Leader' | 'Employee' | 'Guest';
 
 declare global {
   namespace Express {
@@ -10,12 +9,8 @@ declare global {
       user?: {
         id: string;
         role: UserRole;
-        teamId?: string;
-        projectId?: string;
+        teamId?: string | null; // Allow null to match Prisma
       };
     }
   }
 }
-
-// This export is needed to make the file a module
-export {}

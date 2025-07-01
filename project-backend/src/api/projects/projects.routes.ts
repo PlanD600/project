@@ -1,23 +1,18 @@
+// project-backend/src/api/projects/projects.routes.ts
 
-import express from 'express';
-import { getProjects, createProject, getProjectDetails, createTaskInProject, updateProject, deleteProject } from './projects.controller';
+import { Router } from 'express';
+import { protect } from '../../middleware/auth.middleware';
+import { getProjectsByOwner, createProject, updateProject, deleteProject } from './projects.controller';
 
-const router = express.Router();
-
-// All project routes are protected
-router.use(protect);
+const router = Router();
 
 router.route('/')
-    .get(getProjects)
-    .post(authorize('Super Admin'), createProject);
+    .get(protect, getProjectsByOwner) // Assuming this needs a filter, adjust if it's for all projects
+    .post(protect, createProject);
 
-router.route('/:projectId')
-    .get(getProjectDetails)
-    .put(authorize('Super Admin'), updateProject)
-    .delete(authorize('Super Admin'), deleteProject);
-
-router.route('/:projectId/tasks')
-    .post(authorize('Super Admin', 'Team Leader'), createTaskInProject);
-
+router.route('/:id')
+    .put(protect, updateProject) // Changed from 'put' to match common practice
+    .patch(protect, updateProject)
+    .delete(protect, deleteProject);
 
 export default router;

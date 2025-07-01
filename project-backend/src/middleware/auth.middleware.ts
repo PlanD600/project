@@ -1,8 +1,10 @@
+// project-backend/src/middleware/auth.middleware.ts
+
 import { RequestHandler } from 'express';
 import jwt from 'jsonwebtoken';
 import prisma from '../db';
 import logger from '../logger';
-import { UserRole } from '../types/express'; // Import the UserRole type
+import { UserRole } from '../types/express';
 
 export const protect: RequestHandler = async (req, res, next) => {
     let token;
@@ -36,8 +38,12 @@ export const protect: RequestHandler = async (req, res, next) => {
             return res.status(401).json({ message: 'Not authorized, user not found' });
         }
 
-        // Cast role to UserRole to satisfy the type definition
-        req.user = { ...currentUser, role: currentUser.role as UserRole };
+        // Assign the user to the request object with the correct type
+        req.user = { 
+            id: currentUser.id,
+            role: currentUser.role as UserRole, // Cast role to the specific type
+            teamId: currentUser.teamId
+        };
         next();
     } catch (error) {
         logger.error({ message: 'Token verification failed', error });
