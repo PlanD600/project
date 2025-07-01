@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' cdn.tailwindcss.com esm.sh; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' esm.sh; object-src 'none'; frame-ancestors 'none'; base-uri 'self';" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ניהול פרויקט</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              // New Neumorphic Palette inspired by the image
+              'primary': '#4a403a',       // Dark Maroon/Brown for text and primary elements
+              'primary-hover': '#3b332e', // Darker shade for hover
+              'secondary': '#786d65',     // Lighter brown for secondary text
+              'accent': '#8c7b75',        // A softer accent
+              'accent-hover': '#7d6c66',
+              'light': '#f5f0e6',        // Main background (Warm Beige)
+              'medium': '#fdfbf7',       // Card/Panel background (Slightly off-white)
+              'shadow-dark': '#d9d4cd',    // Darker shadow color
+              'shadow-light': '#ffffff',   // Lighter highlight color
+
+              // System Messages
+              'success': '#588157',
+              'danger': '#c97d6d',
+              'warning': '#dda15e',
+              'info': '#4a403a',
+            },
+            boxShadow: {
+              'neumorphic-convex': '6px 6px 12px #d9d4cd, -6px -6px 12px #ffffff',
+              'neumorphic-convex-sm': '3px 3px 6px #d9d4cd, -3px -3px 6px #ffffff',
+              'neumorphic-concave': 'inset 6px 6px 12px #d9d4cd, inset -6px -6px 12px #ffffff',
+              'neumorphic-concave-sm': 'inset 3px 3px 6px #d9d4cd, inset -3px -3px 6px #ffffff',
+            },
+          },
+        },
+      };
+    </script>
+  <script type="importmap">
+{
+  "imports": {
+    "express": "https://esm.sh/express@^5.1.0",
+    "dotenv": "https://esm.sh/dotenv@^17.0.0",
+    "cors": "https://esm.sh/cors@^2.8.5",
+    "@prisma/client": "https://esm.sh/@prisma/client@^6.10.1",
+    "pg": "https://esm.sh/pg@^8.16.3",
+    "jsonwebtoken": "https://esm.sh/jsonwebtoken@^9.0.2",
+    "bcrypt": "https://esm.sh/bcrypt@^6.0.0",
+    "react/": "https://esm.sh/react@^19.1.0/",
+    "react": "https://esm.sh/react@^19.1.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.7.0",
+    "jspdf": "https://esm.sh/jspdf@^3.0.1",
+    "jspdf-autotable": "https://esm.sh/jspdf-autotable@^5.0.2",
+    "html2canvas": "https://esm.sh/html2canvas@^1.4.1",
+    "remark-gfm": "https://esm.sh/remark-gfm@^4.0.1",
+    "react-markdown": "https://esm.sh/react-markdown@^10.1.0",
+    "cookie-parser": "https://esm.sh/cookie-parser@^1.4.7",
+    "mongodb": "https://esm.sh/mongodb@^6.17.0",
+    "axios": "https://esm.sh/axios@^1.7.2",
+    "zustand": "https://esm.sh/zustand@^4.5.2",
+    "pino": "https://esm.sh/pino@^9.7.0",
+    "process": "https://esm.sh/process@^0.11.10"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="bg-light text-secondary">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

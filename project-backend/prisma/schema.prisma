@@ -1,0 +1,94 @@
+// הגדרת החיבור למסד הנתונים
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// הגדרת יצירת ה-client
+generator client {
+  provider = "prisma-client-js"
+}
+
+// --- מודלים של הנתונים (גרסה מתוקנת ומלאה) ---
+
+model User {
+  id                      String    @id @default(auto()) @map("_id") @db.ObjectId
+  email                   String    @unique
+  name                    String?
+  password                String
+  role                    String
+  avatarUrl               String?
+  disabled                Boolean   @default(false)
+  notificationPreferences Json?
+  
+  projects  Project[] @relation("UserProjects")
+}
+
+model Project {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?
+  startDate   DateTime?
+  endDate     DateTime?
+  status      String?
+  
+  ownerId     String    @db.ObjectId
+  owner       User      @relation("UserProjects", fields: [ownerId], references: [id])
+  
+  teams       Team[]
+  tasks       Task[]
+  finances    FinancialTransaction[]
+  
+  createdAt   DateTime  @default(now())
+}
+
+model Team {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  
+  projectId String   @db.ObjectId
+  project   Project  @relation(fields: [projectId], references: [id])
+  
+  leaderId  String?  @db.ObjectId
+  memberIds String[] @db.ObjectId 
+}
+
+model Task {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  title         String
+  content       String?
+  status        String    @default("TODO")
+  columnId      String?
+  dependencies  String[]  @db.ObjectId
+  
+  projectId     String    @db.ObjectId
+  project       Project   @relation(fields: [projectId], references: [id])
+  
+  assigneeIds   String[]  @db.ObjectId
+  
+  comments      Comment[]
+
+  createdAt   DateTime @default(now())
+  dueDate     DateTime?
+}
+    
+model Comment {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  text      String
+  authorId  String   @db.ObjectId
+  taskId    String   @db.ObjectId
+  task      Task     @relation(fields: [taskId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model FinancialTransaction {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  description String
+  amount      Float
+  type        String
+  date        DateTime
+  source      String?
+  
+  projectId   String    @db.ObjectId
+  project     Project   @relation(fields: [projectId], references: [id])
+}

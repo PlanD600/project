@@ -1,0 +1,39 @@
+{
+  "name": "מנהל-פרויקטים-חכם",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "dotenv": "^17.0.0",
+    "cors": "^2.8.5",
+    "@prisma/client": "^6.10.1",
+    "pg": "^8.16.3",
+    "jsonwebtoken": "^9.0.2",
+    "bcrypt": "^6.0.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "@google/genai": "^1.7.0",
+    "jspdf": "^3.0.1",
+    "jspdf-autotable": "^5.0.2",
+    "html2canvas": "^1.4.1",
+    "remark-gfm": "^4.0.1",
+    "react-markdown": "^10.1.0",
+    "cookie-parser": "^1.4.7",
+    "mongodb": "^6.17.0",
+    "axios": "^1.7.2",
+    "zustand": "^4.5.2",
+    "pino": "^9.7.0",
+    "process": "^0.11.10"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "typescript": "~5.7.2",
+    "vite": "^6.2.0"
+  }
+}
