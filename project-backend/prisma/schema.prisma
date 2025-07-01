@@ -45,23 +45,27 @@ model Project {
   status       String    @default("active")
   tasks        Task[]
   financials   FinancialTransaction[]
+  deletedAt    DateTime?
 }
 
 model Task {
-  id                 String    @id @default(cuid())
-  title              String
-  description        String?
-  projectId          String
-  project            Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  columnId           String
-  // We remove assigneeIds and let Prisma handle the relation
-  assignees          User[]    // This defines the many-to-many relation
-  startDate          DateTime
-  endDate            DateTime
-  baselineStartDate  DateTime?
-  baselineEndDate    DateTime?
-  dependencies       String[]
-  comments           Comment[]
+  id                String    @id @default(cuid())
+  title             String
+  description       String?
+  projectId         String
+  project           Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  columnId          String
+  assignees         User[]    // This defines the many-to-many relation
+  startDate         DateTime
+  endDate           DateTime
+  baselineStartDate DateTime?
+  baselineEndDate   DateTime?
+  dependencies      String[]
+  comments          Comment[]
+  // הוספת השדות plannedCost ו-actualCost
+  plannedCost       Float     @default(0) // הוסף שדה זה
+  actualCost        Float     @default(0)  // הוסף שדה זה
+  // הסרת השדה assigneeIds String[] מכאן (אם הוא היה קיים)
 }
 
 model Comment {

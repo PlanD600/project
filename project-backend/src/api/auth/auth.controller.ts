@@ -1,18 +1,18 @@
 import { RequestHandler } from 'express';
 import prisma from '../../db'; // Using Prisma client instead of getDb
-import bcrypt from 'bcrypt'; // Changed from 'bcrypt' to 'bcryptjs' for consistency if needed, assuming bcryptjs is installed
+import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import logger from '../../logger';
 
 // Helper to generate a JWT for a user
 const generateToken = (id: string) => {
     const secret = process.env.JWT_SECRET!;
-    const options = {
-        expiresIn: process.env.JWT_EXPIRES_IN || '30d',
+    const options: jwt.SignOptions = {
+        expiresIn: process.env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] || '30d', 
     };
-    return jwt.sign({ id }, secret, options);
- };
-
+    // ודא שהשורה הבאה נראית בדיוק כך, ללא תווי רווח נוספים או תווים שגויים
+    return jwt.sign({ id }, secret, options); 
+};
 
 // Helper to send token response
 const sendTokenResponse = (user: { id: string, [key: string]: any }, statusCode: number, res: any) => {

@@ -4,6 +4,7 @@ import express from 'express';
 import cors from 'cors';
 import { json, urlencoded } from 'body-parser';
 import cookieParser from 'cookie-parser';
+import './src/types/express.d'; // ודא שנתיב זה נכון
 
 // Corrected import paths
 import authRoutes from './src/api/auth/auth.routes';

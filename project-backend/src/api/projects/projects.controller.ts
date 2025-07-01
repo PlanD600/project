@@ -12,19 +12,27 @@ export const getProjects: RequestHandler = async (req, res, next) => {
 
     try {
         const where: Prisma.ProjectWhereInput = {
-            deletedAt: null // מסננים החוצה פרויקטים שנמחקו (מחיקה רכה)
+            deletedAt: null // מסננים החוצה פרויקטים שנמחקו (מחיקה רכה), השדה קיים ב-schema
         };
 
         if (user.role === 'Team Leader' && user.teamId) {
             where.teamId = user.teamId;
         } else if (user.role === 'Employee') {
+            // תיקון: שימוש בקשר 'assignees' במקום בשדה 'assigneeIds'
+            // בהתאם ל-schema.prisma שלך, 'assignees' הוא מערך של Userים
             const tasks = await db.task.findMany({
-                where: { assigneeIds: { has: user.id } },
+                where: { 
+                    assignees: { 
+                        some: { 
+                            id: user.id 
+                        } 
+                    } 
+                },
                 select: { projectId: true }
             });
             const projectIds = [...new Set(tasks.map(t => t.projectId))];
             where.id = { in: projectIds };
-        } else if (user.role === 'Guest' && user.projectId) {
+        } else if (user.role === 'Guest' && user.projectId) { // user.projectId מוכר כעת
             where.id = user.projectId;
         }
         // Super Admin יכול לראות הכל, לכן לא מוסיפים לו סינון נוסף
@@ -142,7 +150,7 @@ export const getProjectDetails: RequestHandler = async (req, res, next) => {
 
 export const createTaskInProject: RequestHandler = async (req, res, next) => {
     const { projectId } = req.params;
-    const { title, description, startDate, endDate, assigneeIds } = req.body;
+    const { title, description, startDate, endDate, assigneeIds } = req.body; // assigneeIds will be an array of user IDs
     
     if (!title || !startDate || !endDate) {
         return res.status(400).json({ message: 'Missing required fields for task creation.' });
@@ -164,8 +172,11 @@ export const createTaskInProject: RequestHandler = async (req, res, next) => {
                 description,
                 startDate: new Date(startDate),
                 endDate: new Date(endDate),
-                assigneeIds: assigneeIds || [],
                 projectId,
+                // תיקון: חיבור המשתמשים באמצעות 'connect'
+                assignees: {
+                    connect: assigneeIds ? assigneeIds.map((id: string) => ({ id })) : [],
+                },
                 // ערכי ברירת מחדל נוספים
                 columnId: 'col-not-started',
                 plannedCost: 0,
