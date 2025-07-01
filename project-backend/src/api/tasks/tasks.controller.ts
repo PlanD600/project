@@ -4,7 +4,6 @@ import logger from '../../logger';
 
 // Helper function to get a fully populated task view
 const getFullTaskViewModel = async (taskId: string) => {
-    // With Prisma, we can fetch the task and its related data (comments with users) in one go.
     const task = await prisma.task.findUnique({
         where: { id: taskId },
         include: {
@@ -22,7 +21,6 @@ const getFullTaskViewModel = async (taskId: string) => {
                     timestamp: 'asc'
                 }
             },
-            // Also include assignees for the task
             assignees: {
                 select: {
                     id: true,
@@ -50,10 +48,10 @@ export const getTask: RequestHandler = async (req, res, next) => {
 
 export const updateTask: RequestHandler = async (req, res, next) => {
     const { taskId } = req.params;
-    const { title, description, startDate, endDate, columnId, assigneeIds, baselineStartDate, baselineEndDate } = req.body;
+    // Note: The body now sends 'assignees' as an array of user objects, not 'assigneeIds'
+    const { title, description, startDate, endDate, columnId, assignees, baselineStartDate, baselineEndDate } = req.body;
     
     try {
-        // Prisma's update is slightly different, especially for many-to-many relations like assignees
         await prisma.task.update({
             where: { id: taskId },
             data: {
@@ -64,8 +62,8 @@ export const updateTask: RequestHandler = async (req, res, next) => {
                 columnId,
                 baselineStartDate: baselineStartDate ? new Date(baselineStartDate) : undefined,
                 baselineEndDate: baselineEndDate ? new Date(baselineEndDate) : undefined,
-                // To update assignees, we use 'set' to replace the list of connected users
-                assignees: assigneeIds ? { set: assigneeIds.map((id: string) => ({ id })) } : undefined
+                // Prisma syntax for setting a many-to-many relation
+                assignees: assignees ? { set: assignees.map((user: { id: string }) => ({ id: user.id })) } : undefined
             }
         });
         
@@ -78,10 +76,9 @@ export const updateTask: RequestHandler = async (req, res, next) => {
 };
 
 export const bulkUpdateTasks: RequestHandler = async (req, res, next) => {
-    const { tasks } = req.body; // Expects an array of tasks with { id, startDate, endDate, dependencies }
+    const { tasks } = req.body;
     
     try {
-        // Use Prisma's transaction feature to run multiple updates together
         const updatePromises = tasks.map((task: any) =>
             prisma.task.update({
                 where: { id: task.id },
@@ -133,7 +130,6 @@ export const addCommentToTask: RequestHandler = async (req, res, next) => {
     }
 
     try {
-        // In Prisma, we create a new 'Comment' record that's related to the task
         await prisma.comment.create({
             data: {
                 text: content,
@@ -147,7 +143,6 @@ export const addCommentToTask: RequestHandler = async (req, res, next) => {
             }
         });
         
-        // After adding the comment, fetch the entire updated task to get the new comment list
         const updatedTask = await getFullTaskViewModel(taskId);
         if (!updatedTask) {
             return res.status(404).json({ message: "Task not found after adding comment." });
