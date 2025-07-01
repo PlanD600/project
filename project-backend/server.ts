@@ -1,9 +1,8 @@
 
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Application, Request, Response, NextFunction } from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import process from 'process';
 import { errorHandler } from './src/middleware/error.middleware';
 import { connectDB } from './src/db';
 import logger from './src/logger';
@@ -21,7 +20,7 @@ import bootstrapRoutes from './src/api/bootstrap/bootstrap.routes';
 // Load environment variables from .env file
 dotenv.config();
 
-const app: express.Application = express();
+const app: Application = express();
 const port = process.env.PORT || 8080;
 
 // Middleware

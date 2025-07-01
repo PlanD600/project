@@ -18,6 +18,7 @@ interface DataState {
     setSelectedProjectId: (id: string | null) => void;
     bootstrapApp: () => Promise<void>;
     resetDataState: () => void;
+    updateSingleUserInList: (user: User) => void;
 
     // Handlers
     handleUpdateTask: (updatedTask: Task) => Promise<void>;
@@ -25,7 +26,9 @@ interface DataState {
     handleAddTask: (taskData: Omit<Task, 'id' | 'columnId' | 'comments' | 'plannedCost' | 'actualCost' | 'dependencies' | 'isMilestone'>) => Promise<void>;
     handleAddComment: (taskId: string, comment: Comment) => Promise<void>;
     handleAddFinancialTransaction: (transactionData: Omit<FinancialTransaction, 'id'>) => Promise<void>;
-    handleCreateProject: (projectData: Omit<Project, 'id'>) => Promise<void>;
+    handleCreateProject: (projectData: Omit<Project, 'id' | 'status'>) => Promise<void>;
+    handleUpdateProject: (projectId: string, projectData: Partial<Omit<Project, 'id'>>) => Promise<void>;
+    handleDeleteProject: (projectId: string) => Promise<void>;
     handleSetNotificationsRead: (ids: string[]) => void;
     handleInviteGuest: (email: string, projectId: string) => Promise<void>;
     handleRevokeGuest: (guestId: string) => Promise<void>;
@@ -53,12 +56,15 @@ const initialState = {
 
 export const calculateProjectsForCurrentUser = (currentUser: User | null, projects: Project[], tasks: Task[]): Project[] => {
     if (!currentUser) return [];
-    if (currentUser.role === 'Super Admin') return projects;
-    if (currentUser.role === 'Team Leader') return projects.filter(p => p.teamId === currentUser.teamId);
-    if (currentUser.role === 'Guest') return projects.filter(p => p.id === currentUser.projectId);
-    
+
+    const activeProjects = projects.filter(p => p.status === 'active');
+
+    if (currentUser.role === 'Super Admin') return activeProjects;
+    if (currentUser.role === 'Team Leader') return activeProjects.filter(p => p.teamId === currentUser.teamId);
+    if (currentUser.role === 'Guest') return activeProjects.filter(p => p.id === currentUser.projectId);
+
     const userTaskProjectIds = new Set(tasks.filter(t => t.assigneeIds.includes(currentUser.id)).map(t => t.projectId));
-    return projects.filter(p => userTaskProjectIds.has(p.id));
+    return activeProjects.filter(p => userTaskProjectIds.has(p.id));
 };
 
 export const useDataStore = create<DataState>()((set, get) => ({
@@ -66,6 +72,12 @@ export const useDataStore = create<DataState>()((set, get) => ({
 
     setOrganizationSettings: (settings) => set({ organizationSettings: settings }),
     setSelectedProjectId: (id) => set({ selectedProjectId: id }),
+
+    updateSingleUserInList: (user) => {
+        set(state => ({
+            users: state.users.map(u => u.id === user.id ? user : u)
+        }));
+    },
 
     bootstrapApp: async () => {
         try {
@@ -83,7 +95,7 @@ export const useDataStore = create<DataState>()((set, get) => ({
             useAuthStore.getState().handleLogout();
         }
     },
-    
+
     resetDataState: () => set(initialState),
 
     // Handlers
@@ -94,19 +106,19 @@ export const useDataStore = create<DataState>()((set, get) => ({
                 tasks: state.tasks.map(task => (task.id === returnedTask.id ? returnedTask : task))
             }));
         } catch (error) {
-            useUIStore.getState().setGlobalError(`שגיאה בעדכון המשימה: ${(error as Error).message}`);
+            useUIStore.getState().setNotification({ message: `שגיאה בעדכון המשימה: ${(error as Error).message}`, type: 'error' });
         }
     },
 
     handleBulkUpdateTasks: async (updatedTasks, originalTasksMap) => {
-         try {
+        try {
             const returnedTasks = await api.bulkUpdateTasks(updatedTasks);
             const updatedTaskMap = new Map(returnedTasks.map(t => [t.id, t]));
             set(state => ({
                 tasks: state.tasks.map(task => updatedTaskMap.get(task.id) || task)
             }));
         } catch (error) {
-            useUIStore.getState().setGlobalError(`שגיאה בעדכון מספר משימות: ${(error as Error).message}`);
+            useUIStore.getState().setNotification({ message: `שגיאה בעדכון מספר משימות: ${(error as Error).message}`, type: 'error' });
         }
     },
 
@@ -116,27 +128,35 @@ export const useDataStore = create<DataState>()((set, get) => ({
             const newTask = await api.addTask(fullTaskData);
             set(state => ({ tasks: [...state.tasks, newTask] }));
         } catch (error) {
-            useUIStore.getState().setGlobalError(`שגיאה בהוספת משימה: ${(error as Error).message}`);
+            useUIStore.getState().setNotification({ message: `שגיאה בהוספת משימה: ${(error as Error).message}`, type: 'error' });
         }
     },
 
     handleAddComment: async (taskId, comment) => {
         try {
-            const updatedTask = await api.addComment(taskId, comment);
+            // קריאה לנקודת הקצה הנכונה בשרת, עם המטען (payload) הנכון
+            const updatedTask = await api.post(`/tasks/${taskId}/comments`, { content: comment.text });
+
+            // הלוגיקה שלך לעדכון ה-state כבר הייתה מצוינת!
             set(state => ({
                 tasks: state.tasks.map(t => (t.id === taskId ? updatedTask : t))
             }));
+
+            // נוסיף התראה על הצלחה
+            useUIStore.getState().setNotification({ message: 'התגובה נוספה בהצלחה!', type: 'success' });
+
         } catch (error) {
-            useUIStore.getState().setGlobalError(`שגיאה בהוספת תגובה: ${(error as Error).message}`);
+            console.error("Failed to add comment:", error);
+            useUIStore.getState().setNotification({ message: `שגיאה בהוספת תגובה: ${(error as Error).message}`, type: 'error' });
         }
     },
-    
+
     handleAddFinancialTransaction: async (transactionData) => {
         try {
             const newTransaction = await api.addFinancialTransaction(transactionData);
             set(state => ({ financials: [newTransaction, ...state.financials] }));
         } catch (error) {
-            useUIStore.getState().setGlobalError(`שגיאה בהוספת רישום כספי: ${(error as Error).message}`);
+            useUIStore.getState().setNotification({ message: `שגיאה בהוספת רישום כספי: ${(error as Error).message}`, type: 'error' });
         }
     },
 
@@ -147,48 +167,70 @@ export const useDataStore = create<DataState>()((set, get) => ({
                 projects: [newProject, ...state.projects]
             }));
         } catch (error) {
-            useUIStore.getState().setGlobalError(`שגיאה ביצירת פרויקט: ${(error as Error).message}`);
+            useUIStore.getState().setNotification({ message: `שגיאה ביצירת פרויקט: ${(error as Error).message}`, type: 'error' });
         }
     },
-    
+
+    handleUpdateProject: async (projectId, projectData) => {
+        try {
+            const updatedProject = await api.updateProject(projectId, projectData);
+            set(state => ({
+                projects: state.projects.map(p => p.id === updatedProject.id ? updatedProject : p)
+            }));
+        } catch (error) {
+            useUIStore.getState().setNotification({ message: `שגיאה בעדכון פרויקט: ${(error as Error).message}`, type: 'error' });
+        }
+    },
+
+    handleDeleteProject: async (projectId) => {
+        try {
+            await api.deleteProject(projectId);
+            set(state => ({
+                projects: state.projects.filter(p => p.id !== projectId)
+            }));
+        } catch (error) {
+            useUIStore.getState().setNotification({ message: `שגיאה במחיקת פרויקט: ${(error as Error).message}`, type: 'error' });
+        }
+    },
+
     handleSetNotificationsRead: (ids) => {
         set(state => ({
-            notifications: state.notifications.map(n => ids.includes(n.id) ? {...n, read: true} : n)
+            notifications: state.notifications.map(n => ids.includes(n.id) ? { ...n, read: true } : n)
         }));
     },
-  
+
     handleInviteGuest: async (email, projectId) => {
         try {
             const newGuest = await api.inviteGuest(email, projectId);
             set(state => ({ users: [...state.users, newGuest] }));
         } catch (error) {
-            useUIStore.getState().setGlobalError(`שגיאה בהזמנת אורח: ${(error as Error).message}`);
+            useUIStore.getState().setNotification({ message: `שגיאה בהזמנת אורח: ${(error as Error).message}`, type: 'error' });
         }
     },
-  
+
     handleRevokeGuest: async (guestId) => {
         try {
             await api.revokeGuest(guestId);
             set(state => ({ users: state.users.filter(u => u.id !== guestId) }));
         } catch (error) {
-            useUIStore.getState().setGlobalError(`שגיאה בביטול גישת אורח: ${(error as Error).message}`);
+            useUIStore.getState().setNotification({ message: `שגיאה בביטול גישת אורח: ${(error as Error).message}`, type: 'error' });
         }
     },
 
     handleGlobalSearch: (query) => {
-      const { projects, tasks } = get();
-      const currentUser = useAuthStore.getState().currentUser;
-      const projectsForCurrentUser = calculateProjectsForCurrentUser(currentUser, projects, tasks);
+        const { projects, tasks } = get();
+        const currentUser = useAuthStore.getState().currentUser;
+        const projectsForCurrentUser = calculateProjectsForCurrentUser(currentUser, projects, tasks);
 
-      if (query.length < 3) return { projects: [], tasks: [], comments: [] };
-      const lowerQuery = query.toLowerCase();
-      const accessibleProjectIds = new Set(projectsForCurrentUser.map(p => p.id));
-      const foundProjects = projectsForCurrentUser.filter(p => p.name.toLowerCase().includes(lowerQuery) || p.description.toLowerCase().includes(lowerQuery));
-      const foundTasks = tasks.filter(t => accessibleProjectIds.has(t.projectId) && (t.title.toLowerCase().includes(lowerQuery) || t.description.toLowerCase().includes(lowerQuery)));
-      const foundComments = tasks.flatMap(t => t.comments.map(c => ({...c, task: t}))).filter(c => accessibleProjectIds.has(c.task.projectId) && c.text.toLowerCase().includes(lowerQuery));
-      return { projects: foundProjects, tasks: foundTasks, comments: foundComments };
+        if (query.length < 3) return { projects: [], tasks: [], comments: [] };
+        const lowerQuery = query.toLowerCase();
+        const accessibleProjectIds = new Set(projectsForCurrentUser.map(p => p.id));
+        const foundProjects = projectsForCurrentUser.filter(p => p.name.toLowerCase().includes(lowerQuery) || p.description.toLowerCase().includes(lowerQuery));
+        const foundTasks = tasks.filter(t => accessibleProjectIds.has(t.projectId) && (t.title.toLowerCase().includes(lowerQuery) || t.description.toLowerCase().includes(lowerQuery)));
+        const foundComments = tasks.flatMap(t => t.comments.map(c => ({ ...c, task: t }))).filter(c => accessibleProjectIds.has(c.task.projectId) && c.text.toLowerCase().includes(lowerQuery));
+        return { projects: foundProjects, tasks: foundTasks, comments: foundComments };
     },
-    
+
     handleUpdateUser: async (updatedUser) => {
         try {
             const returnedUser = await api.updateUser(updatedUser);
@@ -200,7 +242,7 @@ export const useDataStore = create<DataState>()((set, get) => ({
                 setCurrentUser(returnedUser);
             }
         } catch (error) {
-            useUIStore.getState().setGlobalError(`שגיאה בעדכון משתמש: ${(error as Error).message}`);
+            useUIStore.getState().setNotification({ message: `שגיאה בעדכון משתמש: ${(error as Error).message}`, type: 'error' });
         }
     },
 
@@ -208,22 +250,22 @@ export const useDataStore = create<DataState>()((set, get) => ({
         try {
             const newUser = await api.createUser(newUserData);
             set(state => ({ users: [...state.users, newUser] }));
-        } catch(error) {
-            useUIStore.getState().setGlobalError(`שגיאה ביצירת משתמש: ${(error as Error).message}`);
+        } catch (error) {
+            useUIStore.getState().setNotification({ message: `שגיאה ביצירת משתמש: ${(error as Error).message}`, type: 'error' });
         }
     },
-    
+
     handleDeleteUser: async (userId) => {
         try {
             const disabledUser = await api.deleteUser(userId);
             set(state => ({ users: state.users.map(u => u.id === userId ? disabledUser : u) }));
-        } catch(error) {
-            useUIStore.getState().setGlobalError(`שגיאה בהשבתת משתמש: ${(error as Error).message}`);
+        } catch (error) {
+            useUIStore.getState().setNotification({ message: `שגיאה בהשבתת משתמש: ${(error as Error).message}`, type: 'error' });
         }
     },
 
     handleUpdateTeam: async (updatedTeam, newLeaderId, newMemberIds) => {
-         try {
+        try {
             const { team, updatedUsers } = await api.updateTeam(updatedTeam, newLeaderId, newMemberIds);
             const updatedUsersMap = new Map(updatedUsers.map(u => [u.id, u]));
             set(state => ({
@@ -231,7 +273,7 @@ export const useDataStore = create<DataState>()((set, get) => ({
                 users: state.users.map(u => updatedUsersMap.get(u.id) || u)
             }));
         } catch (error) {
-            useUIStore.getState().setGlobalError(`שגיאה בעדכון צוות: ${(error as Error).message}`);
+            useUIStore.getState().setNotification({ message: `שגיאה בעדכון צוות: ${(error as Error).message}`, type: 'error' });
         }
     },
 
@@ -244,7 +286,7 @@ export const useDataStore = create<DataState>()((set, get) => ({
                 users: state.users.map(u => updatedUsersMap.get(u.id) || u)
             }));
         } catch (error) {
-            useUIStore.getState().setGlobalError(`שגיאה ביצירת צוות: ${(error as Error).message}`);
+            useUIStore.getState().setNotification({ message: `שגיאה ביצירת צוות: ${(error as Error).message}`, type: 'error' });
         }
     },
 
@@ -257,10 +299,10 @@ export const useDataStore = create<DataState>()((set, get) => ({
                 users: state.users.map(u => updatedUsersMap.get(u.id) || u)
             }));
         } catch (error) {
-            useUIStore.getState().setGlobalError(`שגיאה במחיקת צוות: ${(error as Error).message}`);
+            useUIStore.getState().setNotification({ message: `שגיאה במחיקת צוות: ${(error as Error).message}`, type: 'error' });
         }
     },
-    
+
     handleAddUsersToTeam: async (userIds, teamId) => {
         try {
             const updatedUsers = await api.addUsersToTeam(userIds, teamId);
@@ -269,7 +311,7 @@ export const useDataStore = create<DataState>()((set, get) => ({
                 users: state.users.map(u => updatedUsersMap.get(u.id) || u)
             }));
         } catch (error) {
-            useUIStore.getState().setGlobalError(`שגיאה בהוספת חברים לצוות: ${(error as Error).message}`);
+            useUIStore.getState().setNotification({ message: `שגיאה בהוספת חברים לצוות: ${(error as Error).message}`, type: 'error' });
         }
     },
 
@@ -280,7 +322,7 @@ export const useDataStore = create<DataState>()((set, get) => ({
                 users: state.users.map(u => u.id === userId ? updatedUser : u)
             }));
         } catch (error) {
-            useUIStore.getState().setGlobalError(`שגיאה בהסרת חבר מצוות: ${(error as Error).message}`);
+            useUIStore.getState().setNotification({ message: `שגיאה בהסרת חבר מצוות: ${(error as Error).message}`, type: 'error' });
         }
     },
 }));

@@ -7,10 +7,9 @@ const apiClient = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
-    withCredentials: true, // This is crucial for sending HttpOnly cookies
+    withCredentials: true,
 });
 
-// Add a response interceptor for handling errors globally
 apiClient.interceptors.response.use(
     (response) => response,
     (error: AxiosError) => {
@@ -33,106 +32,63 @@ apiClient.interceptors.response.use(
     }
 );
 
+// This is a new helper object to wrap the axios methods
+const requests = {
+    get: (url: string) => apiClient.get(url).then(response => response.data),
+    post: (url: string, body: {}) => apiClient.post(url, body).then(response => response.data),
+    put: (url: string, body: {}) => apiClient.put(url, body).then(response => response.data),
+    patch: (url: string, body: {}) => apiClient.patch(url, body).then(response => response.data),
+    delete: (url: string) => apiClient.delete(url).then(response => response.data),
+};
 
-// Helper function to extract data from response
-const getData = (response: { data: any }) => response.data;
-
+// We keep your structured api object, but make it use the helper above
 export const api = {
     // --- Auth ---
-    login: async (email: string, password: string): Promise<User | null> => {
-        return apiClient.post('/auth/login', { email, password }).then(getData);
-    },
-
-    register: async (registrationData: { fullName: string; email: string; password: string; companyName: string; }): Promise<{ user: User, organizationSettings: { name: string, logoUrl: string } }> => {
-        const user = await apiClient.post('/auth/register', registrationData).then(getData);
-        return { user, organizationSettings: { name: registrationData.companyName, logoUrl: '' } };
-    },
-
-    logout: async (): Promise<void> => {
-        await apiClient.post('/auth/logout');
-    },
-    
-    getMe: async (): Promise<User> => {
-        return apiClient.get('/auth/me').then(getData);
-    },
+    login: (email: string, password: string): Promise<User | null> => requests.post('/auth/login', { email, password }),
+    register: (registrationData: {}): Promise<{ user: User, organizationSettings: { name: string, logoUrl: string } }> => requests.post('/auth/register', registrationData),
+    logout: (): Promise<void> => requests.post('/auth/logout', {}),
+    getMe: (): Promise<User> => requests.get('/auth/me'),
+    uploadAvatar: (imageDataUrl: string): Promise<User> => requests.post('/auth/me/avatar', { image: imageDataUrl }),
 
     // --- Initial Data Fetch ---
-    getInitialData: async (): Promise<{users: User[], teams: Team[], projects: Project[], tasks: Task[], financials: FinancialTransaction[], organizationSettings: {name: string, logoUrl: string}}> => {
-        return apiClient.get('/bootstrap').then(getData);
-    },
+    getInitialData: (): Promise<{users: User[], teams: Team[], projects: Project[], tasks: Task[], financials: FinancialTransaction[], organizationSettings: {name: string, logoUrl: string}}> => requests.get('/bootstrap'),
     
     // --- Tasks ---
-    updateTask: async (updatedTask: Task): Promise<Task> => {
-        return apiClient.put(`/tasks/${updatedTask.id}`, updatedTask).then(getData);
-    },
+    getTask: (taskId: string): Promise<Task> => requests.get(`/tasks/${taskId}`),
+    updateTask: (updatedTask: Task): Promise<Task> => requests.put(`/tasks/${updatedTask.id}`, updatedTask),
+    bulkUpdateTasks: (updatedTasks: Task[]): Promise<Task[]> => requests.patch('/tasks', { tasks: updatedTasks }),
+    addTask: (taskData: Omit<Task, 'id'>): Promise<Task> => requests.post(`/projects/${taskData.projectId}/tasks`, taskData),
+    addComment: (taskId: string, comment: Comment): Promise<Task> => requests.post(`/tasks/${taskId}/comments`, { content: comment.text, parentId: comment.parentId }),
     
-    bulkUpdateTasks: async (updatedTasks: Task[]): Promise<Task[]> => {
-        return apiClient.patch('/tasks', { tasks: updatedTasks }).then(getData);
-    },
+    // This is the function we need for the datastore - it's a generic post
+    post: (url: string, data: any) => requests.post(url, data),
 
-    addTask: async (taskData: Omit<Task, 'id'>): Promise<Task> => {
-        return apiClient.post(`/projects/${taskData.projectId}/tasks`, taskData).then(getData);
-    },
-
-    addComment: async(taskId: string, comment: Comment): Promise<Task> => {
-        return apiClient.post(`/tasks/${taskId}/comments`, { content: comment.text, parentId: comment.parentId }).then(getData);
-    },
-    
     // --- Financials ---
-    addFinancialTransaction: async(transactionData: Omit<FinancialTransaction, 'id'>): Promise<FinancialTransaction> => {
-        return apiClient.post('/finances/entries', transactionData).then(getData);
-    },
+    addFinancialTransaction: (transactionData: Omit<FinancialTransaction, 'id'>): Promise<FinancialTransaction> => requests.post('/finances/entries', transactionData),
 
     // --- Projects ---
-    createProject: async(projectData: Omit<Project, 'id'>): Promise<Project> => {
-        return apiClient.post('/projects', projectData).then(getData);
-    },
+    createProject: (projectData: Omit<Project, 'id' | 'status'>): Promise<Project> => requests.post('/projects', projectData),
+    updateProject: (projectId: string, projectData: Partial<Project>): Promise<Project> => requests.put(`/projects/${projectId}`, projectData),
+    deleteProject: (projectId: string): Promise<void> => requests.delete(`/projects/${projectId}`),
 
     // --- Guests ---
-    inviteGuest: async(email: string, projectId: string): Promise<User> => {
-         return api.createUser({ 
-             name: email.split('@')[0], 
-             email: email, 
-             role: 'Guest',
-             projectId: projectId,
-         });
-    },
-
-    revokeGuest: async(guestId: string): Promise<void> => {
-        await apiClient.delete(`/users/${guestId}`);
-    },
+    inviteGuest: (email: string, projectId: string): Promise<User> => api.createUser({ 
+        name: email.split('@')[0], 
+        email: email, 
+        role: 'Guest',
+        projectId: projectId,
+    }),
+    revokeGuest: (guestId: string): Promise<void> => requests.delete(`/users/${guestId}`),
     
     // --- Users ---
-    updateUser: async(updatedUser: User): Promise<User> => {
-        return apiClient.put(`/users/${updatedUser.id}`, updatedUser).then(getData);
-    },
-
-    createUser: async (newUserData: Omit<User, 'id' | 'avatarUrl'>): Promise<User> => {
-        return apiClient.post('/users', newUserData).then(getData);
-    },
-
-    deleteUser: async(userId: string): Promise<User> => {
-        return apiClient.delete(`/users/${userId}`).then(getData);
-    },
+    updateUser: (updatedUser: User): Promise<User> => requests.put(`/users/${updatedUser.id}`, updatedUser),
+    createUser: (newUserData: Omit<User, 'id' | 'avatarUrl'>): Promise<User> => requests.post('/users', newUserData),
+    deleteUser: (userId: string): Promise<User> => requests.delete(`/users/${userId}`),
     
     // --- Teams ---
-    createTeam: async(newTeamData: Omit<Team, 'id'>, leaderId: string, memberIds: string[]): Promise<{ team: Team, updatedUsers: User[] }> => {
-        return apiClient.post('/teams', { teamName: newTeamData.name, team_leader_id: leaderId, member_user_ids: memberIds }).then(getData);
-    },
-    
-    updateTeam: async(updatedTeam: Team, newLeaderId: string | null, newMemberIds: string[]): Promise<{ team: Team, updatedUsers: User[] }> => {
-        return apiClient.put(`/teams/${updatedTeam.id}`, { teamName: updatedTeam.name, leaderId: newLeaderId, memberIds: newMemberIds }).then(getData);
-    },
-    
-    deleteTeam: async(teamId: string): Promise<{ teamId: string, updatedUsers: User[] }> => {
-        return apiClient.delete(`/teams/${teamId}`).then(getData);
-    },
-
-    addUsersToTeam: async (userIds: string[], teamId: string): Promise<User[]> => {
-        return apiClient.post(`/teams/${teamId}/members`, { user_ids: userIds }).then(getData);
-    },
-
-    removeUserFromTeam: async (userId: string, teamId: string): Promise<User> => {
-        return apiClient.delete(`/teams/${teamId}/members/${userId}`).then(getData);
-    },
+    createTeam: (newTeamData: Omit<Team, 'id'>, leaderId: string, memberIds: string[]): Promise<{ team: Team, updatedUsers: User[] }> => requests.post('/teams', { teamName: newTeamData.name, team_leader_id: leaderId, member_user_ids: memberIds }),
+    updateTeam: (updatedTeam: Team, newLeaderId: string | null, newMemberIds: string[]): Promise<{ team: Team, updatedUsers: User[] }> => requests.put(`/teams/${updatedTeam.id}`, { teamName: updatedTeam.name, leaderId: newLeaderId, memberIds: newMemberIds }),
+    deleteTeam: (teamId: string): Promise<{ teamId: string, updatedUsers: User[] }> => requests.delete(`/teams/${teamId}`),
+    addUsersToTeam: (userIds: string[], teamId: string): Promise<User[]> => requests.post(`/teams/${teamId}/members`, { user_ids: userIds }),
+    removeUserFromTeam: (userId: string, teamId: string): Promise<User> => requests.delete(`/teams/${teamId}/members/${userId}`),
 };

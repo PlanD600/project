@@ -1,4 +1,6 @@
 
+
+
 import { RequestHandler } from 'express';
 import { getDb } from '../../db';
 import { ObjectId } from 'mongodb';
@@ -12,16 +14,16 @@ export const getProjects: RequestHandler = async (req, res, next) => {
 
     try {
         const db = getDb();
-        let query = {};
+        let query: any = { deletedAt: { $eq: null } };
         
         if (user.role === 'Team Leader') {
-            query = { teamId: user.teamId };
+            query.teamId = user.teamId;
         } else if (user.role === 'Employee') {
             const tasksForUser = await db.collection('tasks').find({ assigneeIds: user.id }).project({ projectId: 1 }).toArray();
             const projectIds = [...new Set(tasksForUser.map(t => t.projectId))];
-            query = { _id: { $in: projectIds.map(id => new ObjectId(id)) } };
+            query._id = { $in: projectIds.map(id => new ObjectId(id)) };
         } else if (user.role === 'Guest' && user.projectId) {
-            query = { _id: new ObjectId(user.projectId) };
+            query._id = new ObjectId(user.projectId);
         }
 
         const projects = await db.collection('projects').find(query).sort({ startDate: -1 }).toArray();
@@ -33,6 +35,7 @@ export const getProjects: RequestHandler = async (req, res, next) => {
             budget: p.budget,
             startDate: p.startDate,
             endDate: p.endDate,
+            status: p.status,
         }));
         res.json(responseProjects);
     } catch (error) {
@@ -63,20 +66,101 @@ export const createProject: RequestHandler = async (req, res, next) => {
             endDate,
             budget: parsedBudget || 0,
             teamId,
+            status: 'active',
             createdAt: new Date(),
+            deletedAt: null,
         };
 
         const result = await db.collection('projects').insertOne(newProjectDocument);
         
         const responseProject = {
             id: result.insertedId.toHexString(),
-            ...newProjectDocument
+            ...newProjectDocument,
+            status: 'active' as const,
         };
+        delete (responseProject as any).deletedAt;
         
         logger.info({ message: 'Project created', projectId: responseProject.id, userId: req.user?.id });
         res.status(201).json(responseProject);
     } catch (error) {
         logger.error({ message: 'Failed to create project', context: { body: req.body, userId: req.user?.id }, error });
+        next(error);
+    }
+};
+
+export const updateProject: RequestHandler = async (req, res, next) => {
+    const { projectId } = req.params;
+    if (!ObjectId.isValid(projectId)) {
+        return res.status(400).json({ message: 'Invalid project ID format' });
+    }
+
+    const { name, description, startDate, endDate, budget, teamId, status } = req.body;
+    
+    // Build update object with only provided fields
+    const updateData: any = {};
+    if (name) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+    if (startDate) updateData.startDate = startDate;
+    if (endDate) updateData.endDate = endDate;
+    if (budget !== undefined) updateData.budget = parseFloat(budget) || 0;
+    if (teamId) updateData.teamId = teamId;
+    if (status && ['active', 'archived'].includes(status)) {
+        updateData.status = status;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ message: 'No update data provided.' });
+    }
+
+    try {
+        const db = getDb();
+        const result = await db.collection('projects').findOneAndUpdate(
+            { _id: new ObjectId(projectId) },
+            { $set: updateData },
+            { returnDocument: 'after' }
+        );
+
+        if (!result) {
+            return res.status(404).json({ message: 'Project not found' });
+        }
+        
+        const responseProject = { ...result, id: result._id };
+        delete (responseProject as any).deletedAt;
+
+        logger.info({ message: 'Project updated', projectId, updatedFields: Object.keys(updateData), userId: req.user?.id });
+        res.json(responseProject);
+    } catch (error) {
+        logger.error({ message: 'Failed to update project', context: { projectId, body: req.body, userId: req.user?.id }, error });
+        next(error);
+    }
+};
+
+export const deleteProject: RequestHandler = async (req, res, next) => {
+    const { projectId } = req.params;
+    if (!ObjectId.isValid(projectId)) {
+        return res.status(400).json({ message: 'Invalid project ID format' });
+    }
+    
+    try {
+        const db = getDb();
+        // Soft delete the project
+        const result = await db.collection('projects').updateOne(
+            { _id: new ObjectId(projectId) },
+            { $set: { deletedAt: new Date(), status: 'archived' } }
+        );
+
+        if (result.matchedCount === 0) {
+            return res.status(404).json({ message: 'Project not found' });
+        }
+        
+        // As per request, hard delete cascade related data
+        await db.collection('tasks').deleteMany({ projectId });
+        await db.collection('financials').deleteMany({ projectId });
+
+        logger.info({ message: 'Project soft deleted and related data cleared', projectId, userId: req.user?.id });
+        res.status(204).send();
+    } catch (error) {
+        logger.error({ message: 'Failed to delete project', context: { projectId, userId: req.user?.id }, error });
         next(error);
     }
 };
@@ -91,7 +175,7 @@ export const getProjectDetails: RequestHandler = async (req, res, next) => {
 
     try {
         const db = getDb();
-        const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
+        const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId), deletedAt: null });
         if (!project) {
             return res.status(404).json({ message: 'Project not found' });
         }
@@ -133,9 +217,9 @@ export const createTaskInProject: RequestHandler = async (req, res, next) => {
 
     try {
         const db = getDb();
-        const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
+        const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId), status: 'active', deletedAt: null });
         if (!project) {
-            return res.status(404).json({ message: "Project not found" });
+            return res.status(404).json({ message: "Project not found or is archived." });
         }
         
         if (user.role === 'Team Leader' && user.teamId !== project.teamId) {

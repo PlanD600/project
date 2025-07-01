@@ -4,6 +4,7 @@ import TaskModal from './TaskModal';
 import { exportGanttToPdf } from '../services/exportService';
 import Icon from './Icon';
 import InviteGuestModal from './InviteGuestModal';
+import Avatar from './Avatar';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useDataStore } from '../stores/useDataStore';
 
@@ -468,7 +469,7 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
                             >
                                 <span className="text-primary text-sm font-medium truncate">{task.title}</span>
                                 <div className="flex -space-x-2 overflow-hidden ml-2">
-                                {assignees.slice(0, 2).map(a => <img key={a.id} src={a.avatarUrl} alt={a.name} title={a.name} className="w-6 h-6 rounded-full ring-1 ring-light/50"/>)}
+                                {assignees.slice(0, 2).map(a => <Avatar key={a.id} user={a} className="w-6 h-6 rounded-full ring-1 ring-light/50"/>)}
                                 </div>
                                 {isInteractive && <>
                                     <div data-point="start" onMouseDown={(e) => handleMouseDown(e, 'resize-start', task)} className="absolute w-2 h-full right-0 top-0 cursor-ew-resize"/>
@@ -499,25 +500,21 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
 
   const ListView = () => (
     <div className="bg-medium p-4 rounded-lg shadow-sm h-[calc(100vh-18rem)] overflow-y-auto border border-dark">
-        <div className="space-y-2">
+        <div className="space-y-3">
             {hierarchicalTasks.map(task => {
-                 const assignees = allUsers.filter(u => task.assigneeIds.includes(u.id));
+                const assignees = allUsers.filter(u => task.assigneeIds.includes(u.id));
                 return (
-                    <button 
-                        type="button"
-                        key={task.id} 
-                        onClick={() => setSelectedTask(task)}
-                        className="w-full text-right bg-light p-3 rounded-lg hover:bg-dark/50 cursor-pointer flex items-center justify-between border border-dark/50 focus:outline-none focus:ring-2 focus:ring-accent"
-                        style={{ paddingRight: `${task.depth * 20 + 12}px` }}
-                    >
-                        <div className="flex items-center space-x-2 space-x-reverse mr-4">
-                             <div className="flex -space-x-2 overflow-hidden">
-                                {assignees.map(a => <img key={a.id} src={a.avatarUrl} alt={a.name} title={a.name} className="w-6 h-6 rounded-full ring-1 ring-light"/>)}
-                            </div>
+                    <button key={task.id} onClick={() => setSelectedTask(task)} className="w-full flex items-center justify-between text-right p-3 bg-light rounded-lg shadow-neumorphic-convex hover:shadow-neumorphic-convex-sm active:shadow-neumorphic-concave-sm transition-all">
+                        <div className="flex-1 min-w-0">
+                            <p className="text-primary font-semibold truncate">{task.title}</p>
+                            <p className="text-sm text-dimmed">{formatDateRange(task.startDate, task.endDate)}</p>
                         </div>
-                        <div className="flex-1 min-w-0 text-right">
-                            <p className="text-primary font-medium truncate">{task.title}</p>
-                            <p className="text-dimmed text-xs">{formatDateRange(task.startDate, task.endDate)}</p>
+                        <div className="flex items-center space-x-2 space-x-reverse ml-4">
+                            <div className="flex -space-x-2 overflow-hidden">
+                                {assignees.map(assignee => (
+                                    <Avatar key={assignee.id} user={assignee} className="w-7 h-7 rounded-full ring-2 ring-light"/>
+                                ))}
+                            </div>
                         </div>
                     </button>
                 )
@@ -525,45 +522,40 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
         </div>
     </div>
   );
-
+  
   return (
-      <>
-        <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
-             <div className="flex items-center space-x-4 space-x-reverse">
-                {canInvite && (
-                    <button onClick={() => setInviteModalOpen(true)} aria-label="שתף פרויקט" title="הזמן אורח לפרויקט" className="flex items-center space-x-2 space-x-reverse bg-medium hover:bg-dark/50 text-primary hover:text-accent p-2 rounded-lg transition-colors border border-dark">
-                        <Icon name="share-alt" className="w-5 h-5" />
-                        <span className="text-sm font-semibold hidden sm:inline">שתף</span>
-                    </button>
-                )}
-                 <button 
-                    onClick={() => setViewMode(v => v === 'gantt' ? 'list' : 'gantt')} 
-                    aria-label="החלף תצוגה"
-                    title="החלף תצוגה" 
-                    className="flex items-center space-x-2 space-x-reverse bg-medium hover:bg-dark/50 text-primary hover:text-accent p-2 rounded-lg transition-colors border border-dark"
-                >
-                    <Icon name={viewMode === 'gantt' ? 'list-bullet' : 'gantt-chart'} className="w-5 h-5" />
-                    <span className="text-sm font-semibold hidden sm:inline">{viewMode === 'gantt' ? 'תצוגת רשימה' : 'תצוגת גאנט'}</span>
+    <>
+      <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
+        <div className="flex items-center gap-3">
+            {canInvite && (
+                 <button onClick={() => setInviteModalOpen(true)} title="הזמן אורח לפרויקט" className="flex items-center space-x-2 space-x-reverse bg-medium hover:bg-dark/50 text-primary hover:text-accent p-2 rounded-lg transition-colors border border-dark">
+                    <Icon name="share-alt" className="w-5 h-5" />
+                    <span className="text-sm font-semibold">שתף</span>
                 </button>
+            )}
+            <div className="bg-light p-1 rounded-lg flex items-center shadow-neumorphic-convex-sm">
+                <button onClick={() => setViewMode('list')} className={`px-3 py-1 rounded-md text-sm ${viewMode === 'list' ? 'bg-primary text-light shadow-inner' : 'text-dimmed'}`}>רשימה</button>
+                <button onClick={() => setViewMode('gantt')} className={`px-3 py-1 rounded-md text-sm ${viewMode === 'gantt' ? 'bg-primary text-light shadow-inner' : 'text-dimmed'}`}>גאנט</button>
             </div>
-            <h2 className="text-2xl font-bold text-primary">{project?.name || "ציר זמן"}</h2>
         </div>
-        
-        {viewMode === 'gantt' ? <GanttView /> : <ListView />}
-        
-        {selectedTask && (
-            <TaskModal
-            key={selectedTask.id}
-            task={selectedTask}
-            onClose={() => setSelectedTask(null)}
-            onUpdateTask={handleUpdateTask}
-            onAddComment={handleAddComment}
-            currentUser={currentUser}
-            users={allUsers}
-            allProjects={allProjects}
-            />
-        )}
-        {isInviteModalOpen && selectedProjectId && (
+        <h2 className="text-2xl font-bold text-primary">{project?.name || "לוח זמנים"}</h2>
+      </div>
+
+      {viewMode === 'gantt' ? <GanttView /> : <ListView />}
+      
+      {selectedTask && (
+        <TaskModal
+          key={selectedTask.id}
+          task={selectedTask}
+          onClose={() => setSelectedTask(null)}
+          onUpdateTask={handleUpdateTask}
+          onAddComment={handleAddComment}
+          currentUser={currentUser}
+          users={allUsers}
+          allProjects={allProjects}
+        />
+      )}
+       {isInviteModalOpen && selectedProjectId && (
             <InviteGuestModal
                 isOpen={isInviteModalOpen}
                 onClose={() => setInviteModalOpen(false)}

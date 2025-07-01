@@ -33,6 +33,7 @@ export interface Project {
     budget: number;
     startDate: string;
     endDate: string;
+    status: 'active' | 'archived';
 }
 
 export interface Comment {

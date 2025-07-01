@@ -1,23 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Project } from '../types';
 import Icon from './Icon';
 
 interface CreateProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (projectData: Omit<Project, 'id'>) => void;
+  onSubmit: (projectData: Omit<Project, 'id' | 'status'>) => void;
   teamLeaders: User[];
+  projectToEdit?: Project;
 }
 
-const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose, onSubmit, teamLeaders }) => {
+const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose, onSubmit, teamLeaders, projectToEdit }) => {
+  const isEditing = !!projectToEdit;
   const d = (days: number) => new Date(Date.now() + days * 86400000).toISOString().split('T')[0];
   
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [teamId, setTeamId] = useState(teamLeaders[0]?.teamId || '');
+  const [teamId, setTeamId] = useState('');
   const [startDate, setStartDate] = useState(d(0));
   const [endDate, setEndDate] = useState(d(30));
   const [budget, setBudget] = useState('');
+
+  useEffect(() => {
+    if (isEditing && projectToEdit) {
+        setName(projectToEdit.name);
+        setDescription(projectToEdit.description);
+        setTeamId(projectToEdit.teamId);
+        setStartDate(projectToEdit.startDate);
+        setEndDate(projectToEdit.endDate);
+        setBudget(String(projectToEdit.budget));
+    } else {
+        setTeamId(teamLeaders[0]?.teamId || '');
+    }
+  }, [projectToEdit, isEditing, teamLeaders]);
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +52,9 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose
   
   if (!isOpen) return null;
 
+  const modalTitle = isEditing ? `ערוך פרויקט: ${projectToEdit.name}` : 'יצירת פרויקט חדש';
+  const submitButtonText = isEditing ? 'שמור שינויים' : 'צור פרויקט';
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 p-4" onClick={onClose}>
       <form 
@@ -51,7 +69,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose
           <button type="button" onClick={onClose} aria-label="סגור חלון" className="text-dimmed hover:text-primary">
             <Icon name="close" className="w-7 h-7" />
           </button>
-          <h2 id="create-project-modal-title" className="text-2xl font-bold text-primary">יצירת פרויקט חדש</h2>
+          <h2 id="create-project-modal-title" className="text-2xl font-bold text-primary">{modalTitle}</h2>
         </header>
 
         <div className="p-6 flex-grow overflow-y-auto space-y-4">
@@ -135,7 +153,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose
 
         <footer className="p-4 border-t border-dark bg-medium/50 flex justify-end space-x-4 space-x-reverse">
           <button type="submit" disabled={!name.trim() || !teamId} className="px-6 py-2 text-sm font-semibold rounded-md bg-primary hover:bg-primary/90 text-light disabled:opacity-50 disabled:cursor-not-allowed">
-            צור פרויקט
+            {submitButtonText}
           </button>
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm rounded-md text-primary bg-dark/50 hover:bg-dark">
             ביטול

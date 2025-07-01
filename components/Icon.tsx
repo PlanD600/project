@@ -1,6 +1,6 @@
 import React from 'react';
 
-type IconName = 'plus' | 'close' | 'comment' | 'user' | 'send' | 'sparkles' | 'calendar' | 'baseline' | 'dollar-circle' | 'gantt-chart' | 'banknotes' | 'users' | 'bell' | 'briefcase' | 'diamond' | 'search' | 'download' | 'share-alt' | 'settings' | 'edit' | 'trash' | 'key' | 'billing' | 'team' | 'list-bullet';
+type IconName = 'plus' | 'close' | 'comment' | 'user' | 'send' | 'sparkles' | 'calendar' | 'baseline' | 'dollar-circle' | 'gantt-chart' | 'banknotes' | 'users' | 'bell' | 'briefcase' | 'diamond' | 'search' | 'download' | 'share-alt' | 'settings' | 'edit' | 'trash' | 'key' | 'billing' | 'team' | 'list-bullet' | 'camera' | 'ellipsis-vertical';
 
 interface IconProps {
   name: IconName;
@@ -133,6 +133,17 @@ const Icon: React.FC<IconProps> = ({ name, className = 'w-6 h-6' }) => {
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75Zm0 5.25h.007v.008H3.75V12Zm0 5.25h.007v.008H3.75v-.008Z" />
       </svg>
+    ),
+    'camera': (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.75V15A2.25 2.25 0 0 0 4.5 17.25h15A2.25 2.25 0 0 0 21.75 15V9.75c0-1.243-.749-2.17-1.702-2.345a48.458 48.458 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.776 48.776 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" />
+      </svg>
+    ),
+    'ellipsis-vertical': (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
+        </svg>
     ),
   };
 

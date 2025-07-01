@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 
 interface UIState {
-    globalError: string | null;
-    setGlobalError: (error: string | null) => void;
+    notification: { message: string; type: 'success' | 'error' | 'info' } | null;
+    setNotification: (notification: { message: string; type: 'success' | 'error' | 'info' } | null) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
-    globalError: null,
-    setGlobalError: (error) => set({ globalError: error }),
+    notification: null,
+    setNotification: (notification) => set({ notification }),
 }));

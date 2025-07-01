@@ -1,8 +1,11 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Team, NotificationPreferences, UserRole } from '../types';
 import Icon from './Icon';
+import Avatar from './Avatar';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useDataStore } from '../stores/useDataStore';
+import { useUIStore } from '../stores/useUIStore';
+
 
 export type ActiveSection = 'my-profile' | 'user-management' | 'team-management' | 'general' | 'billing' | 'my-team';
 
@@ -97,14 +100,44 @@ const SectionWrapper: React.FC<{ title: string; children: React.ReactNode }> = (
 );
 
 const MyProfileSection: React.FC = () => {
-    const { currentUser } = useAuthStore();
+    const { currentUser, handleUploadAvatar } = useAuthStore();
     const { handleUpdateUser } = useDataStore();
+    const { setNotification } = useUIStore();
+    
     const [user, setUser] = useState(currentUser);
     const [passwordData, setPasswordData] = useState({ current: '', new: '', confirm: '' });
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         setUser(currentUser);
     }, [currentUser]);
+
+    const handleAvatarClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        if (file.size > 5 * 1024 * 1024) { // 5MB
+            setNotification({ message: "הקובץ גדול מדי. הגודל המקסימלי הוא 5MB.", type: 'error' });
+            return;
+        }
+        if (!['image/jpeg', 'image/png'].includes(file.type)) {
+            setNotification({ message: "סוג קובץ לא נתמך. אנא בחר קובץ JPG או PNG.", type: 'error' });
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onloadend = () => {
+            handleUploadAvatar(reader.result as string);
+        };
+        reader.onerror = () => {
+            setNotification({ message: "שגיאה בקריאת הקובץ.", type: 'error' });
+        };
+    };
 
     const handlePrefChange = (pref: keyof NotificationPreferences) => {
         if (!user) return;
@@ -113,30 +146,49 @@ const MyProfileSection: React.FC = () => {
     };
 
     const handleSaveChanges = () => {
-        if(user) handleUpdateUser(user);
+        if(user) {
+            handleUpdateUser(user);
+            setNotification({ message: 'הפרטים עודכנו בהצלחה.', type: 'success' });
+        }
     };
     
     const handleUpdatePassword = () => {
-        // Password logic would go here
+        setNotification({ message: 'פונקציונליות סיסמה תיושם בקרוב.', type: 'info' });
     };
 
     if (!user) return null;
 
     return (
         <SectionWrapper title="הפרופיל שלי">
-            <div className="bg-light p-6 rounded-lg border border-dark">
-                <h4 className="text-lg font-semibold text-primary mb-4">פרטים אישיים</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                     <div>
-                        <label className="text-sm font-medium text-dimmed block mb-1">שם מלא</label>
-                        <input type="text" value={user.name} onChange={e => setUser({...user, name: e.target.value})} className="w-full bg-light p-2 rounded-md text-primary border border-dark"/>
+            <div className="bg-light p-6 rounded-lg border border-dark flex flex-col md:flex-row items-center gap-6">
+                <div className="relative group w-24 h-24 cursor-pointer" onClick={handleAvatarClick}>
+                    <Avatar user={user} className="w-24 h-24 rounded-full" />
+                    <div className="absolute inset-0 bg-black/50 rounded-full flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Icon name="camera" className="w-8 h-8 text-light" />
+                        <span className="text-xs text-light mt-1">שנה תמונה</span>
                     </div>
-                     <div>
-                        <label className="text-sm font-medium text-dimmed block mb-1">אימייל</label>
-                        <input type="email" value={user.email} onChange={e => setUser({...user, email: e.target.value})} className="w-full bg-light p-2 rounded-md text-primary border border-dark"/>
-                    </div>
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileChange}
+                        className="hidden"
+                        accept="image/png, image/jpeg"
+                    />
                 </div>
-                 <button onClick={handleSaveChanges} className="mt-4 px-4 py-2 bg-primary hover:bg-primary/90 text-light rounded-md text-sm">שמור שינויים</button>
+                <div className="flex-1 w-full">
+                    <h4 className="text-lg font-semibold text-primary mb-4">פרטים אישיים</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         <div>
+                            <label className="text-sm font-medium text-dimmed block mb-1">שם מלא</label>
+                            <input type="text" value={user.name} onChange={e => setUser({...user, name: e.target.value})} className="w-full bg-light p-2 rounded-md text-primary border border-dark"/>
+                        </div>
+                         <div>
+                            <label className="text-sm font-medium text-dimmed block mb-1">אימייל</label>
+                            <input type="email" value={user.email} onChange={e => setUser({...user, email: e.target.value})} className="w-full bg-light p-2 rounded-md text-primary border border-dark"/>
+                        </div>
+                    </div>
+                     <button onClick={handleSaveChanges} className="mt-4 px-4 py-2 bg-primary hover:bg-primary/90 text-light rounded-md text-sm">שמור שינויים</button>
+                </div>
             </div>
 
             <div className="bg-light p-6 rounded-lg border border-dark">
@@ -174,6 +226,7 @@ const MyProfileSection: React.FC = () => {
         </SectionWrapper>
     );
 };
+
 
 const GeneralSettingsSection: React.FC = () => {
     const { organizationSettings, setOrganizationSettings } = useDataStore();
@@ -248,7 +301,7 @@ const UserManagementSection: React.FC = () => {
                             {users.filter(u => u.role !== 'Guest').map(user => (
                                 <tr key={user.id} className="border-b border-dark hover:bg-medium">
                                     <td className="px-4 py-3 font-semibold text-primary flex items-center gap-3">
-                                        <img src={user.avatarUrl} alt={user.name} className="w-8 h-8 rounded-full" />
+                                        <Avatar user={user} className="w-8 h-8 rounded-full" />
                                         <div>
                                             {user.name}
                                             <div className="text-xs text-dimmed">{user.email}</div>
@@ -375,7 +428,7 @@ const TeamLeaderTeamSection: React.FC = () => {
                 </div>
                  <div className="space-y-3">
                      <div className="flex items-center space-x-3 space-x-reverse bg-medium p-3 rounded-md">
-                         <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-10 h-10 rounded-full" />
+                         <Avatar user={currentUser} className="w-10 h-10 rounded-full" />
                          <div>
                              <div className="text-primary font-bold">{currentUser.name} <span className="text-xs font-normal px-2 py-0.5 bg-accent/50 text-primary rounded-full">ראש צוות</span></div>
                              <div className="text-sm text-dimmed">{currentUser.email}</div>
@@ -384,7 +437,7 @@ const TeamLeaderTeamSection: React.FC = () => {
                      {myTeamMembers.map(user => (
                          <div key={user.id} className="flex items-center justify-between space-x-3 space-x-reverse bg-medium p-3 rounded-md">
                               <div className="flex items-center space-x-3 space-x-reverse">
-                                <img src={user.avatarUrl} alt={user.name} className="w-10 h-10 rounded-full" />
+                                <Avatar user={user} className="w-10 h-10 rounded-full" />
                                 <div>
                                     <div className="text-primary font-medium">{user.name}</div>
                                     <div className="text-sm text-dimmed">{user.email}</div>
@@ -543,7 +596,7 @@ const TeamModal: React.FC<{ isOpen: boolean; onClose: () => void; teamToEdit: Te
                     {availableMembers.map(user => (
                          <label key={user.id} className="flex items-center gap-3 p-2 hover:bg-dark/50 rounded-md cursor-pointer">
                             <input type="checkbox" checked={memberIds.includes(user.id)} onChange={() => handleMemberToggle(user.id)} className="h-4 w-4 rounded bg-light border-dark text-accent focus:ring-accent"/>
-                            <img src={user.avatarUrl} alt={user.name} className="w-7 h-7 rounded-full"/>
+                            <Avatar user={user} className="w-7 h-7 rounded-full"/>
                             <span className="text-primary">{user.name}</span>
                         </label>
                     ))}
@@ -591,7 +644,7 @@ const AddTeamMemberModal: React.FC<{ isOpen: boolean; onClose: () => void; unass
                 {unassignedUsers.length > 0 ? unassignedUsers.map(user => (
                     <label key={user.id} className="flex items-center gap-3 p-2 hover:bg-dark/50 rounded-md cursor-pointer">
                         <input type="checkbox" checked={selectedIds.includes(user.id)} onChange={() => handleToggle(user.id)} className="h-4 w-4 rounded bg-light border-dark text-accent focus:ring-accent"/>
-                        <img src={user.avatarUrl} alt={user.name} className="w-7 h-7 rounded-full"/>
+                        <Avatar user={user} className="w-7 h-7 rounded-full"/>
                         <span className="text-primary">{user.name}</span>
                     </label>
                 )) : (

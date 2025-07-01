@@ -1,4 +1,6 @@
 
+
+
 import { RequestHandler } from 'express';
 import { getDb } from '../../db';
 import bcrypt from 'bcrypt';
@@ -24,7 +26,6 @@ export const createUser: RequestHandler = async (req, res, next) => {
         const tempPassword = Math.random().toString(36).slice(-8);
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(tempPassword, salt);
-        const defaultAvatar = `https://i.pravatar.cc/150?u=${email}`;
         
         const newUserDocument = {
             name,
@@ -34,7 +35,7 @@ export const createUser: RequestHandler = async (req, res, next) => {
             teamId: teamId || null,
             projectId: projectId || null,
             disabled: false,
-            avatarUrl: defaultAvatar,
+            avatarUrl: '',
             notificationPreferences: { onAssignment: true, onComment: true, onStatusChange: false, onDueDateChange: false },
             createdAt: new Date(),
         };

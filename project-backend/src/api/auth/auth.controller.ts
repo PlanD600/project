@@ -1,4 +1,6 @@
 
+
+
 import { RequestHandler, Response } from 'express';
 import { getDb } from '../../db';
 import bcrypt from 'bcrypt';
@@ -69,7 +71,6 @@ export const registerUser: RequestHandler = async (req, res, next) => {
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(password, salt);
         
-        const defaultAvatar = `https://i.pravatar.cc/150?u=${email}`;
         const defaultNotificationPrefs = { onAssignment: true, onComment: true, onStatusChange: false, onDueDateChange: false };
 
         const newUserDocument = {
@@ -80,7 +81,7 @@ export const registerUser: RequestHandler = async (req, res, next) => {
             teamId: null,
             projectId: null,
             disabled: false,
-            avatarUrl: defaultAvatar,
+            avatarUrl: '',
             notificationPreferences: defaultNotificationPrefs,
             createdAt: new Date(),
         };
@@ -176,6 +177,36 @@ export const logoutUser: RequestHandler = async (req, res, next) => {
         res.status(200).json({ success: true, data: {} });
     } catch(error) {
         logger.error({ message: 'Logout failed', error });
+        next(error);
+    }
+};
+
+export const uploadAvatar: RequestHandler = async (req, res, next) => {
+    const { image } = req.body; // Expects a base64 data URL
+    const user = req.user;
+
+    if (!user) return res.status(401).json({ message: "Not authorized" });
+    if (!image) return res.status(400).json({ message: "No image data provided" });
+
+    try {
+        const db = getDb();
+        const result = await db.collection('users').findOneAndUpdate(
+            { _id: new ObjectId(user.id) },
+            { $set: { avatarUrl: image } },
+            { returnDocument: 'after', projection: { passwordHash: 0 } }
+        );
+
+        if (!result) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        
+        logger.info({ message: 'User avatar updated', userId: user.id });
+
+        const responseUser = { ...result, id: result._id };
+        res.status(200).json(responseUser);
+
+    } catch (error) {
+        logger.error({ message: 'Failed to upload avatar', context: { userId: user.id }, error });
         next(error);
     }
 };

@@ -15,26 +15,29 @@ interface KanbanBoardProps {
 
 const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks }) => {
   const { currentUser } = useAuthStore();
-  const { 
-    users, 
-    selectedProjectId, 
-    projects: allProjects, 
-    handleUpdateTask, 
-    handleAddTask, 
+  const {
+    users,
+    selectedProjectId,
+    projects: allProjects,
+    handleUpdateTask,
+    handleAddTask,
     handleAddComment,
-    handleInviteGuest 
+    handleInviteGuest
   } = useDataStore();
 
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  // 1. We now only store the ID of the selected task
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isAddTaskModalOpen, setAddTaskModalOpen] = useState(false);
   const [isInviteModalOpen, setInviteModalOpen] = useState(false);
 
+  // 2. Updated to set only the ID
   const handleTaskClick = useCallback((task: Task) => {
-    setSelectedTask(task);
+    setSelectedTaskId(task.id);
   }, []);
 
+  // 3. Updated to clear only the ID
   const handleCloseModal = useCallback(() => {
-    setSelectedTask(null);
+    setSelectedTaskId(null);
   }, []);
 
   const handleOpenAddTaskModal = useCallback(() => {
@@ -50,28 +53,29 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks }) => {
     setAddTaskModalOpen(false);
   }, [handleAddTask]);
 
+  // This function is now simpler, as the modal will get the updated task automatically
   const handleUpdateAndCloseModal = useCallback((updatedTask: Task) => {
     handleUpdateTask(updatedTask);
-    if (selectedTask && selectedTask.id === updatedTask.id) {
-        setSelectedTask(updatedTask);
-    }
-  }, [selectedTask, handleUpdateTask]);
-  
+  }, [handleUpdateTask]);
+
   const project = allProjects.find(p => p.id === selectedProjectId);
   const canInvite = selectedProjectId && (currentUser?.role === 'Super Admin' || currentUser?.role === 'Team Leader');
 
   if (!currentUser) return null;
 
+  // 4. On every render, we find the freshest version of the selected task from the main store
+  const selectedTask = selectedTaskId ? tasks.find(t => t.id === selectedTaskId) : null;
+
   return (
     <>
       <div className="flex justify-between items-center mb-6">
-          {canInvite && (
-               <button onClick={() => setInviteModalOpen(true)} title="הזמן אורח לפרויקט" className="flex items-center space-x-2 space-x-reverse bg-light text-secondary hover:text-primary p-3 rounded-xl shadow-neumorphic-convex hover:shadow-neumorphic-convex-sm active:shadow-neumorphic-concave-sm transition-all">
-                  <Icon name="share-alt" className="w-5 h-5" />
-                  <span className="text-sm font-semibold">שתף</span>
-              </button>
-          )}
-          <h2 className="text-2xl font-bold text-primary">{project?.name || "משימות"}</h2>
+        <h2 className="text-2xl font-bold text-primary">{project?.name || "משימות"}</h2>
+        {canInvite && (
+          <button onClick={() => setInviteModalOpen(true)} title="הזמן אורח לפרויקט" className="flex items-center space-x-2 space-x-reverse bg-light text-secondary hover:text-primary p-3 rounded-xl shadow-neumorphic-convex hover:shadow-neumorphic-convex-sm active:shadow-neumorphic-concave-sm transition-all">
+            <Icon name="share-alt" className="w-5 h-5" />
+            <span className="text-sm font-semibold">שתף</span>
+          </button>
+        )}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
         {COLUMNS.map(column => (
@@ -87,6 +91,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks }) => {
           />
         ))}
       </div>
+      {/* The modal now receives the always-fresh selectedTask */}
       {selectedTask && (
         <TaskModal
           key={selectedTask.id}
@@ -100,22 +105,22 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks }) => {
         />
       )}
       {isAddTaskModalOpen && (
-          <AddTaskModal
-            isOpen={isAddTaskModalOpen}
-            onClose={handleCloseAddTaskModal}
-            onSubmit={handleCreateTask}
-            users={users}
-            currentUser={currentUser}
-            projectId={selectedProjectId!}
-          />
+        <AddTaskModal
+          isOpen={isAddTaskModalOpen}
+          onClose={handleCloseAddTaskModal}
+          onSubmit={handleCreateTask}
+          users={users}
+          currentUser={currentUser}
+          projectId={selectedProjectId!}
+        />
       )}
-       {isInviteModalOpen && selectedProjectId && (
-            <InviteGuestModal
-                isOpen={isInviteModalOpen}
-                onClose={() => setInviteModalOpen(false)}
-                onInvite={(email) => handleInviteGuest(email, selectedProjectId)}
-            />
-        )}
+      {isInviteModalOpen && selectedProjectId && (
+        <InviteGuestModal
+          isOpen={isInviteModalOpen}
+          onClose={() => setInviteModalOpen(false)}
+          onInvite={(email) => handleInviteGuest(email, selectedProjectId)}
+        />
+      )}
     </>
   );
 };

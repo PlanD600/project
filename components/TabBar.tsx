@@ -17,7 +17,7 @@ interface TabItem {
 }
 
 const TABS: TabItem[] = [
-    { name: 'Portfolio', label: 'פורטפוליו', icon: 'briefcase' },
+    { name: 'Portfolio', label: 'מבט-על', icon: 'briefcase' },
     { name: 'משימות', label: 'משימות', icon: 'users' },
     { name: 'זמנים', label: 'זמנים', icon: 'gantt-chart' },
     { name: 'כספים', label: 'כספים', icon: 'banknotes' },
@@ -45,8 +45,7 @@ const TabBar: React.FC<TabBarProps> = ({ activeTab, setActiveTab, currentUser })
 
   return (
     <nav aria-label="ניווט ראשי">
-      <div role="tablist" className="bg-light p-2 rounded-2xl shadow-neumorphic-convex flex space-x-2 space-x-reverse">
-        {availableTabs.map((tab) => (
+<div role="tablist" className="bg-light p-2 rounded-2xl shadow-neumorphic-convex grid grid-cols-2 md:grid-cols-4 gap-2">        {availableTabs.map((tab) => (
           <button
             key={tab.name}
             id={`tab-${tab.name}`}

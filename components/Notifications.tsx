@@ -52,11 +52,11 @@ const Notifications: React.FC<NotificationsProps> = ({ notifications, currentUse
             onSetRead(unreadIds);
         }
     };
-    
+
     return (
         <div className="relative z-[60]" ref={dropdownRef}>
-            <button 
-                onClick={handleToggle} 
+            <button
+                onClick={handleToggle}
                 className="relative p-2 rounded-full text-dimmed hover:bg-dark/50 hover:text-accent transition-colors"
                 aria-haspopup="true"
                 aria-expanded={isOpen}
@@ -68,10 +68,9 @@ const Notifications: React.FC<NotificationsProps> = ({ notifications, currentUse
                 )}
             </button>
             {isOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-medium rounded-lg shadow-xl overflow-hidden text-right border border-dark">
-                    <div id="notifications-title" className="p-3 font-bold text-primary border-b border-dark">
-                        התראות
-                    </div>
+                <div className="absolute left-0 mt-2 w-80 bg-medium rounded-lg shadow-xl overflow-hidden text-right border border-dark">                    <div id="notifications-title" className="p-3 font-bold text-primary border-b border-dark">
+                    התראות
+                </div>
                     <ul role="region" aria-labelledby="notifications-title" className="max-h-96 overflow-y-auto">
                         {userNotifications.length > 0 ? (
                             userNotifications.map(n => (

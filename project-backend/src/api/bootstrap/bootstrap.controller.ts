@@ -1,4 +1,6 @@
 
+
+
 import { RequestHandler } from 'express';
 import { getDb } from '../../db';
 import { ObjectId } from 'mongodb';
@@ -24,15 +26,15 @@ export const getInitialData: RequestHandler = async (req, res, next) => {
         
         const teams = await db.collection('teams').find({}).toArray();
         
-        let projectsQuery = {};
+        let projectsQuery: any = { deletedAt: null };
         if (user.role === 'Team Leader') {
-            projectsQuery = { teamId: user.teamId };
+            projectsQuery.teamId = user.teamId;
         } else if (user.role === 'Employee' || user.role === 'Guest') {
             const userDoc = await db.collection('users').findOne({ _id: new ObjectId(user.id) });
             const tasksForUser = await db.collection('tasks').find({ assigneeIds: user.id }).project({ projectId: 1 }).toArray();
             const projectIdsFromTasks = tasksForUser.map(t => t.projectId);
             const allProjectIds = [...new Set([...projectIdsFromTasks, userDoc?.projectId].filter(Boolean))];
-            projectsQuery = { _id: { $in: allProjectIds.map(id => new ObjectId(id)) } };
+            projectsQuery._id = { $in: allProjectIds.map(id => new ObjectId(id)) };
         }
         
         const projects = await db.collection('projects').find(projectsQuery).sort({ startDate: -1 }).toArray();

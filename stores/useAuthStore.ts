@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { User } from '../types';
 import { api } from '../services/api';
 import { useDataStore } from './useDataStore';
+import { useUIStore } from './useUIStore';
 
 interface AuthState {
     currentUser: User | null;
@@ -13,6 +14,7 @@ interface AuthState {
     handleLogin: (email: string, password: string) => Promise<string | null>;
     handleLogout: () => void;
     handleRegistration: (data: { fullName: string; email: string; password: string; companyName: string; }) => Promise<{ success: boolean; error: string | null }>;
+    handleUploadAvatar: (imageDataUrl: string) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -69,6 +71,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             return { success: true, error: null };
         } catch(err) {
             return { success: false, error: (err as Error).message || "שגיאת הרשמה לא צפויה."};
+        }
+    },
+
+    handleUploadAvatar: async (imageDataUrl: string) => {
+        const { setNotification } = useUIStore.getState();
+        try {
+            const updatedUser = await api.uploadAvatar(imageDataUrl);
+            set({ currentUser: updatedUser });
+            useDataStore.getState().updateSingleUserInList(updatedUser);
+            setNotification({ message: 'תמונת הפרופיל עודכנה בהצלחה.', type: 'success' });
+        } catch (err) {
+            setNotification({ message: `שגיאה בהעלאת התמונה: ${(err as Error).message}`, type: 'error' });
         }
     },
 }));

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Task, User } from '../types';
 import Icon from './Icon';
+import Avatar from './Avatar';
 
 interface KanbanCardProps {
   task: Task;
@@ -46,12 +47,10 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ task, users, onTaskClick }) => 
         </div>
         <div className="flex -space-x-3 overflow-hidden">
           {assignees.map(assignee => (
-              <img
-                  key={assignee.id}
-                  src={assignee.avatarUrl}
-                  alt={assignee.name}
-                  title={assignee.name}
-                  className="inline-block h-7 w-7 rounded-full ring-2 ring-light"
+             <Avatar 
+                key={assignee.id} 
+                user={assignee} 
+                className="inline-block h-7 w-7 rounded-full ring-2 ring-light"
               />
           ))}
         </div>

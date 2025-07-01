@@ -15,14 +15,12 @@ import { useDataStore, calculateProjectsForCurrentUser } from './stores/useDataS
 import { useUIStore } from './stores/useUIStore';
 
 const App: React.FC = () => {
+  // --- START OF HOOKS SECTION ---
   const { currentUser, isAuthenticated, isAppLoading, handleLogin, handleLogout, handleRegistration, checkAuthStatus } = useAuthStore();
   const { projects, tasks, selectedProjectId, setSelectedProjectId } = useDataStore();
-  const { globalError, setGlobalError } = useUIStore();
+  // This is your excellent new notification state
+  const { notification, setNotification } = useUIStore();
 
-  useEffect(() => {
-      checkAuthStatus();
-  }, [checkAuthStatus]);
-  
   const [activeTab, setActiveTab] = useState<Tab>('Portfolio');
   const [view, setView] = useState<'dashboard' | 'settings'>('dashboard');
   const [settingsInitialSection, setSettingsInitialSection] = useState<ActiveSection | null>(null);
@@ -30,8 +28,25 @@ const App: React.FC = () => {
 
   const projectsForCurrentUser = useMemo(() => calculateProjectsForCurrentUser(currentUser, projects, tasks), [currentUser, projects, tasks]);
 
+  // This useMemo was moved up here to fix the hook order error
+  const tasksForView = useMemo(() => {
+    if (!currentUser || !selectedProjectId) {
+      if (currentUser?.role === 'Employee') return tasks.filter(task => task.assigneeIds.includes(currentUser.id));
+      return [];
+    }
+    const projectTasks = tasks.filter(task => task.projectId === selectedProjectId);
+    if (currentUser.role === 'Guest' || currentUser.role === 'Super Admin' || currentUser.role === 'Team Leader') {
+      return projectTasks;
+    }
+    return projectTasks.filter(task => task.assigneeIds.includes(currentUser.id));
+  }, [currentUser, tasks, selectedProjectId]);
+  // --- END OF HOOKS SECTION ---
+
   useEffect(() => {
-    // When projects for current user change, update selected project if needed
+    checkAuthStatus();
+  }, [checkAuthStatus]);
+
+  useEffect(() => {
     if(projectsForCurrentUser.length > 0 && !projectsForCurrentUser.find(p => p.id === selectedProjectId)) {
         setSelectedProjectId(projectsForCurrentUser[0].id);
     } else if (projectsForCurrentUser.length === 0) {
@@ -103,19 +118,6 @@ const App: React.FC = () => {
   if (!isAuthenticated || !currentUser) {
     return <LoginView onLogin={handleLogin} onRegister={handleRegistration} onRegistrationSuccess={handleSuccessfulRegistration} />;
   }
-  
-  const tasksForView = useMemo(() => {
-    if (!selectedProjectId) {
-      if (currentUser.role === 'Employee') return tasks.filter(task => task.assigneeIds.includes(currentUser.id));
-      return [];
-    }
-    const projectTasks = tasks.filter(task => task.projectId === selectedProjectId);
-    if (currentUser.role === 'Guest' || currentUser.role === 'Super Admin' || currentUser.role === 'Team Leader') {
-      return projectTasks;
-    }
-    return projectTasks.filter(task => task.assigneeIds.includes(currentUser.id));
-  }, [currentUser, tasks, selectedProjectId]);
-
 
   const renderContent = () => {
     switch (activeTab) {
@@ -135,7 +137,11 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-light font-sans flex flex-col">
        <a href="#main-content" className="absolute w-px h-px p-0 -m-px overflow-hidden [clip:rect(0,0,0,0)] whitespace-nowrap border-0 focus:w-auto focus:h-auto focus:p-2 focus:m-0 focus:overflow-visible focus:[clip:auto] focus:z-[100] focus:top-2 focus:right-2 bg-accent text-light rounded-lg">דלג לתוכן המרכזי</a>
-      <Toast message={globalError} onClose={() => setGlobalError(null)} />
+      <Toast
+        message={notification?.message ?? null}
+        type={notification?.type ?? 'error'}
+        onClose={() => setNotification(null)}
+      />
       <Header onGoToSettings={handleToggleSettings} projectsForCurrentUser={projectsForCurrentUser} />
       {showOnboardingModal && (
           <OnboardingModal

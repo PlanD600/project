@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { User, Task } from '../types';
 import Icon from './Icon';
+import Avatar from './Avatar';
 
 interface AddTaskModalProps {
   isOpen: boolean;
@@ -101,7 +102,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSubmit, 
                 {assignableUsers.map(user => (
                   <div key={user.id} className="flex items-center space-x-2 space-x-reverse p-1 rounded hover:bg-dark/50">
                     <label htmlFor={`add-task-assignee-${user.id}`} className="flex items-center text-sm text-primary w-full cursor-pointer">
-                      <img src={user.avatarUrl} alt={user.name} className="w-6 h-6 rounded-full ml-2"/>
+                      <Avatar user={user} className="w-6 h-6 rounded-full ml-2"/>
                       {user.name} ({user.role})
                     </label>
                     <input
