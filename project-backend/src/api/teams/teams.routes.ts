@@ -1,5 +1,6 @@
 import express from 'express';
 import { createTeam, addMembersToTeam, updateTeam, deleteTeam, removeUserFromTeam } from './teams.controller';
+import { protect, authorize } from '../../middleware/auth.middleware';
 
 const router = express.Router();
 

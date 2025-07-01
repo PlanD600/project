@@ -1,5 +1,6 @@
 import express from 'express';
 import { createUser, getAllUsers, getUnassignedUsers, updateUser, deleteUser } from './users.controller';
+import { protect, authorize } from '../../middleware/auth.middleware';
 
 const router = express.Router();
 
