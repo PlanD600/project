@@ -11,7 +11,8 @@ const generateToken = (id: string) => {
         expiresIn: process.env.JWT_EXPIRES_IN || '30d',
     };
     return jwt.sign({ id }, secret, options);
-};
+ };
+
 
 // Helper to send token response
 const sendTokenResponse = (user: { id: string, [key: string]: any }, statusCode: number, res: any) => {
