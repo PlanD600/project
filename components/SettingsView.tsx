@@ -298,7 +298,7 @@ const UserManagementSection: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {users.filter(u => u.role !== 'Guest').map(user => (
+                            {users.filter(u => u.role !== 'GUEST').map(user => (
                                 <tr key={user.id} className="border-b border-dark hover:bg-medium">
                                     <td className="px-4 py-3 font-semibold text-primary flex items-center gap-3">
                                         <Avatar user={user} className="w-8 h-8 rounded-full" />

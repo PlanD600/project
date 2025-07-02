@@ -32,7 +32,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, onClose, onUpdateTask, onAd
     const isSuperAdmin = currentUser.role === 'ADMIN';
     const isTeamLeaderOfProject = currentUser.role === 'TEAM_MANAGER' && currentUser.teamId === project?.teamId;
     const isAssignee = task.assigneeIds.includes(currentUser.id);
-    const isGuest = currentUser.role === 'Guest';
+    const isGuest = currentUser.role === 'GUEST';
 
     const canEditDetails = isSuperAdmin || isTeamLeaderOfProject;
     const canChangeStatus = isSuperAdmin || isTeamLeaderOfProject || isAssignee;

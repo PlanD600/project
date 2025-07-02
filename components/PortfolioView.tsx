@@ -160,7 +160,7 @@ const PortfolioView: React.FC = () => {
         return <span className={`px-3 py-1 text-xs font-semibold rounded-full ${styles[status]}`}>{status}</span>;
     };
 
-    const guests = useMemo(() => allUsers.filter(u => u.role === 'Guest'), [allUsers]);
+    const guests = useMemo(() => allUsers.filter(u => u.role === 'GUEST'), [allUsers]);
     const statuses: ProgressStatus[] = ['במסלול', 'בסיכון', 'בסיכון גבוה', 'הושלם'];
 
     return (
