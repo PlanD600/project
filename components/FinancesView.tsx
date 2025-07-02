@@ -167,7 +167,7 @@ const TeamLeaderView: React.FC = () => {
                     onClose={() => setIsModalOpen(false)}
                     onSubmit={handleAddFinancialTransaction}
                     type='Expense'
-                    currentUserRole='TTEAM_MANAGER'
+                    currentUserRole='TEAM_MANAGER'
                     projects={teamProjects}
                 />
             )}

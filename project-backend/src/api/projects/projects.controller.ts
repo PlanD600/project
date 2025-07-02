@@ -14,9 +14,9 @@ export const getProjects: RequestHandler = async (req, res, next) => {
             deletedAt: null // מסננים החוצה פרויקטים שנמחקו (מחיקה רכה), השדה קיים ב-schema
         };
 
-        if (user.role === TEAM_MANAGER) {
+        if (user.role === 'TEAM_MANAGER') {
             where.teamId = user.teamId;
-        } else if (user.role === Employee) {
+        } else if (user.role === 'Employee') {
             // תיקון: שימוש בקשר 'assignees' במקום בשדה 'assigneeIds'
             // בהתאם ל-schema.prisma שלך, 'assignees' הוא מערך של Userים
             const tasks = await db.task.findMany({
