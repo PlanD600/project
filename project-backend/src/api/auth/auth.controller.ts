@@ -64,7 +64,7 @@ export const registerUser: RequestHandler = async (req, res, next) => {
                 name: fullName,
                 email,
                 password: hashedPassword,
-                role: UserRole.ADMIN, // <-- התיקון החשוב
+                role: 'ADMIN', // <-- התיקון החשוב
                 avatarUrl: '',
             }
         });

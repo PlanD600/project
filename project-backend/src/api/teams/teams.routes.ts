@@ -9,16 +9,16 @@ router.use(protect);
 
 // הנתיב הזה דורש הרשאות אדמין בלבד
 router.route('/')
-    .post(authorize(UserRole.ADMIN), createTeam);
+    .post(authorize(ADMIN), createTeam);
 
 // הנתיבים האלה דורשים הרשאות אדמין בלבד
 router.route('/:teamId')
-    .put(authorize(UserRole.ADMIN), updateTeam)
-    .delete(authorize(UserRole.ADMIN), deleteTeam);
+    .put(authorize(ADMIN), updateTeam)
+    .delete(authorize(ADMIN), deleteTeam);
 
 // הנתיבים האלה דורשים הרשאות אדמין או מנהל צוות
-router.post('/:teamId/members', authorize(UserRole.ADMIN, UserRole.TEAM_MANAGER), addMembersToTeam);
+router.post('/:teamId/members', authorize(ADMIN, TEAM_MANAGER), addMembersToTeam);
 
-router.delete('/:teamId/members/:userId', authorize(UserRole.ADMIN, UserRole.TEAM_MANAGER), removeUserFromTeam);
+router.delete('/:teamId/members/:userId', authorize(ADMIN, TEAM_MANAGER), removeUserFromTeam);
 
 export default router;

@@ -8,16 +8,16 @@ const router = express.Router();
 // All user routes are protected
 router.use(protect);
 
-// Routes for Super Admins
-router.get('/', authorize(UserRole.ADMIN), getAllUsers);
-router.post('/', authorize(UserRole.ADMIN), createUser);
+// Routes for ADMIN
+router.get('/', authorize(ADMIN), getAllUsers);
+router.post('/', authorize(ADMIN), createUser);
 
-// Routes for Admins and Team Leaders
-router.get('/unassigned', authorize(UserRole.ADMIN, UserRole.TEAM_MANAGER), getUnassignedUsers);
+// Routes for Admins and TEAM_MANAGER
+router.get('/unassigned', authorize(ADMIN, TEAM_MANAGER), getUnassignedUsers);
 
 // Route for updating/deleting specific user
 router.route('/:userId')
-    .put(authorize(UserRole.ADMIN), updateUser) // Can be extended to allow users to update themselves
-    .delete(authorize(UserRole.ADMIN), deleteUser); // Soft delete / disable user
+    .put(authorize(ADMIN), updateUser) // Can be extended to allow users to update themselves
+    .delete(authorize(ADMIN), deleteUser); // Soft delete / disable user
 
 export default router;

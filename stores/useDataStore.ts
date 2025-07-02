@@ -60,8 +60,8 @@ export const calculateProjectsForCurrentUser = (currentUser: User | null, projec
     const activeProjects = projects.filter(p => p.status === 'active');
 
     if (currentUser.role === 'ADMIN') return activeProjects;
-    if (currentUser.role === 'Team Leader') return activeProjects.filter(p => p.teamId === currentUser.teamId);
-    if (currentUser.role === 'Guest') return activeProjects.filter(p => p.id === currentUser.projectId);
+    if (currentUser.role === 'TEAM_MANAGER') return activeProjects.filter(p => p.teamId === currentUser.teamId);
+    if (currentUser.role === 'GUEST') return activeProjects.filter(p => p.id === currentUser.projectId);
 
     const userTaskProjectIds = new Set(tasks.filter(t => t.assigneeIds.includes(currentUser.id)).map(t => t.projectId));
     return activeProjects.filter(p => userTaskProjectIds.has(p.id));

@@ -15,7 +15,7 @@ export const addFinancialEntry: RequestHandler = async (req, res, next) => {
         return res.status(400).json({ message: 'Amount must be a valid number.' });
     }
 
-    if (type === 'Income' && user?.role !== UserRole.ADMIN) {
+    if (type === 'Income' && user?.role !== ADMIN) {
         return res.status(403).json({ message: 'Not authorized to add income entries.' });
     }
 
@@ -46,7 +46,7 @@ export const getFinancialSummary: RequestHandler = async (req, res, next) => {
     const { team_id } = req.query as { team_id?: string };
 
     try {
-        if (user?.role === UserRole.ADMIN) {
+        if (user?.role === ADMIN) {
             let whereClause: any = {};
             // If filtering by a specific team, find that team's projects first
             if (team_id) {
@@ -74,8 +74,8 @@ export const getFinancialSummary: RequestHandler = async (req, res, next) => {
                 totalExpense: totalExpenseResult._sum.amount || 0,
             });
 
-        } else if (user?.role === UserRole.TEAM_MANAGER && user.teamId) {
-            // Find all projects for the team leader's team
+        } else if (user?.role === TEAM_MANAGER && user.teamId) {
+            // Find all projects for the TEAM_MANAGER's team
             const projectsInTeam = await prisma.project.findMany({
                 where: { teamId: user.teamId },
                 select: { id: true }
@@ -94,7 +94,7 @@ export const getFinancialSummary: RequestHandler = async (req, res, next) => {
             
             res.json({ totalTeamExpenses: result._sum.amount || 0 });
         } else {
-            // No data for other roles, or team leader without a team
+            // No data for other roles, or TEAM_MANAGER without a team
             res.status(403).json({ message: 'Not authorized to view financial summary' });
         }
     } catch (error) {

@@ -15,7 +15,7 @@ export interface User {
   avatarUrl: string;
   role: UserRole;
   teamId?: string;
-  projectId?: string; // For guest access
+  projectId?: string; // For GUEST access
   disabled?: boolean;
   notificationPreferences?: NotificationPreferences;
 }

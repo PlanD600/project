@@ -94,7 +94,7 @@ const SuperAdminView: React.FC = () => {
                     onClose={() => setIsModalOpen(false)}
                     onSubmit={handleAddFinancialTransaction}
                     type={modalType}
-                    currentUserRole='Super Admin'
+                    currentUserRole='ADMIN'
                     projects={projects}
                 />
             )}
@@ -112,7 +112,7 @@ const TeamLeaderView: React.FC = () => {
 
     const teamProjects = useMemo(() => projects.filter(p => p.teamId === currentUser.teamId), [projects, currentUser.teamId]);
     const project = projects.find(p => p.id === selectedProjectId);
-    const canInvite = selectedProjectId && (currentUser.role === 'ADMIN' || currentUser.role === 'Team Leader');
+    const canInvite = selectedProjectId && (currentUser.role === 'ADMIN' || currentUser.role === 'TEAM_MANAGER');
 
     const { totalBudget, totalTeamExpenses, remainingBudget } = useMemo(() => {
         if (!project) return { totalBudget: 0, totalTeamExpenses: 0, remainingBudget: 0 };
@@ -167,7 +167,7 @@ const TeamLeaderView: React.FC = () => {
                     onClose={() => setIsModalOpen(false)}
                     onSubmit={handleAddFinancialTransaction}
                     type='Expense'
-                    currentUserRole='Team Leader'
+                    currentUserRole='TTEAM_MANAGER'
                     projects={teamProjects}
                 />
             )}
@@ -244,7 +244,7 @@ const FinancesView: React.FC = () => {
         return <SuperAdminView />;
     }
     
-    if (currentUser.role === 'Team Leader') {
+    if (currentUser.role === 'TEAM_MANAGER') {
         return <TeamLeaderView />;
     }
 

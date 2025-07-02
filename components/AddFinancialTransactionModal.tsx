@@ -7,7 +7,7 @@ interface AddFinancialTransactionModalProps {
   onClose: () => void;
   onSubmit: (transaction: Omit<FinancialTransaction, 'id'>) => void;
   type: TransactionType;
-  currentUserRole: 'Super Admin' | 'Team Leader';
+  currentUserRole: 'ADMIN' | 'TEAM_MANAGER';
   projects: Project[];
 }
 

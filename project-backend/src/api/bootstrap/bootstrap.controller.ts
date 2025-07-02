@@ -14,17 +14,17 @@ export const getInitialData: RequestHandler = async (req, res, next) => {
         const allTeamsQuery = prisma.team.findMany();
 
         let projectsQuery;
-        if (user.role === UserRole.ADMIN) {
+        if (user.role === ADMIN) {
             projectsQuery = prisma.project.findMany({
                 where: { status: 'active' },
                 orderBy: { startDate: 'desc' }
             });
-        } else if (user.role === UserRole.TEAM_MANAGER && user.teamId) {
+        } else if (user.role === TEAM_MANAGER && user.teamId) {
             projectsQuery = prisma.project.findMany({
                 where: { teamId: user.teamId, status: 'active' },
                 orderBy: { startDate: 'desc' }
             });
-        } else { // Employee or Guest
+        } else { // Employee or GUEST
             const tasksForUser = await prisma.task.findMany({
                 where: { 
                     assignees: { some: { id: user.id } } // Correct way to query many-to-many

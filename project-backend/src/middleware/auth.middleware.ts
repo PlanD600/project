@@ -4,7 +4,7 @@ import prisma from '../db';
 import logger from '../logger';
 // אין צורך לייבא UserRole מ- '../types' אם אתה משתמש ב-Prisma's UserRole
 // אם השתמשת ב-UserRole משלך, וודא שהוא תואם ל-Prisma.UserRole
-// אלא אם כן UserRole הוא enum שהגדרת בנפרד, עדיף להשתמש ב-Prisma.UserRole.
+// אלא אם כן UserRole הוא enum שהגדרת בנפרד, עדיף להשתמש ב-Prisma
 import { UserRole } from '@prisma/client'; // שינוי: ייבוא UserRole מ-Prisma
 
 export const protect: RequestHandler = async (req, res, next) => {
@@ -41,7 +41,7 @@ export const protect: RequestHandler = async (req, res, next) => {
         }
 
         // בניית האובייקט req.user בהתאם לתפקיד
-        if (currentUser.role === 'Guest') {
+        if (currentUser.role === 'GUEST') {
             // אם המשתמש הוא אורח, נוסיף את ה-projectId לאובייקט req.user.
             // הנחה: projectId מגיע מתוך ה-JWT.
             // אם לא, יהיה עליך למשוך אותו ממקור אחר (לדוגמה, DB).

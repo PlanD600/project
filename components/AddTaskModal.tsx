@@ -21,13 +21,13 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSubmit, 
   const [startDate, setStartDate] = useState(d(0));
   const [endDate, setEndDate] = useState(d(7));
 
-  const canManageAssignees = currentUser.role === 'ADMIN' || currentUser.role === 'Team Leader';
+  const canManageAssignees = currentUser.role === 'ADMIN' || currentUser.role === 'TEAM_MANAGER';
 
   const assignableUsers = useMemo(() => {
       if (currentUser.role === 'ADMIN') {
-          return users.filter(u => u.role === 'Employee' || u.role === 'Team Leader');
+          return users.filter(u => u.role === 'Employee' || u.role === 'TEAM_MANAGER');
       }
-      if (currentUser.role === 'Team Leader') {
+      if (currentUser.role === 'TEAM_MANAGER') {
           return users.filter(u => u.teamId === currentUser.teamId);
       }
       return [];

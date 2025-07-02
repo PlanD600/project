@@ -14,9 +14,9 @@ export const getProjects: RequestHandler = async (req, res, next) => {
             deletedAt: null // מסננים החוצה פרויקטים שנמחקו (מחיקה רכה), השדה קיים ב-schema
         };
 
-        if (user.role === UserRole.TEAM_MANAGER) {
+        if (user.role === TEAM_MANAGER) {
             where.teamId = user.teamId;
-        } else if (user.role === UserRole.Employee) {
+        } else if (user.role === Employee) {
             // תיקון: שימוש בקשר 'assignees' במקום בשדה 'assigneeIds'
             // בהתאם ל-schema.prisma שלך, 'assignees' הוא מערך של Userים
             const tasks = await db.task.findMany({
@@ -31,10 +31,10 @@ export const getProjects: RequestHandler = async (req, res, next) => {
             });
             const projectIds = [...new Set(tasks.map(t => t.projectId))];
             where.id = { in: projectIds };
-        } else if (user.role === UserRole.GUEST && user.projectId) { // user.projectId מוכר כעת
+        } else if (user.role === 'GUEST' && user.projectId) { // user.projectId מוכר כעת
             where.id = user.projectId;
         }
-        // 2Super Admin יכול לראות הכל, לכן לא מוסיפים לו סינון נוסף
+        // ADMIN יכול לראות הכל, לכן לא מוסיפים לו סינון נוסף
 
         const projects = await db.project.findMany({
             where,

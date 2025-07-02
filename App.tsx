@@ -138,7 +138,7 @@ const App: React.FC = () => {
         // שינוי: שימוש במחרוזות ישירות
         return (currentUser.role === 'ADMIN' || currentUser.role === 'TEAM_MANAGER') ? <div id="tabpanel-כספים" role="tabpanel" aria-labelledby="tab-כספים"><FinancesView /></div> : null;
       case 'משימות':
-        return <div id="tabpanel-משימות" role="tabpanel" aria="tabpanel" aria-labelledby="tab-משימות"><KanbanBoard tasks={tasksForView} /></div>;
+        return <div id="tabpanel-משימות" role="tabpanel" aria-labelledby="tab-משימות"><KanbanBoard tasks={tasksForView} /></div>;
       default:
         return null;
     }

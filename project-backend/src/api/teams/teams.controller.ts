@@ -60,7 +60,7 @@ export const addMembersToTeam: RequestHandler = async (req, res, next) => {
         
         // In Prisma schema, the leader is just a member, authorization might need adjustment
         // This logic is simplified as we don't store a 'leaderId' on the team model itself
-        if (requestingUser?.role === UserRole.TEAM_MANAGER && requestingUser.teamId !== teamId) {
+        if (requestingUser?.role === 'TEAM_MANAGER' && requestingUser.teamId !== teamId) {
             return res.status(403).json({ message: 'Not authorized to add members to this team.' });
         }
         
@@ -159,7 +159,7 @@ export const removeUserFromTeam: RequestHandler = async (req, res, next) => {
     const requestingUser = req.user;
 
     try {
-        if (requestingUser?.role === UserRole.TEAM_MANAGER && requestingUser.teamId !== teamId) {
+        if (requestingUser?.role === 'TEAM_MANAGER' && requestingUser.teamId !== teamId) {
              return res.status(403).json({ message: 'Not authorized to remove members from this team.' });
         }
         

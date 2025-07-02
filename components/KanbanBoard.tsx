@@ -59,7 +59,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks }) => {
   }, [handleUpdateTask]);
 
   const project = allProjects.find(p => p.id === selectedProjectId);
-  const canInvite = selectedProjectId && (currentUser?.role === 'Super Admin' || currentUser?.role === 'Team Leader');
+  const canInvite = selectedProjectId && (currentUser?.role === 'ADMIN' || currentUser?.role === 'TEAM_MANAGER');
 
   if (!currentUser) return null;
 
@@ -85,7 +85,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks }) => {
             tasks={tasks.filter(task => task.columnId === column.id)}
             onTaskClick={handleTaskClick}
             onOpenAddTaskModal={handleOpenAddTaskModal}
-            canAddTask={currentUser.role === 'ADMIN' || currentUser.role === 'Team Leader'}
+            canAddTask={currentUser.role === 'ADMIN' || currentUser.role === 'TEAM_MANAGER'}
             canAddProject={!!selectedProjectId}
             users={users}
           />

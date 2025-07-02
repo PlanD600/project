@@ -75,7 +75,7 @@ export const api = {
     inviteGuest: (email: string, projectId: string): Promise<User> => api.createUser({ 
         name: email.split('@')[0], 
         email: email, 
-        role: 'Guest',
+        role: 'GUEST',
         projectId: projectId,
     }),
     revokeGuest: (guestId: string): Promise<void> => requests.delete(`/users/${guestId}`),
