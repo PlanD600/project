@@ -8,6 +8,6 @@ const router = express.Router();
 router.use(protect);
 
 router.post('/entries', authorize(UserRole.ADMIN, UserRole.TEAM_MANAGER), addFinancialEntry);
-router.get('/summary', authorize('UserRole.ADMIN, UserRole.TEAM_MANAGER'), getFinancialSummary);
+router.get('/summary', authorize(UserRole.ADMIN, UserRole.TEAM_MANAGER), getFinancialSummary);
 
 export default router;
