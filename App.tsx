@@ -13,8 +13,10 @@ import Toast from './components/Toast';
 import { useAuthStore } from './stores/useAuthStore';
 import { useDataStore, calculateProjectsForCurrentUser } from './stores/useDataStore';
 import { useUIStore } from './stores/useUIStore';
+// הוסר: import { UserRole } from './types'; // כבר לא צריך לייבא אם משווים למחרוזות ישירות
 
 const App: React.FC = () => {
+  console.log('App: Component rendering...');
   // --- START OF HOOKS SECTION ---
   const { currentUser, isAuthenticated, isAppLoading, handleLogin, handleLogout, handleRegistration, checkAuthStatus } = useAuthStore();
   const { projects, tasks, selectedProjectId, setSelectedProjectId } = useDataStore();
@@ -35,7 +37,8 @@ const App: React.FC = () => {
       return [];
     }
     const projectTasks = tasks.filter(task => task.projectId === selectedProjectId);
-    if (currentUser.role === 'Guest' || currentUser.role === 'Super Admin' || currentUser.role === 'Team Leader') {
+    // שינוי: שימוש במחרוזות ישירות
+    if (currentUser.role === 'GUEST' || currentUser.role === 'ADMIN' || currentUser.role === 'TEAM_MANAGER') {
       return projectTasks;
     }
     return projectTasks.filter(task => task.assigneeIds.includes(currentUser.id));
@@ -43,6 +46,7 @@ const App: React.FC = () => {
   // --- END OF HOOKS SECTION ---
 
   useEffect(() => {
+    console.log('App useEffect: Running checkAuthStatus...');
     checkAuthStatus();
   }, [checkAuthStatus]);
 
@@ -56,14 +60,15 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!currentUser) return;
-    
+
     let availableTabs: Tab[] = ['משימות', 'זמנים'];
-    if (currentUser.role === 'Super Admin') availableTabs = ['Portfolio', 'משימות', 'זמנים', 'כספים'];
-    else if (currentUser.role === 'Team Leader') availableTabs = ['משימות', 'זמנים', 'כספים'];
-    else if (currentUser.role === 'Guest') availableTabs = ['משימות', 'זמנים'];
+    // שינוי: שימוש במחרוזות ישירות
+    if (currentUser.role === 'ADMIN') availableTabs = ['Portfolio', 'משימות', 'זמנים', 'כספים'];
+    else if (currentUser.role === 'TEAM_MANAGER') availableTabs = ['משימות', 'זמנים', 'כספים'];
+    else if (currentUser.role === 'GUEST') availableTabs = ['משימות', 'זמנים'];
 
     if (!availableTabs.includes(activeTab)) {
-      if (currentUser.role === 'Super Admin') setActiveTab('Portfolio');
+      if (currentUser.role === 'ADMIN') setActiveTab('Portfolio');
       else setActiveTab('משימות');
     }
   }, [currentUser, activeTab]);
@@ -89,7 +94,7 @@ const App: React.FC = () => {
     setView(prev => prev === 'dashboard' ? 'settings' : 'dashboard');
     setSettingsInitialSection(null);
   };
-  
+
   const handleGoToCreateTeam = () => {
     setShowOnboardingModal(false);
     setView('settings');
@@ -100,13 +105,14 @@ const App: React.FC = () => {
       setView('dashboard');
       setSettingsInitialSection(null);
   };
-  
+
   const handleSuccessfulRegistration = () => {
       setView('dashboard');
       setActiveTab('Portfolio');
       setShowOnboardingModal(true);
   };
 
+  console.log('App Render Check: isAppLoading =', isAppLoading);
   if (isAppLoading) {
       return (
           <div className="flex items-center justify-center h-screen bg-light">
@@ -115,25 +121,30 @@ const App: React.FC = () => {
       )
   }
 
+  console.log('App Render Check: isAuthenticated =', isAuthenticated, 'currentUser =', currentUser);
   if (!isAuthenticated || !currentUser) {
     return <LoginView onLogin={handleLogin} onRegister={handleRegistration} onRegistrationSuccess={handleSuccessfulRegistration} />;
   }
 
   const renderContent = () => {
+    console.log('renderContent: Active Tab =', activeTab, 'Current User Role =', currentUser?.role);
     switch (activeTab) {
       case 'Portfolio':
-        return currentUser.role === 'Super Admin' ? <div id="tabpanel-Portfolio" role="tabpanel" aria-labelledby="tab-Portfolio"><PortfolioView /></div> : null;
+        // שינוי: שימוש במחרוזות ישירות
+        return currentUser.role === 'ADMIN' ? <div id="tabpanel-Portfolio" role="tabpanel" aria-labelledby="tab-Portfolio"><PortfolioView /></div> : null;
       case 'זמנים':
         return <div id="tabpanel-זמנים" role="tabpanel" aria-labelledby="tab-זמנים"><TimesView tasks={tasksForView} /></div>;
       case 'כספים':
-        return (currentUser.role === 'Super Admin' || currentUser.role === 'Team Leader') ? <div id="tabpanel-כספים" role="tabpanel" aria-labelledby="tab-כספים"><FinancesView /></div> : null;
+        // שינוי: שימוש במחרוזות ישירות
+        return (currentUser.role === 'ADMIN' || currentUser.role === 'TEAM_MANAGER') ? <div id="tabpanel-כספים" role="tabpanel" aria-labelledby="tab-כספים"><FinancesView /></div> : null;
       case 'משימות':
-        return <div id="tabpanel-משימות" role="tabpanel" aria-labelledby="tab-משימות"><KanbanBoard tasks={tasksForView} /></div>;
+        return <div id="tabpanel-משימות" role="tabpanel" aria="tabpanel" aria-labelledby="tab-משימות"><KanbanBoard tasks={tasksForView} /></div>;
       default:
         return null;
     }
   };
 
+  console.log('App Render Check: Rendering main layout. View =', view, 'Active Tab =', activeTab);
   return (
     <div className="min-h-screen bg-light font-sans flex flex-col">
        <a href="#main-content" className="absolute w-px h-px p-0 -m-px overflow-hidden [clip:rect(0,0,0,0)] whitespace-nowrap border-0 focus:w-auto focus:h-auto focus:p-2 focus:m-0 focus:overflow-visible focus:[clip:auto] focus:z-[100] focus:top-2 focus:right-2 bg-accent text-light rounded-lg">דלג לתוכן המרכזי</a>

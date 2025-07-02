@@ -85,7 +85,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ tasks }) => {
             tasks={tasks.filter(task => task.columnId === column.id)}
             onTaskClick={handleTaskClick}
             onOpenAddTaskModal={handleOpenAddTaskModal}
-            canAddTask={currentUser.role === 'Super Admin' || currentUser.role === 'Team Leader'}
+            canAddTask={currentUser.role === 'UserRole.ADMIN' || currentUser.role === 'Team Leader'}
             canAddProject={!!selectedProjectId}
             users={users}
           />

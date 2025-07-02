@@ -27,10 +27,10 @@ const TabBar: React.FC<TabBarProps> = ({ activeTab, setActiveTab, currentUser })
     let availableTabs: TabItem[];
 
     switch (currentUser.role) {
-        case 'Super Admin':
+        case 'UserRole.ADMIN':
             availableTabs = TABS;
             break;
-        case 'Team Leader':
+        case 'UserRole.TEAM_MANAGER':
             availableTabs = TABS.filter(tab => tab.name !== 'Portfolio');
             break;
         case 'Employee':

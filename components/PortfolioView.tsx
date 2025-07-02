@@ -64,7 +64,7 @@ const PortfolioView: React.FC = () => {
             const tasks = allTasks.filter(t => t.projectId === project.id);
             const expenses = allFinancials.filter(f => f.projectId === project.id && f.type === 'Expense');
             const team = allTeams.find(t => t.id === project.teamId);
-            const teamLeader = allUsers.find(u => u.role === 'Team Leader' && u.teamId === project.teamId);
+            const teamLeader = allUsers.find(u => u.role === 'UserRole.TEAM_MANAGER' && u.teamId === project.teamId);
 
             // Status Calculation
             let progressStatus: ProgressStatus = statusMap['On Track'];
@@ -267,7 +267,7 @@ const PortfolioView: React.FC = () => {
                     isOpen={isCreateModalOpen}
                     onClose={() => { setIsCreateModalOpen(false); setEditingProject(null); }}
                     onSubmit={handleCreateOrUpdateProject}
-                    teamLeaders={allUsers.filter(u => u.role === 'Team Leader')}
+                    teamLeaders={allUsers.filter(u => u.role === 'UserRole.TEAM_MANAGER')}
                     projectToEdit={editingProject || undefined}
                 />
             )}

@@ -29,8 +29,8 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, onClose, onUpdateTask, onAd
   const { canEditDetails, canChangeStatus, canComment, assignableUsers } = useMemo(() => {
     const project = allProjects.find(p => p.id === task.projectId);
 
-    const isSuperAdmin = currentUser.role === 'Super Admin';
-    const isTeamLeaderOfProject = currentUser.role === 'Team Leader' && currentUser.teamId === project?.teamId;
+    const isSuperAdmin = currentUser.role === 'UserRole.ADMIN';
+    const isTeamLeaderOfProject = currentUser.role === 'UserRole.TEAM_MANAGER' && currentUser.teamId === project?.teamId;
     const isAssignee = task.assigneeIds.includes(currentUser.id);
     const isGuest = currentUser.role === 'Guest';
 

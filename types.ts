@@ -1,4 +1,4 @@
-export type UserRole = 'Super Admin' | 'Team Leader' | 'Employee' | 'Guest';
+export type UserRole = 'ADMIN' | 'TEAM_MANAGER' | 'Employee' | 'GUEST';
 
 export interface NotificationPreferences {
     onAssignment: boolean;

@@ -381,7 +381,7 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
   }
 
   const project = allProjects.find(p => p.id === selectedProjectId);
-  const canInvite = selectedProjectId && (currentUser.role === 'Super Admin' || currentUser.role === 'Team Leader');
+  const canInvite = selectedProjectId && (currentUser.role === 'UserRole.ADMIN' || currentUser.role === 'Team Leader');
   
   const GhostTask = () => ghostPosition && (
     <div className="absolute h-8 rounded-md flex items-center px-2 bg-accent opacity-50 z-30 pointer-events-none" style={{
@@ -447,7 +447,7 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
                     const assignees = allUsers.filter(u => task.assigneeIds.includes(u.id));
                     const position = taskPositions[task.id];
                     if(!position) return null;
-                    const isInteractive = currentUser.role === 'Super Admin' || (currentUser.role === 'Team Leader' && !task.isMilestone);
+                    const isInteractive = currentUser.role === 'UserRole.ADMIN' || (currentUser.role === 'Team Leader' && !task.isMilestone);
                     
                     return (
                         <div key={task.id} data-task-id={task.id} className="absolute flex items-center h-12" style={{ top: index * GANTT_ROW_HEIGHT, right: 0, width: '100%', zIndex: 15 }}>
