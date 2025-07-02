@@ -1,6 +1,7 @@
 import { RequestHandler } from 'express';
 import prisma from '../../db';
 import logger from '../../logger';
+import { UserRole } from '@prisma/client';
 
 export const getInitialData: RequestHandler = async (req, res, next) => {
     const user = req.user;
@@ -13,12 +14,12 @@ export const getInitialData: RequestHandler = async (req, res, next) => {
         const allTeamsQuery = prisma.team.findMany();
 
         let projectsQuery;
-        if (user.role === 'Super Admin') {
+        if (user.role === 'UserRole.ADMIN') {
             projectsQuery = prisma.project.findMany({
                 where: { status: 'active' },
                 orderBy: { startDate: 'desc' }
             });
-        } else if (user.role === 'Team Leader' && user.teamId) {
+        } else if (user.role === 'UserRole.TEAM_MANAGER && user.teamId) {
             projectsQuery = prisma.project.findMany({
                 where: { teamId: user.teamId, status: 'active' },
                 orderBy: { startDate: 'desc' }

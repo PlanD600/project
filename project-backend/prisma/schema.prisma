@@ -13,7 +13,7 @@ datasource db {
 enum UserRole {
   ADMIN
   TEAM_MANAGER
-  WORKER
+  Employee
   GUEST
 }
 

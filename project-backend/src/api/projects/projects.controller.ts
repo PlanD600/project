@@ -15,7 +15,7 @@ export const getProjects: RequestHandler = async (req, res, next) => {
             deletedAt: null // מסננים החוצה פרויקטים שנמחקו (מחיקה רכה), השדה קיים ב-schema
         };
 
-        if (user.role === 'Team Leader' && user.teamId) {
+        if (user.role === 'UserRole.TEAM_MANAGER) {
             where.teamId = user.teamId;
         } else if (user.role === 'Employee') {
             // תיקון: שימוש בקשר 'assignees' במקום בשדה 'assigneeIds'
@@ -35,7 +35,7 @@ export const getProjects: RequestHandler = async (req, res, next) => {
         } else if (user.role === 'Guest' && user.projectId) { // user.projectId מוכר כעת
             where.id = user.projectId;
         }
-        // Super Admin יכול לראות הכל, לכן לא מוסיפים לו סינון נוסף
+        // 2Super Admin יכול לראות הכל, לכן לא מוסיפים לו סינון נוסף
 
         const projects = await db.project.findMany({
             where,
