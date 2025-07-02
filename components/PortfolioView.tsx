@@ -64,7 +64,7 @@ const PortfolioView: React.FC = () => {
             const tasks = allTasks.filter(t => t.projectId === project.id);
             const expenses = allFinancials.filter(f => f.projectId === project.id && f.type === 'Expense');
             const team = allTeams.find(t => t.id === project.teamId);
-            const teamLeader = allUsers.find(u => u.role === 'UserRole.TEAM_MANAGER' && u.teamId === project.teamId);
+            const teamLeader = allUsers.find(u => u.role === 'TEAM_MANAGER' && u.teamId === project.teamId);
 
             // Status Calculation
             let progressStatus: ProgressStatus = statusMap['On Track'];
@@ -215,7 +215,7 @@ const PortfolioView: React.FC = () => {
                                 <th className="px-4 py-3">התקדמות</th>
                                 <th className="px-4 py-3">תאריך יעד</th>
                                 <th className="px-4 py-3">תקציב מול ביצוע</th>
-                                {currentUser?.role === 'Super Admin' && <th className="px-4 py-3">פעולות</th>}
+                                {currentUser?.role === 'ADMIN' && <th className="px-4 py-3">פעולות</th>}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-dark">
@@ -235,7 +235,7 @@ const PortfolioView: React.FC = () => {
                                         <span className="font-semibold text-primary">{formatCurrency(p.actualCost)}</span>
                                         <span className="text-dimmed"> / {formatCurrency(p.budget)}</span>
                                     </td>
-                                    {currentUser?.role === 'Super Admin' && (
+                                    {currentUser?.role === 'ADMIN' && (
                                         <td className="px-4 py-4">
                                             <div className="relative" ref={activeMenuProjectId === p.id ? menuRef : null}>
                                                 <button onClick={() => setActiveMenuProjectId(p.id)} className="p-1 rounded-full hover:bg-dark/50">
@@ -267,7 +267,7 @@ const PortfolioView: React.FC = () => {
                     isOpen={isCreateModalOpen}
                     onClose={() => { setIsCreateModalOpen(false); setEditingProject(null); }}
                     onSubmit={handleCreateOrUpdateProject}
-                    teamLeaders={allUsers.filter(u => u.role === 'UserRole.TEAM_MANAGER')}
+                    teamLeaders={allUsers.filter(u => u.role === 'TEAM_MANAGER')}
                     projectToEdit={editingProject || undefined}
                 />
             )}

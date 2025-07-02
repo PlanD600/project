@@ -112,7 +112,7 @@ const TeamLeaderView: React.FC = () => {
 
     const teamProjects = useMemo(() => projects.filter(p => p.teamId === currentUser.teamId), [projects, currentUser.teamId]);
     const project = projects.find(p => p.id === selectedProjectId);
-    const canInvite = selectedProjectId && (currentUser.role === 'UserRole.ADMIN' || currentUser.role === 'Team Leader');
+    const canInvite = selectedProjectId && (currentUser.role === 'ADMIN' || currentUser.role === 'Team Leader');
 
     const { totalBudget, totalTeamExpenses, remainingBudget } = useMemo(() => {
         if (!project) return { totalBudget: 0, totalTeamExpenses: 0, remainingBudget: 0 };
@@ -232,7 +232,7 @@ const FinancesView: React.FC = () => {
 
     if (!currentUser) return null;
 
-    if (currentUser.role === 'UserRole.TEAM_MANAGER' && !selectedProjectId) {
+    if (currentUser.role === 'TEAM_MANAGER' && !selectedProjectId) {
         return (
             <div className="flex items-center justify-center h-full bg-medium p-8 rounded-lg">
                 <p className="text-lg text-dimmed">אנא בחר פרויקט כדי להציג את הנתונים הפיננסיים שלו.</p>
@@ -240,7 +240,7 @@ const FinancesView: React.FC = () => {
         );
     }
     
-    if (currentUser.role === 'UserRole.ADMIN') {
+    if (currentUser.role === 'ADMIN') {
         return <SuperAdminView />;
     }
     

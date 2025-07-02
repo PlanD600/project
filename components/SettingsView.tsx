@@ -18,8 +18,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDashboard, initialS
     const { currentUser } = useAuthStore();
     
     const getDefaultSection = (role: User['role']): ActiveSection => {
-        if (role === 'UserRole.ADMIN') return 'general';
-        if (role === 'Team Leader') return 'my-team';
+        if (role === 'ADMIN') return 'general';
+        if (role === 'TEAM_MANAGER') return 'my-team';
         return 'my-profile';
     };
     
@@ -37,11 +37,11 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDashboard, initialS
             { id: 'my-profile', label: 'הפרופיל שלי', icon: 'user' },
         ];
 
-        if (currentUser.role === 'UserRole.TEAM_MANAGER') {
+        if (currentUser.role === 'TEAM_MANAGER') {
             items.push({ id: 'my-team', label: 'הצוות שלי', icon: 'team' });
         }
 
-        if (currentUser.role === 'UserRole.ADMIN') {
+        if (currentUser.role === 'ADMIN') {
             items.unshift(
                 { id: 'general', label: 'כללי', icon: 'settings' },
                 { id: 'user-management', label: 'ניהול משתמשים', icon: 'users' },
@@ -81,11 +81,11 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDashboard, initialS
                 </aside>
                 <main className="flex-1 min-w-0">
                     {activeSection === 'my-profile' && <MyProfileSection />}
-                    {currentUser.role === 'UserRole.ADMIN' && activeSection === 'general' && <GeneralSettingsSection />}
-                    {currentUser.role === 'UserRole.ADMIN' && activeSection === 'user-management' && <UserManagementSection />}
-                    {currentUser.role === 'UserRole.ADMIN' && activeSection === 'team-management' && <SuperAdminTeamManagementSection />}
-                    {currentUser.role === 'UserRole.ADMIN' && activeSection === 'billing' && <BillingSection />}
-                    {currentUser.role === 'UserRole.TEAM_MANAGER' && activeSection === 'my-team' && <TeamLeaderTeamSection />}
+                    {currentUser.role === 'ADMIN' && activeSection === 'general' && <GeneralSettingsSection />}
+                    {currentUser.role === 'ADMIN' && activeSection === 'user-management' && <UserManagementSection />}
+                    {currentUser.role === 'ADMIN' && activeSection === 'team-management' && <SuperAdminTeamManagementSection />}
+                    {currentUser.role === 'ADMIN' && activeSection === 'billing' && <BillingSection />}
+                    {currentUser.role === 'TEAM_MANAGER' && activeSection === 'my-team' && <TeamLeaderTeamSection />}
                 </main>
             </div>
         </div>
@@ -209,7 +209,7 @@ const MyProfileSection: React.FC = () => {
                 </div>
                  <button onClick={handleUpdatePassword} className="mt-4 px-4 py-2 bg-primary hover:bg-primary/90 text-light rounded-md text-sm">עדכן סיסמה</button>
             </div>
-            {currentUser?.role !== 'Guest' && user.notificationPreferences && (
+            {currentUser?.role !== 'GUEST' && user.notificationPreferences && (
              <div className="bg-light p-6 rounded-lg border border-dark">
                 <h4 className="text-lg font-semibold text-primary mb-4">העדפות התראות</h4>
                 <div className="space-y-2">
@@ -360,7 +360,7 @@ const SuperAdminTeamManagementSection: React.FC = () => {
                         </thead>
                          <tbody>
                             {teams.map(team => {
-                                const leader = users.find(l => l.teamId === team.id && l.role === 'UserRole.TEAM_MANAGER');
+                                const leader = users.find(l => l.teamId === team.id && l.role === 'TEAM_MANAGER');
                                 const members = users.filter(u => u.teamId === team.id);
                                 return (
                                     <tr key={team.id} className="border-b border-dark hover:bg-medium">
@@ -510,8 +510,8 @@ const UserModal: React.FC<{ isOpen: boolean; onClose: () => void; userToEdit: Us
                     <label className="text-sm text-dimmed block mb-1">תפקיד</label>
                     <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as UserRole})} className="w-full bg-light p-2 rounded-md text-primary border border-dark">
                         <option value="Employee">עובד</option>
-                        <option value="Team Leader">ראש צוות</option>
-                        <option value="Super Admin">מנהל מערכת</option>
+                        <option value="TEAM_MANAGER">ראש צוות</option>
+                        <option value="ADMIN">מנהל מערכת</option>
                     </select>
                 </div>
                  <div>
@@ -535,11 +535,11 @@ const UserModal: React.FC<{ isOpen: boolean; onClose: () => void; userToEdit: Us
 
 const TeamModal: React.FC<{ isOpen: boolean; onClose: () => void; teamToEdit: Team | null }> = ({ isOpen, onClose, teamToEdit }) => {
     const { users, handleCreateTeam, handleUpdateTeam } = useDataStore();
-    const leaderAndAdmins = useMemo(() => users.filter(u => u.role === 'UserRole.TEAM_MANAGER' || u.role === 'Super Admin'), [users]);
+    const leaderAndAdmins = useMemo(() => users.filter(u => u.role === 'TEAM_MANAGER' || u.role === 'ADMIN'), [users]);
     const employees = useMemo(() => users.filter(u => u.role === 'Employee'), [users]);
 
     const getInitialMembers = () => teamToEdit ? users.filter(u => u.teamId === teamToEdit.id && u.role === 'Employee').map(u => u.id) : [];
-    const getInitialLeader = () => teamToEdit ? users.find(u => u.teamId === teamToEdit.id && (u.role === 'UserRole.TEAM_MANAGER' || u.role === 'Super Admin'))?.id || null : null;
+    const getInitialLeader = () => teamToEdit ? users.find(u => u.teamId === teamToEdit.id && (u.role === 'TEAM_MANAGER' || u.role === 'ADMIN'))?.id || null : null;
 
     const [name, setName] = useState(teamToEdit?.name || '');
     const [leaderId, setLeaderId] = useState<string | null>(getInitialLeader());
