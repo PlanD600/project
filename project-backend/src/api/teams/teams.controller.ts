@@ -1,6 +1,8 @@
 import { RequestHandler } from 'express';
 import prisma from '../../db';
 import logger from '../../logger';
+import { UserRole } from '@prisma/client';
+
 
 // Create a new team and assign members
 export const createTeam: RequestHandler = async (req, res, next) => {
