@@ -18,7 +18,7 @@ const app = express();
 const port = process.env.PORT || 8080;
 
 app.use(cors({
-  origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+  origin: process.env.CLIENT_ORIGIN || 'https://projectf-3gqj.onrender.com',
   credentials: true,
 }));
 app.use(cookieParser());
