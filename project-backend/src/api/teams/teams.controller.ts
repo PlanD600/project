@@ -1,3 +1,4 @@
+// project-backend/src/api/teams/teams.controller.ts
 import { RequestHandler } from 'express';
 import prisma from '../../db';
 import logger from '../../logger';
@@ -7,11 +8,15 @@ import { UserRole } from '@prisma/client';
 // Create a new team and assign members
 export const createTeam: RequestHandler = async (req, res, next) => {
     const { teamName, team_leader_id, member_user_ids } = req.body;
+    const user = req.user;
+
     if (!teamName || !team_leader_id) {
+        logger.warn({ message: 'Team creation failed: Missing team name or leader ID.', context: { userId: user?.id, body: req.body } });
         return res.status(400).json({ message: 'Team name and leader ID are required.' });
     }
 
     try {
+        logger.info({ message: 'Attempting to create team.', teamName, leaderId: team_leader_id, adminUserId: user?.id });
         const allMemberIds = [...new Set([...(member_user_ids || []), team_leader_id])];
 
         // Create the team and connect all members in one go
@@ -30,14 +35,14 @@ export const createTeam: RequestHandler = async (req, res, next) => {
             select: { id: true, name: true, email: true, role: true, avatarUrl: true, teamId: true }
         });
 
-        logger.info({ message: 'Team created', teamId: newTeam.id, leaderId: team_leader_id, adminUserId: req.user?.id });
+        logger.info({ message: 'Team created successfully.', teamId: newTeam.id, leaderId: team_leader_id, adminUserId: user?.id });
         res.status(201).json({ 
             team: newTeam, 
             updatedUsers
         });
 
     } catch (error) {
-        logger.error({ message: 'Failed to create team', context: { body: req.body, adminUserId: req.user?.id }, error });
+        logger.error({ message: 'Failed to create team.', context: { body: req.body, adminUserId: user?.id }, error });
         next(error);
     }
 };
@@ -49,18 +54,20 @@ export const addMembersToTeam: RequestHandler = async (req, res, next) => {
     const requestingUser = req.user;
 
     if (!user_ids || !Array.isArray(user_ids) || user_ids.length === 0) {
+        logger.warn({ message: 'Add members to team failed: User IDs array is required.', context: { teamId, requestingUserId: requestingUser?.id, body: req.body } });
         return res.status(400).json({ message: 'User IDs array is required.' });
     }
 
     try {
+        logger.info({ message: 'Attempting to add members to team.', teamId, addedUserIds: user_ids, requestingUserId: requestingUser?.id });
         const team = await prisma.team.findUnique({ where: { id: teamId } });
         if (!team) {
+            logger.warn({ message: 'Add members to team failed: Team not found.', teamId, requestingUserId: requestingUser?.id });
             return res.status(404).json({ message: 'Team not found.' });
         }
         
-        // In Prisma schema, the leader is just a member, authorization might need adjustment
-        // This logic is simplified as we don't store a 'leaderId' on the team model itself
         if (requestingUser?.role === 'TEAM_MANAGER' && requestingUser.teamId !== teamId) {
+            logger.warn({ message: 'Unauthorized attempt by team manager to add members to another team.', teamId, requestingUserId: requestingUser?.id });
             return res.status(403).json({ message: 'Not authorized to add members to this team.' });
         }
         
@@ -79,10 +86,10 @@ export const addMembersToTeam: RequestHandler = async (req, res, next) => {
             select: { id: true, name: true, email: true, role: true, avatarUrl: true, teamId: true }
         });
         
-        logger.info({ message: 'Members added to team', teamId, addedUserIds: user_ids, requestingUserId: requestingUser?.id });
+        logger.info({ message: 'Members added to team successfully.', teamId, addedUserIds: user_ids, requestingUserId: requestingUser?.id, updatedUsersCount: updatedUsers.length });
         res.status(200).json(updatedUsers);
     } catch (error) {
-        logger.error({ message: 'Failed to add members to team', context: { teamId, body: req.body, requestingUserId: requestingUser?.id }, error });
+        logger.error({ message: 'Failed to add members to team.', context: { teamId, body: req.body, requestingUserId: requestingUser?.id }, error });
         next(error);
     }
 };
@@ -91,11 +98,12 @@ export const addMembersToTeam: RequestHandler = async (req, res, next) => {
 export const updateTeam: RequestHandler = async (req, res, next) => {
     const { teamId } = req.params;
     const { teamName, leaderId, memberIds } = req.body;
+    const user = req.user;
     
     try {
+        logger.info({ message: 'Attempting to update team.', teamId, teamName, leaderId, memberIdsCount: memberIds?.length, adminUserId: user?.id });
         const newMemberAndLeaderIds = [...new Set([...memberIds, leaderId])];
         
-        // Prisma's 'set' command disconnects all old members and connects all new members
         const updatedTeam = await prisma.team.update({
             where: { id: teamId },
             data: {
@@ -106,22 +114,23 @@ export const updateTeam: RequestHandler = async (req, res, next) => {
             },
         });
 
-        // The logic to fetch all affected users is complex with Prisma's set.
-        // We will just return the team and let the frontend refetch users if needed.
-        // Or fetch all users associated with the team.
         const updatedUsers = await prisma.user.findMany({
             where: { teamId },
             select: { id: true, name: true, email: true, role: true, avatarUrl: true, teamId: true }
         });
 
-        logger.info({ message: 'Team updated', teamId, adminUserId: req.user?.id });
+        logger.info({ message: 'Team updated successfully.', teamId, adminUserId: user?.id, updatedUsersCount: updatedUsers.length });
         res.json({ 
             team: updatedTeam, 
             updatedUsers
         });
 
     } catch (error) {
-        logger.error({ message: 'Failed to update team', context: { teamId, body: req.body, adminUserId: req.user?.id }, error });
+        if ((error as any).code === 'P2025') {
+            logger.warn({ message: 'Team update failed: Team or user not found.', teamId, adminUserId: user?.id });
+            return res.status(404).json({ message: 'Team or specified members not found.' });
+        }
+        logger.error({ message: 'Failed to update team.', context: { teamId, body: req.body, adminUserId: user?.id }, error });
         next(error);
     }
 };
@@ -129,8 +138,10 @@ export const updateTeam: RequestHandler = async (req, res, next) => {
 // Delete a team
 export const deleteTeam: RequestHandler = async (req, res, next) => {
     const { teamId } = req.params;
+    const user = req.user;
     
     try {
+        logger.info({ message: 'Attempting to delete team.', teamId, adminUserId: user?.id });
         // Use a transaction to ensure both operations succeed or fail together
         const [usersUpdate, teamDelete] = await prisma.$transaction([
             // Disconnect all users from the team
@@ -144,11 +155,21 @@ export const deleteTeam: RequestHandler = async (req, res, next) => {
             })
         ]);
         
-        logger.info({ message: 'Team deleted', teamId, adminUserId: req.user?.id });
+        // Fetch users who were part of this team and are now unassigned
+        const updatedUsers = await prisma.user.findMany({
+            where: { teamId: null, id: { in: (await prisma.user.findMany({ where: { teamId }, select: { id: true } })).map(u => u.id) } }, // This gets users who were previously in this team and now have teamId: null
+            select: { id: true, name: true, email: true, role: true, avatarUrl: true, teamId: true }
+        });
+
+        logger.info({ message: 'Team deleted successfully and members unassigned.', teamId, adminUserId: user?.id, unassignedUsersCount: updatedUsers.length });
         // Returning teamId to allow frontend to know which team was deleted
-        res.status(200).json({ teamId });
+        res.status(200).json({ teamId, updatedUsers }); // Return updatedUsers for frontend state management
     } catch (error) {
-        logger.error({ message: 'Failed to delete team', context: { teamId, adminUserId: req.user?.id }, error });
+        if ((error as any).code === 'P2025') {
+            logger.warn({ message: 'Team deletion failed: Team not found.', teamId, adminUserId: user?.id });
+            return res.status(404).json({ message: 'Team not found.' });
+        }
+        logger.error({ message: 'Failed to delete team.', context: { teamId, adminUserId: user?.id }, error });
         next(error);
     }
 };
@@ -159,7 +180,9 @@ export const removeUserFromTeam: RequestHandler = async (req, res, next) => {
     const requestingUser = req.user;
 
     try {
+        logger.info({ message: 'Attempting to remove user from team.', userId, teamId, requestingUserId: requestingUser?.id });
         if (requestingUser?.role === 'TEAM_MANAGER' && requestingUser.teamId !== teamId) {
+             logger.warn({ message: 'Unauthorized attempt by team manager to remove user from another team.', userId, teamId, requestingUserId: requestingUser?.id });
              return res.status(403).json({ message: 'Not authorized to remove members from this team.' });
         }
         
@@ -174,10 +197,14 @@ export const removeUserFromTeam: RequestHandler = async (req, res, next) => {
             select: { id: true, name: true, email: true, role: true, avatarUrl: true, teamId: true }
         });
         
-        logger.info({ message: 'User removed from team', removedUserId: userId, teamId, requestingUserId: requestingUser?.id });
+        logger.info({ message: 'User removed from team successfully.', removedUserId: userId, teamId, requestingUserId: requestingUser?.id });
         res.json(updatedUser);
     } catch (error) {
-        logger.error({ message: 'Failed to remove user from team', context: { teamId, userId, requestingUserId: requestingUser?.id }, error });
+        if ((error as any).code === 'P2025') {
+            logger.warn({ message: 'Remove user from team failed: User or team not found.', userId, teamId, requestingUserId: requestingUser?.id });
+            return res.status(404).json({ message: 'User not found in this team.' });
+        }
+        logger.error({ message: 'Failed to remove user from team.', context: { teamId, userId, requestingUserId: requestingUser?.id }, error });
         next(error);
     }
 };

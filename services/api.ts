@@ -1,3 +1,4 @@
+// services/api.ts
 import axios, { AxiosError } from 'axios';
 import { User, Task, Project, Team, FinancialTransaction, Comment } from '../types';
 import { logger } from './logger';
@@ -10,8 +11,36 @@ const apiClient = axios.create({
     },
 });
 
+// Request Interceptor: Log outgoing requests
+apiClient.interceptors.request.use(
+    (config) => {
+        logger.info(`Sending ${config.method?.toUpperCase()} request to ${config.url}`, {
+            method: config.method,
+            url: config.url,
+            data: config.data, // Include data for POST/PUT/PATCH requests
+        });
+        return config;
+    },
+    (error) => {
+        logger.error('Failed to send API request (interceptor)', {
+            message: error.message,
+            config: error.config,
+        });
+        return Promise.reject(error);
+    }
+);
+
+
 apiClient.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        logger.info(`Received successful response from ${response.config.method?.toUpperCase()} ${response.config.url}`, {
+            status: response.status,
+            dataPreview: response.data ? (JSON.stringify(response.data).substring(0, 100) + '...') : 'No data', // Log a preview of the data
+            endpoint: response.config.url,
+            method: response.config.method,
+        });
+        return response;
+    },
     (error: AxiosError) => {
         let errorMessage = 'An unexpected error occurred.';
         if (error.response?.data && typeof error.response.data === 'object' && 'message' in error.response.data) {
