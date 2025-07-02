@@ -17,10 +17,18 @@ import usersRoutes from './src/api/users/users.routes';
 const app = express();
 const port = process.env.PORT || 8080;
 
+// ================== התיקון כאן ==================
 app.use(cors({
-  origin: process.env.CLIENT_ORIGIN || 'https://projectf-3gqj.onrender.com',
-  credentials: true,
+    origin: [
+        'http://localhost:5173', // Your local dev environment
+        'https://mypland.com',      // Your custom domain
+        'https://www.mypland.com',  // Your custom domain with www
+        'https://projectf-3gqj.onrender.com' // The original Render domain
+    ],
+    credentials: true,
 }));
+// ===============================================
+
 app.use(cookieParser());
 
 app.use(json({ limit: '10mb' }));
