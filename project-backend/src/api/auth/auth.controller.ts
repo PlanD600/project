@@ -29,6 +29,7 @@ const sendTokenResponse = (user: { id: string, [key: string]: any }, statusCode:
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'none' as const,
+        domain: process.env.COOKIE_DOMAIN,
     };
 
     const { password, ...userWithoutPassword } = user;
