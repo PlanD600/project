@@ -1,16 +1,19 @@
-// project-backend/src/types/express/index.d.ts
+// project-backend/src/types/index.d.ts
 
-// Add 'export' to make this type available in other files
-export type UserRole = 'Super Admin' | 'Team Leader' | 'Employee' | 'Guest';
+import { UserRole } from '@prisma/client';
+
 
 declare global {
   namespace Express {
     export interface Request {
       user?: {
         id: string;
-        role: UserRole;
-        teamId?: string | null; // Allow null to match Prisma
+        role: UserRole; // <- שימוש ב-UserRole המיובא מ-Prisma
+        teamId?: string | null;
+        projectId?: string | null; // <- הוספת השדה החסר
       };
     }
   }
 }
+
+export {};
