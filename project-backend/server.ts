@@ -20,10 +20,9 @@ const port = process.env.PORT || 8080;
 // ================== התיקון כאן ==================
 app.use(cors({
     origin: [
-        'http://localhost:5173', // Your local dev environment
+           'http://localhost:5173', // Your local dev environment
         'https://mypland.com',      // Your custom domain
-        'https://www.mypland.com',  // Your custom domain with www
-        'https://projectf-3gqj.onrender.com' // The original Render domain
+        'https://www.mypland.com'   // Your custom domain with w
     ],
     credentials: true,
 }));
