@@ -65,12 +65,12 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ isOpen, onClose, 
           onClick={e => e.stopPropagation()}
           onSubmit={handleSubmit}
         >
-          <header className="p-4 border-b border-dark flex justify-between items-center">
+          <header className="p-4 border-b border-dark flex items-center gap-x-4">
+            <button type="button" onClick={onClose} aria-label="סגור חלון" className="text-dimmed hover:text-primary">
+              <Icon name="close" className="w-7 h-7" />
+            </button>
             <h2 id="registration-modal-title" className="text-2xl font-bold text-primary">יצירת סביבת עבודה חדשה</h2>
           </header>
-          <button type="button" onClick={onClose} aria-label="סגור חלון" className="text-dimmed hover:text-primary">
-            <Icon name="close" className="w-7 h-7" />
-          </button>
 
           <main className="p-6 flex-grow overflow-y-auto space-y-4">
             {error && <div className="bg-danger/20 text-danger text-sm p-3 rounded-md text-center">{error}</div>}
