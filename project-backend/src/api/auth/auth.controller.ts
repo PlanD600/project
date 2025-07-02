@@ -41,18 +41,18 @@ const sendTokenResponse = (user: { id: string, [key: string]: any }, statusCode:
 export const registerUser: RequestHandler = async (req, res, next) => {
     const { fullName, email, password, companyName } = req.body;
     if (!fullName || !email || !password || !companyName) {
-        return res.status(400).json({ message: 'Please provide all required fields' });
+        return res.status(400).json({ message: 'נא למלא את כל השדות. גורל הטופס הזה תלוי בך!' });
     }
 
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$/;
     if (!passwordRegex.test(password)) {
-        return res.status(400).json({ message: 'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number.' });
+        return res.status(400).json({ message: 'הסיסמה חייבת להיות באורך 8 תווים לפחות, ולשחק אותה מתוחכמת עם אות גדולה, אות קטנה ומספר. בלי זה היא לא נכנסת למסיבה.' });
     }
 
     try {
         const userExists = await prisma.user.findUnique({ where: { email } });
         if (userExists) {
-            return res.status(400).json({ message: 'User with this email already exists' });
+            return res.status(400).json({ message: 'רגע, רגע... נראה לי שכבר נפגשנו. המייל הזה כבר במערכת. רוצה להתחבר?' });
         }
 
         const salt = await bcrypt.genSalt(10);
@@ -69,7 +69,7 @@ export const registerUser: RequestHandler = async (req, res, next) => {
         });
 
         logger.info({
-            message: 'New user registered successfully',
+            message: 'זהו, את/ה בפנים! איזה כיף שהצטרפת אלינו. ברוכים הבאים!',
             userId: newUser.id,
             email: newUser.email,
             role: newUser.role,
@@ -78,7 +78,7 @@ export const registerUser: RequestHandler = async (req, res, next) => {
         sendTokenResponse(newUser, 201, res);
     } catch (error) {
         logger.error({
-            message: 'User registration failed',
+            message: 'אופס, משהו השתבש בתהליך ההרשמה. בוא/י ננסה שוב.',
             context: { endpoint: req.originalUrl, body: req.body },
             error,
         });
@@ -92,15 +92,15 @@ export const loginUser: RequestHandler = async (req, res, next) => {
         const user = await prisma.user.findUnique({ where: { email } });
 
         if (user && (await bcrypt.compare(password, user.password))) {
-            logger.info({ message: 'User logged in successfully', userId: user.id });
+            logger.info({ message: 'התחברת בהצלחה. הכל מוכן בשבילך.', userId: user.id });
             sendTokenResponse(user, 200, res, projectId);
         } else {
             logger.warn({ message: 'Failed login attempt', email });
-            res.status(401).json({ message: 'Invalid email or password' });
+            res.status(401).json({ message: 'הפרטים שהזנת אינם תואמים. אולי שכחת את הסיסמה?' });
         }
     } catch (error) {
         logger.error({
-            message: 'User login process failed',
+            message: 'ההתחברות לא הצליחה. ננסה פעם נוספת?',
             context: { endpoint: req.originalUrl, email },
             error,
         });
@@ -110,7 +110,7 @@ export const loginUser: RequestHandler = async (req, res, next) => {
 
 export const getMe: RequestHandler = async (req, res, next) => {
     if (!req.user) {
-        return res.status(401).json({ message: 'Not authorized' });
+        return res.status(401).json({ message: 'גישה למורשים בלבד' });
     }
     res.json(req.user);
 };
@@ -121,10 +121,10 @@ export const logoutUser: RequestHandler = async (req, res, next) => {
             expires: new Date(Date.now() + 10 * 1000),
             httpOnly: true,
         });
-        logger.info({ message: 'User logged out', userId: req.user?.id });
+        logger.info({ message: 'התנתקת בהצלחה. נשמח לראות אותך שוב בקרוב!', userId: req.user?.id });
         res.status(200).json({ success: true, data: {} });
     } catch (error) {
-        logger.error({ message: 'Logout failed', error });
+        logger.error({ message: 'משהו קטן השתבש וההתנתקות לא הצליחה. אפשר לנסות שוב. אם הבעיה ממשיכה, סגירת הדפדפן תנתק אותך מהמערכת באופן סופי.', error });
         next(error);
     }
 };
@@ -133,8 +133,8 @@ export const uploadAvatar: RequestHandler = async (req, res, next) => {
     const { image } = req.body;
     const user = req.user;
 
-    if (!user) return res.status(401).json({ message: "Not authorized" });
-    if (!image) return res.status(400).json({ message: "No image data provided" });
+    if (!user) return res.status(401).json({ message: "גישה למורשים בלבד" });
+    if (!image) return res.status(400).json({ message: "קצת ריק פה, בוא/י נוסיף תמונה כדי להשלים את הפרופיל." });
 
     try {
         const updatedUser = await prisma.user.update({
@@ -142,13 +142,13 @@ export const uploadAvatar: RequestHandler = async (req, res, next) => {
             data: { avatarUrl: image },
         });
 
-        logger.info({ message: 'User avatar updated', userId: user.id });
+        logger.info({ message: 'אהבנו את הלוק החדש! התמונה עודכנה.', userId: user.id });
 
         const { password, ...userWithoutPassword } = updatedUser;
         res.status(200).json(userWithoutPassword);
 
     } catch (error) {
-        logger.error({ message: 'Failed to upload avatar', context: { userId: user.id }, error });
+        logger.error({ message: 'העלאת התמונה לא הצליחה. כדאי לוודא שהקובץ הוא מסוג JPG או PNG ושהגודל שלו אינו עולה על 5 מגה-בייט.', context: { userId: user.id }, error });
         next(error);
     }
 };
