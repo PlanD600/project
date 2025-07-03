@@ -1,4 +1,3 @@
-// services/api.ts
 import axios, { AxiosError } from 'axios';
 import { User, Task, Project, Team, FinancialTransaction, Comment } from '../types';
 import { logger } from './logger';
