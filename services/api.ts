@@ -4,7 +4,7 @@ import { logger } from './logger';
 
 const apiClient = axios.create({
     //baseURL: (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:8080/api',
-    baseURL: 'https://api.mypland.com',
+    baseURL: 'https://api.mypland.com/api',
     withCredentials: true,
     headers: {
         'Content-Type': 'application/json',
@@ -130,7 +130,7 @@ export const api = {
     },
 
     // --- Initial Data Fetch ---
-    getInitialData: async (): Promise<{users: User[], teams: Team[], projects: Project[], tasks: Task[], financials: FinancialTransaction[], organizationSettings: {name: string, logoUrl: string}}> => {
+    getInitialData: async (): Promise<{ users: User[], teams: Team[], projects: Project[], tasks: Task[], financials: FinancialTransaction[], organizationSettings: { name: string, logoUrl: string } }> => {
         console.log(`[API] getInitialData called.`);
         try {
             const result = await requests.get('/bootstrap');
@@ -141,7 +141,7 @@ export const api = {
             throw error;
         }
     },
-    
+
     // --- Tasks ---
     getTask: async (taskId: string): Promise<Task> => {
         console.log(`[API] getTask called with:`, { taskId });
@@ -198,7 +198,7 @@ export const api = {
             throw error;
         }
     },
-    
+
     // This is the function we need for the datastore - it's a generic post
     post: async (url: string, data: any) => {
         console.log(`[API] post called with:`, { url, data });
@@ -266,9 +266,9 @@ export const api = {
         // This function calls another function in the same object.
         // The logging for createUser will be triggered automatically.
         try {
-            const result = await api.createUser({ 
-                name: email.split('@')[0], 
-                email: email, 
+            const result = await api.createUser({
+                name: email.split('@')[0],
+                email: email,
                 role: 'GUEST',
                 projectId: projectId,
             });
@@ -290,7 +290,7 @@ export const api = {
             throw error;
         }
     },
-    
+
     // --- Users ---
     updateUser: async (updatedUser: User): Promise<User> => {
         console.log(`[API] updateUser called with:`, { updatedUser });
@@ -325,7 +325,7 @@ export const api = {
             throw error;
         }
     },
-    
+
     // --- Teams ---
     createTeam: async (newTeamData: Omit<Team, 'id'>, leaderId: string, memberIds: string[]): Promise<{ team: Team, updatedUsers: User[] }> => {
         console.log(`[API] createTeam called with:`, { newTeamData, leaderId, memberIds });
