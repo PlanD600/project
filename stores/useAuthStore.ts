@@ -64,13 +64,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ currentUser: null, isAuthenticated: false });
     },
 
-    handleRegistration: async (registrationData) => {
+    handleRegistration: async (registrationData: { fullName: string; email: string; password: string; companyName: string; }) => {
         try {
-            const { user, organizationSettings } = await api.register(registrationData);
+            // אנחנו כבר לא צריכים את organizationSettings כאן, רק את המשתמש
+            const { user } = await api.register(registrationData);
+
             set({ currentUser: user, isAuthenticated: true });
-            useDataStore.getState().setOrganizationSettings(organizationSettings);
+
+            // --- התיקון ---
+            // הסרנו את הקריאה לפונקציה הישנה.
+            // bootstrapApp יטען את כל המידע הנדרש, כולל פרטי הארגון.
             await useDataStore.getState().bootstrapApp();
+
             return { success: true, error: null };
+
         } catch (err) {
             return { success: false, error: (err as Error).message || "שגיאת הרשמה לא צפויה." };
         }
