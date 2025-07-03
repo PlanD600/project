@@ -3,7 +3,8 @@ import { User, Task, Project, Team, FinancialTransaction, Comment } from '../typ
 import { logger } from './logger';
 
 const apiClient = axios.create({
-    baseURL: (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:8080/api',
+    //baseURL: (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:8080/api',
+    baseURL: 'https://api.mypland.com',
     withCredentials: true,
     headers: {
         'Content-Type': 'application/json',
