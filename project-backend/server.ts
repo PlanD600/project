@@ -13,6 +13,7 @@ import teamRoutes from './src/api/teams/teams.routes';
 import financeRoutes from './src/api/finances/finances.routes';
 import bootstrapRoutes from './src/api/bootstrap/bootstrap.routes';
 import usersRoutes from './src/api/users/users.routes';
+import organizationRoutes from './src/api/organizations/organizations.routes'; 
 
 const app = express();
 const port = process.env.PORT || 8080;
@@ -35,6 +36,7 @@ app.use(urlencoded({ limit: '10mb', extended: true }));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
+app.use('/api/organizations', organizationRoutes); // <-- הוסף את שורת ה-app.use הזו
 app.use('/api/tasks', taskRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/finances', financeRoutes);
