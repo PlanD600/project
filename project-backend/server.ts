@@ -23,7 +23,8 @@ app.use(cors({
     origin: [
            'http://localhost:5173', // Your local dev environment
         'https://mypland.com',      // Your custom domain
-        'https://www.mypland.com'   // Your custom domain with w
+        'https://www.mypland.com',   // Your custom domain with w
+        'https://projectf-3gqj.onrender.com'
     ],
     credentials: true,
 }));
