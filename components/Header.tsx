@@ -14,7 +14,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ onGoToSettings, projectsForCurrentUser }) => {
-  const { currentUser, handleLogout } = useAuthStore();
+  const { user: currentUser, handleLogout } = useAuthStore();
   const {
     notifications,
     handleSetNotificationsRead,
