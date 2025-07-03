@@ -33,7 +33,7 @@ const App: React.FC = () => {
   // This useMemo was moved up here to fix the hook order error
   const tasksForView = useMemo(() => {
     if (!currentUser || !selectedProjectId) {
-      if (currentUser?.role === 'Employee') return tasks.filter(task => task.assigneeIds.includes(currentUser.id));
+      if (currentUser?.role === 'EMPLOYEE') return tasks.filter(task => task.assigneeIds.includes(currentUser.id));
       return [];
     }
     const projectTasks = tasks.filter(task => task.projectId === selectedProjectId);

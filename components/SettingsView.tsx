@@ -400,7 +400,7 @@ const TeamLeaderTeamSection: React.FC = () => {
 
     if (!myTeam || !currentUser) return <SectionWrapper title="הצוות שלי">אינך משויך לצוות.</SectionWrapper>;
     
-    const unassignedUsers = users.filter(u => !u.teamId && u.role === 'Employee');
+    const unassignedUsers = users.filter(u => !u.teamId && u.role === 'EMPLOYEE');
 
     const handleUpdateTeamName = () => {
         handleUpdateTeam({ ...myTeam, name: teamName }, currentUser.id, myTeamMembers.map(m => m.id));
@@ -466,7 +466,7 @@ const UserModal: React.FC<{ isOpen: boolean; onClose: () => void; userToEdit: Us
     const [formData, setFormData] = useState({
         name: userToEdit?.name || '',
         email: userToEdit?.email || '',
-        role: userToEdit?.role || 'Employee',
+        role: userToEdit?.role || 'EMPLOYEE',
         teamId: userToEdit?.teamId || '',
     });
 
@@ -509,7 +509,7 @@ const UserModal: React.FC<{ isOpen: boolean; onClose: () => void; userToEdit: Us
                  <div>
                     <label className="text-sm text-dimmed block mb-1">תפקיד</label>
                     <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as UserRole})} className="w-full bg-light p-2 rounded-md text-primary border border-dark">
-                        <option value="Employee">עובד</option>
+                        <option value="EMPLOYEE">עובד</option>
                         <option value="TEAM_MANAGER">ראש צוות</option>
                         <option value="ADMIN">מנהל מערכת</option>
                     </select>
@@ -536,9 +536,9 @@ const UserModal: React.FC<{ isOpen: boolean; onClose: () => void; userToEdit: Us
 const TeamModal: React.FC<{ isOpen: boolean; onClose: () => void; teamToEdit: Team | null }> = ({ isOpen, onClose, teamToEdit }) => {
     const { users, handleCreateTeam, handleUpdateTeam } = useDataStore();
     const leaderAndAdmins = useMemo(() => users.filter(u => u.role === 'TEAM_MANAGER' || u.role === 'ADMIN'), [users]);
-    const employees = useMemo(() => users.filter(u => u.role === 'Employee'), [users]);
+    const employees = useMemo(() => users.filter(u => u.role === 'EMPLOYEE'), [users]);
 
-    const getInitialMembers = () => teamToEdit ? users.filter(u => u.teamId === teamToEdit.id && u.role === 'Employee').map(u => u.id) : [];
+    const getInitialMembers = () => teamToEdit ? users.filter(u => u.teamId === teamToEdit.id && u.role === 'EMPLOYEE').map(u => u.id) : [];
     const getInitialLeader = () => teamToEdit ? users.find(u => u.teamId === teamToEdit.id && (u.role === 'TEAM_MANAGER' || u.role === 'ADMIN'))?.id || null : null;
 
     const [name, setName] = useState(teamToEdit?.name || '');

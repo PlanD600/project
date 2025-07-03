@@ -33,7 +33,7 @@ const TabBar: React.FC<TabBarProps> = ({ activeTab, setActiveTab, currentUser })
         case 'TEAM_MANAGER':
             availableTabs = TABS.filter(tab => tab.name !== 'Portfolio');
             break;
-        case 'Employee':
+        case 'EMPLOYEE':
             availableTabs = TABS.filter(tab => tab.name !== 'Portfolio' && tab.name !== 'כספים');
             break;
         case 'GUEST':

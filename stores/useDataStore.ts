@@ -1,20 +1,21 @@
 import { create } from 'zustand';
-import { User, Task, FinancialTransaction, Notification, Comment, Project, Team, NotificationPreferences } from '../types';
+import { produce } from 'immer';
+import { User, Task, FinancialTransaction, Notification, Comment, Project, Team, NotificationPreferences, UserRole } from '../types';
 import { api } from '../services/api';
 import { useAuthStore } from './useAuthStore';
 import { useUIStore } from './useUIStore';
 
 interface DataState {
+    // איחדתי את organization ו-organizationSettings לאובייקט אחד וברור
+    organization: { name: string; logoUrl?: string } | null;
     users: User[];
     teams: Team[];
     projects: Project[];
     tasks: Task[];
     financials: FinancialTransaction[];
-    organizationSettings: { name: string; logoUrl: string };
     notifications: Notification[];
     selectedProjectId: string | null;
 
-    setOrganizationSettings: (settings: { name: string, logoUrl: string }) => void;
     setSelectedProjectId: (id: string | null) => void;
     bootstrapApp: () => Promise<void>;
     resetDataState: () => void;
@@ -44,12 +45,13 @@ interface DataState {
 }
 
 const initialState = {
+    // מעדכנים את ה-state ההתחלתי שיתאים למבנה החדש
+    organization: null,
     users: [],
     teams: [],
     projects: [],
     tasks: [],
     financials: [],
-    organizationSettings: { name: '', logoUrl: '' },
     notifications: [],
     selectedProjectId: null,
 };
@@ -67,10 +69,10 @@ export const calculateProjectsForCurrentUser = (currentUser: User | null, projec
     return activeProjects.filter(p => userTaskProjectIds.has(p.id));
 };
 
+
 export const useDataStore = create<DataState>()((set, get) => ({
     ...initialState,
 
-    setOrganizationSettings: (settings) => set({ organizationSettings: settings }),
     setSelectedProjectId: (id) => set({ selectedProjectId: id }),
 
     updateSingleUserInList: (user) => {
@@ -81,15 +83,17 @@ export const useDataStore = create<DataState>()((set, get) => ({
 
     bootstrapApp: async () => {
         try {
+            // Using your original and correct API call
             const data = await api.getInitialData();
-            set({
-                users: data.users,
-                teams: data.teams,
-                projects: data.projects,
-                tasks: data.tasks,
-                financials: data.financials,
-                organizationSettings: data.organizationSettings,
-            });
+            set(produce((state: DataState) => {
+                state.users = data.users;
+                state.teams = data.teams;
+                state.projects = data.projects;
+                state.tasks = data.tasks;
+                state.financials = data.financials;
+                // Correctly setting the unified 'organization' state
+                state.organization = data.organizationSettings;
+            }));
         } catch (error) {
             console.error("Bootstrap failed:", error);
             useAuthStore.getState().handleLogout();

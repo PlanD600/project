@@ -40,7 +40,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, onClose, onUpdateTask, onAd
 
     let assignableUsersList: User[] = [];
     if (isSuperAdmin) {
-      assignableUsersList = users.filter(u => u.role === 'Employee' || u.role === 'TEAM_MANAGER');
+      assignableUsersList = users.filter(u => u.role === 'EMPLOYEE' || u.role === 'TEAM_MANAGER');
     } else if (isTeamLeaderOfProject) {
       assignableUsersList = users.filter(u => u.teamId === currentUser.teamId);
     }

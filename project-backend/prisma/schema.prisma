@@ -10,21 +10,47 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Column {
+  id        String @id @default(cuid())
+  name      String
+  order     Int    // To define the order of columns in the UI
+}
+
+model Organization {
+  id      String   @id @default(cuid())
+  name    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users      User[]
+  teams      Team[]
+  projects   Project[]
+  tasks      Task[]
+  financials FinancialTransaction[]
+  comments   Comment[]
+}
+
+
 enum UserRole {
   ADMIN
   TEAM_MANAGER
-  Employee
+  EMPLOYEE
   GUEST
 }
+
 model User {
   id        String    @id @default(cuid())
   email     String    @unique
   name      String
   password  String
   avatarUrl String?
-  role      String    @default("Employee")
+  role      UserRole      @default(EMPLOYEE)
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   teamId    String?
-  team      Team?     @relation(fields: [teamId], references: [id])
+  team     Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
   projects  Project[] @relation("Owner")
   tasks     Task[]    // This defines the many-to-many relation
   comments  Comment[]
@@ -33,45 +59,57 @@ model User {
 model Team {
   id      String   @id @default(cuid())
   name    String
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   members User[]
-  Project Project?
+  projects Project[]
 }
 
 model Project {
-  id           String    @id @default(cuid())
-  name         String
-  description  String?
-  ownerId      String
-  owner        User      @relation("Owner", fields: [ownerId], references: [id])
-  teamId       String?   @unique
-  team         Team?     @relation(fields: [teamId], references: [id])
-  startDate    DateTime
-  endDate      DateTime
-  budget       Float
-  status       String    @default("active")
-  tasks        Task[]
-  financials   FinancialTransaction[]
-  deletedAt    DateTime?
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  budget      Float
+  status      String    @default("active")
+  deletedAt   DateTime?
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  ownerId String
+  owner   User   @relation("Owner", fields: [ownerId], references: [id])
+
+  teamId  String?
+  team    Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull) // If a team is deleted, the project is not deleted
+
+  tasks      Task[]
+  financials FinancialTransaction[]
 }
 
 model Task {
   id                String    @id @default(cuid())
   title             String
   description       String?
-  projectId         String
-  project           Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   columnId          String
-  assignees         User[]    // This defines the many-to-many relation
   startDate         DateTime
   endDate           DateTime
   baselineStartDate DateTime?
   baselineEndDate   DateTime?
   dependencies      String[]
-  comments          Comment[]
-  // הוספת השדות plannedCost ו-actualCost
-  plannedCost       Float     @default(0) // הוסף שדה זה
-  actualCost        Float     @default(0)  // הוסף שדה זה
-  // הסרת השדה assigneeIds String[] מכאן (אם הוא היה קיים)
+  plannedCost       Float     @default(0)
+  actualCost        Float     @default(0)
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignees User[]
+  comments  Comment[]
 }
 
 model Comment {
@@ -85,6 +123,8 @@ model Comment {
   parentId  String?
   parent    Comment?  @relation("Replies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   replies   Comment[] @relation("Replies")
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
 
 model FinancialTransaction {
@@ -96,4 +136,6 @@ model FinancialTransaction {
   amount      Float
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }

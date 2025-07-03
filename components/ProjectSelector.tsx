@@ -10,8 +10,8 @@ interface ProjectSelectorProps {
 
 const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, selectedProjectId, onSelectProject, currentUser }) => {
     
-    if (currentUser.role === 'Employee') {
-        return null; // Employees do not get a project selector
+    if (currentUser.role === 'EMPLOYEE') {
+        return null; // EMPLOYEE do not get a project selector
     }
 
     const canSelect = projects.length > 0;

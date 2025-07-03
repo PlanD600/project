@@ -25,7 +25,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSubmit, 
 
   const assignableUsers = useMemo(() => {
       if (currentUser.role === 'ADMIN') {
-          return users.filter(u => u.role === 'Employee' || u.role === 'TEAM_MANAGER');
+          return users.filter(u => u.role === 'EMPLOYEE' || u.role === 'TEAM_MANAGER');
       }
       if (currentUser.role === 'TEAM_MANAGER') {
           return users.filter(u => u.teamId === currentUser.teamId);
