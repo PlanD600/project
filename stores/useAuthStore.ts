@@ -23,7 +23,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     isAppLoading: true,
     setCurrentUser: (user) => set({ currentUser: user }),
     setIsAuthenticated: (auth) => set({ isAuthenticated: auth }),
-    
+
     checkAuthStatus: async () => {
         try {
             const user = await api.getMe();
@@ -37,13 +37,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             set({ isAppLoading: false });
         }
     },
-    
+
     handleLogin: async (email, password) => {
         set({ isAppLoading: true });
         try {
             const user = await api.login(email, password);
             if (user) {
+                console.log("שלב 1: האובייקט שהגיע מה-API", user);
                 set({ currentUser: user, isAuthenticated: true });
+                console.log("שלב 2: המצב ב-store אחרי העדכון", get().currentUser);
                 await useDataStore.getState().bootstrapApp();
                 set({ isAppLoading: false });
                 return null;
@@ -69,8 +71,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             useDataStore.getState().setOrganizationSettings(organizationSettings);
             await useDataStore.getState().bootstrapApp();
             return { success: true, error: null };
-        } catch(err) {
-            return { success: false, error: (err as Error).message || "שגיאת הרשמה לא צפויה."};
+        } catch (err) {
+            return { success: false, error: (err as Error).message || "שגיאת הרשמה לא צפויה." };
         }
     },
 
