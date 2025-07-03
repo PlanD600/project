@@ -3,12 +3,33 @@ import jwt from 'jsonwebtoken';
 import asyncHandler from 'express-async-handler';
 import prisma from '../db';
 import logger from '../logger';
+import { UserRole } from '@prisma/client'; // ודא ששורה זו קיימת או הוסף אותה בראש הקובץ
+
 
 // 1. Define the "contract" for our token's payload
 interface JwtPayload {
   id: string;
   organizationId: string;
 }
+
+export const authorize = (...roles: UserRole[]) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      // This case should ideally be caught by 'protect' middleware first
+      res.status(401);
+      throw new Error('Not authorized');
+    }
+
+    if (!roles.includes(req.user.role)) {
+      res.status(403); // 403 Forbidden - user is authenticated but not authorized
+      logger.warn({ message: 'Forbidden: User role not authorized for this route.', userId: req.user.id, userRole: req.user.role, requiredRoles: roles });
+      throw new Error(`User role ${req.user.role} is not authorized to access this route`);
+    }
+    
+    // If user role is in the allowed roles, proceed to the next middleware/controller
+    next();
+  };
+};
 
 export const protect = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
   let token;
