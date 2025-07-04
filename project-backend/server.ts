@@ -27,6 +27,9 @@ const frontendURL = process.env.FRONTEND_URL;
 const allowedOrigins = [
   'http://localhost:5173', // For local development
   'http://localhost:3000', // For local development
+  'https://mypland.com',
+  'https://projectf-3gqj.onrender.com'
+
 ];
 
 if (frontendURL) {
