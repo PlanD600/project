@@ -72,7 +72,7 @@ app.use('/api/bootstrap', protect, bootstrapRoutes);
 if (process.env.NODE_ENV === 'production') {
   // Resolve the path to the parent directory and then to the 'dist' folder of the frontend.
   // This assumes the backend is in 'project-backend' and the frontend build is in 'dist' at the root.
-  const frontendDistPath = path.join(__dirname, '..', 'dist');
+  const frontendDistPath = path.join(__dirname, '..', '..', 'dist');
   
   const fs = require('fs');
   if (fs.existsSync(frontendDistPath)) {
