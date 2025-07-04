@@ -1,4 +1,3 @@
-// project-backend/src/api/auth/auth.controller.ts
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 import prisma from '../../db';
 import bcrypt from 'bcrypt';
@@ -6,120 +5,120 @@ import jwt from 'jsonwebtoken';
 import logger from '../../logger';
 import { UserRole } from '@prisma/client';
 
+// A type helper for the user object, ensuring it has an organizationId
 type UserWithOrg = {
     id: string;
     organizationId: string;
+    password?: string | null; // Password can be optional in the object
     [key: string]: any;
 };
 
+// --- START: REVISED TOKEN AND COOKIE LOGIC ---
 
-// Helper to generate a JWT for a user
-const generateToken = (id: string, organizationId: string) => {
+/**
+ * Generates a JWT and sets it as a robust, secure HTTP-only cookie.
+ * This function replaces the old generateToken and sendTokenResponse helpers.
+ * @param res The Express response object.
+ * @param user The user object, must contain id and organizationId.
+ */
+const generateAndSetTokenCookie = (res: Response, user: UserWithOrg) => {
     const secret = process.env.JWT_SECRET;
     if (!secret) {
-        // This will stop the server if the secret is not configured, which is a good practice.
-        throw new Error('JWT_SECRET is not defined in the .env file');
+        logger.error('FATAL: JWT_SECRET is not defined in environment variables.');
+        throw new Error('Server configuration error: JWT secret is missing.');
+    }
+    if (secret.length < 32) {
+        logger.warn('SECURITY WARNING: JWT_SECRET is less than 32 characters long. Please use a longer, more secure secret for production.');
     }
 
-    // The payload now contains both id and organizationId
     const payload = {
-        id,
-        organizationId,
+        id: user.id,
+        organizationId: user.organizationId,
     };
 
-    const options: jwt.SignOptions = {
+    const token = jwt.sign(payload, secret, {
         expiresIn: '30d',
-    };
+    });
 
-    return jwt.sign(payload, secret, options);
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    // Dynamically determine the cookie domain from the FRONTEND_URL for production
+    let cookieDomain: string | undefined = undefined;
+    if (isProduction && process.env.FRONTEND_URL) {
+        try {
+            const frontendUrl = new URL(process.env.FRONTEND_URL);
+            // Use the eTLD+1 domain (e.g., 'mypland.com')
+            // This allows the cookie to be shared between api.mypland.com and mypland.com
+            cookieDomain = frontendUrl.hostname.split('.').slice(-2).join('.');
+            logger.info(`Setting cookie domain for production: .${cookieDomain}`);
+        } catch (error) {
+            logger.error('Could not parse FRONTEND_URL to set cookie domain.', { url: process.env.FRONTEND_URL, error });
+        }
+    }
+
+    res.cookie('token', token, {
+        httpOnly: true, // Crucial for security, prevents JS access
+        secure: isProduction, // Send only over HTTPS in production
+        sameSite: isProduction ? 'lax' : 'strict', // 'lax' is a robust choice for production auth
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        ...(cookieDomain && { domain: cookieDomain }), // Set the domain only if it was determined
+    });
 };
 
-// Helper to send token response
-export const sendTokenResponse = (user: UserWithOrg, statusCode: number, res: Response) => {
-    // Call generateToken with both id and organizationId
-    const token = generateToken(user.id, user.organizationId);
+// --- END: REVISED TOKEN AND COOKIE LOGIC ---
 
-    const options = {
-        expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'none' as const,
-        domain: process.env.COOKIE_DOMAIN,
-    };
-
-    const { password, ...userWithoutPassword } = user;
-
-    res.status(statusCode)
-        .cookie('token', token, options)
-        .json(userWithoutPassword);
-};
 
 export const registerUser: RequestHandler = async (req, res, next) => {
-    // Your existing validation logic - stays the same!
     const { fullName, email, password, companyName } = req.body;
     if (!fullName || !email || !password || !companyName) {
         logger.warn({ message: 'Registration attempt failed: Missing required fields.', context: { email, companyName } });
-        return res.status(400).json({ message: 'נא למלא את כל השדות. גורל הטופס הזה תלוי בך!' });
+        return res.status(400).json({ message: 'נא למלא את כל השדות.' });
     }
 
+    // Your password validation logic remains the same
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$/;
     if (!passwordRegex.test(password)) {
         logger.warn({ message: 'Registration attempt failed: Weak password.', context: { email } });
-        return res.status(400).json({ message: 'הסיסמה חייבת להיות באורך 8 תווים לפחות, ולשחק אותה מתוחכמת עם אות גדולה, אות קטנה ומספר. בלי זה היא לא נכנסת למסיבה.' });
+        return res.status(400).json({ message: 'הסיסמה חייבת להיות באורך 8 תווים לפחות, ולכלול אות גדולה, אות קטנה ומספר.' });
     }
 
     try {
         const userExists = await prisma.user.findUnique({ where: { email } });
         if (userExists) {
             logger.warn({ message: 'Registration attempt failed: User already exists.', context: { email } });
-            return res.status(400).json({ message: 'רגע, רגע... נראה לי שכבר נפגשנו. המייל הזה כבר במערכת. רוצה להתחבר?' });
+            return res.status(400).json({ message: 'המייל הזה כבר במערכת. רוצה להתחבר?' });
         }
 
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        // --- START: NEW LOGIC ---
-        // This is where we replace the old user creation with a transaction
-        const result = await prisma.$transaction(async (tx) => {
-            // 1. Create the organization using the companyName
-            const newOrganization = await tx.organization.create({
-                data: {
-                    name: companyName,
-                },
-            });
-
-            // 2. Create the user using fullName and link to the new organization
+        // Your transaction logic is great, it stays the same.
+        const { newUser } = await prisma.$transaction(async (tx) => {
+            const newOrganization = await tx.organization.create({ data: { name: companyName } });
             const newUser = await tx.user.create({
                 data: {
                     name: fullName,
                     email,
                     password: hashedPassword,
-                    role: UserRole.ADMIN, // The first user is the admin of the organization
-                    organizationId: newOrganization.id, // This is the crucial link!
-                    avatarUrl: '', // Kept your avatarUrl field
+                    role: UserRole.ADMIN,
+                    organizationId: newOrganization.id,
+                    avatarUrl: '',
                 },
             });
-
             return { newUser, newOrganization };
         });
-        // --- END: NEW LOGIC ---
 
-        logger.info({
-            message: 'User and Organization registered successfully.',
-            userId: result.newUser.id,
-            organizationId: result.newOrganization.id,
-            email: result.newUser.email,
-        });
+        logger.info({ message: 'User and Organization registered successfully.', userId: newUser.id, email: newUser.email });
 
-        // We will need to update sendTokenResponse next
-        sendTokenResponse(result.newUser, 201, res);
+        // Generate and set the cookie using the new robust function
+        generateAndSetTokenCookie(res, newUser);
+
+        // Send the response
+        const { password: _, ...userWithoutPassword } = newUser;
+        res.status(201).json(userWithoutPassword);
 
     } catch (error) {
-        logger.error({
-            message: 'Failed to register user.',
-            context: { endpoint: req.originalUrl, body: req.body },
-            error,
-        });
+        logger.error({ message: 'Failed to register user.', error });
         next(error);
     }
 };
@@ -129,56 +128,65 @@ export const loginUser: RequestHandler = async (req, res, next) => {
     try {
         const user = await prisma.user.findUnique({ where: { email } });
 
-        // We check for user, for password, AND that the user has an organizationId
-        if (user && (await bcrypt.compare(password, user.password))) {
-
-            // This is the new, important check
+        if (user && user.password && (await bcrypt.compare(password, user.password))) {
             if (!user.organizationId) {
                 logger.error({ message: 'Login failed: User exists but has no organization ID.', userId: user.id });
                 return res.status(500).json({ message: 'שגיאה במבנה הנתונים, נא ליצור קשר עם התמיכה.' });
             }
 
             logger.info({ message: 'הצלחת להתחבר', userId: user.id });
-            sendTokenResponse(user, 200, res); // Now TypeScript is happy
+            
+            // Generate and set the cookie using the new robust function
+            generateAndSetTokenCookie(res, user);
+
+            // Send the response
+            const { password: _, ...userWithoutPassword } = user;
+            res.status(200).json(userWithoutPassword);
 
         } else {
             logger.warn({ message: 'Failed login attempt: Invalid credentials.', email });
-            res.status(401).json({ message: 'הפרטים שהזנת אינם תואמים. אולי שכחת את הסיסמה?' });
+            res.status(401).json({ message: 'הפרטים שהזנת אינם תואמים.' });
         }
     } catch (error) {
-        logger.error({
-            message: 'Login failed.',
-            context: { endpoint: req.originalUrl, email },
-            error,
-        });
+        logger.error({ message: 'Login failed.', error });
         next(error);
     }
 };
 
 export const getMe: RequestHandler = async (req, res, next) => {
+    // This function is fine as it is, it relies on the 'protect' middleware.
     if (!req.user) {
         logger.warn({ message: 'Unauthorized attempt to get current user data: No user in request.' });
         return res.status(401).json({ message: 'גישה למורשים בלבד' });
     }
-    try {
-        // Since req.user is already populated by the protect middleware,
-        // we just need to confirm it's valid and log the access.
-        logger.info({ message: 'Current user data accessed successfully.', userId: req.user.id });
-        res.json(req.user);
-    } catch (error) {
-        logger.error({ message: 'Failed to retrieve current user data.', context: { userId: req.user.id }, error });
-        next(error);
-    }
+    logger.info({ message: 'Current user data accessed successfully.', userId: req.user.id });
+    res.json(req.user);
 };
 
 export const logoutUser: RequestHandler = async (req, res, next) => {
     try {
-        res.cookie('token', 'none', {
-            expires: new Date(Date.now() + 10 * 1000),
+        // To properly clear a cookie, you should set its value to empty and expire it in the past.
+        // We also need to provide the same domain and path as when we set it.
+        const isProduction = process.env.NODE_ENV === 'production';
+        let cookieDomain: string | undefined = undefined;
+        if (isProduction && process.env.FRONTEND_URL) {
+             try {
+                const frontendUrl = new URL(process.env.FRONTEND_URL);
+                cookieDomain = frontendUrl.hostname.split('.').slice(-2).join('.');
+            } catch {}
+        }
+
+        res.cookie('token', '', {
             httpOnly: true,
+            secure: isProduction,
+            sameSite: isProduction ? 'lax' : 'strict',
+            expires: new Date(0), // Expire immediately
+            ...(cookieDomain && { domain: cookieDomain }),
         });
+
         logger.info({ message: 'User logged out successfully.', userId: req.user?.id });
-        res.status(200).json({ success: true, data: {} });
+        res.status(200).json({ success: true, message: 'Logged out' });
+
     } catch (error) {
         logger.error({ message: 'Logout failed.', error });
         next(error);
@@ -186,16 +194,15 @@ export const logoutUser: RequestHandler = async (req, res, next) => {
 };
 
 export const uploadAvatar: RequestHandler = async (req, res, next) => {
+    // This function is also fine as it is.
     const { image } = req.body;
     const user = req.user;
 
     if (!user) {
-        logger.warn({ message: 'Unauthorized attempt to upload avatar: No user in request.' });
         return res.status(401).json({ message: "גישה למורשים בלבד" });
     }
     if (!image) {
-        logger.warn({ message: 'Avatar upload failed: No image provided.', userId: user.id });
-        return res.status(400).json({ message: "קצת ריק פה, בוא/י נוסיף תמונה כדי להשלים את הפרופיל." });
+        return res.status(400).json({ message: "נא לספק תמונה." });
     }
 
     try {
@@ -205,7 +212,6 @@ export const uploadAvatar: RequestHandler = async (req, res, next) => {
         });
 
         logger.info({ message: 'Avatar updated successfully.', userId: user.id });
-
         const { password, ...userWithoutPassword } = updatedUser;
         res.status(200).json(userWithoutPassword);
 

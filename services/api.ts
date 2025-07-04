@@ -2,22 +2,43 @@ import axios, { AxiosError } from 'axios';
 import { User, Task, Project, Team, FinancialTransaction, Comment } from '../types';
 import { logger } from './logger';
 
+// --- START OF CHANGES ---
+
+// The base URL for the API is now loaded from environment variables.
+// This is the most important change for making your app work on Render.
+const baseURL = import.meta.env.VITE_API_URL;
+
+// If the environment variable is not set, we log a critical error.
+if (!baseURL) {
+  console.error("CRITICAL ERROR: The 'VITE_API_URL' environment variable is not defined.");
+  console.error("Please set it in your .env file for local development, or in your hosting provider's settings (e.g., Render).");
+  logger.error("CRITICAL: VITE_API_URL is not defined!");
+}
+
+// Log the URL being used for easier debugging.
+logger.info(`API is configured to use baseURL: ${baseURL}`);
+
+// --- END OF CHANGES ---
+
+
 const apiClient = axios.create({
-    //baseURL: (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:8080/api',
-    baseURL: 'https://api.mypland.com/api',
+    // We use the dynamic baseURL from the environment variable.
+    baseURL: baseURL,
+    // This is crucial for sending cookies with requests for authentication.
     withCredentials: true,
     headers: {
         'Content-Type': 'application/json',
     },
 });
 
-// Request Interceptor: Log outgoing requests
+// Request Interceptor: Log outgoing requests (from your original code)
 apiClient.interceptors.request.use(
     (config) => {
         logger.info(`Sending ${config.method?.toUpperCase()} request to ${config.url}`, {
             method: config.method,
             url: config.url,
-            data: config.data, // Include data for POST/PUT/PATCH requests
+            // Log data only if it exists
+            ...(config.data && { data: config.data }),
         });
         return config;
     },
@@ -30,12 +51,13 @@ apiClient.interceptors.request.use(
     }
 );
 
-
+// Response Interceptor: Log responses and handle errors (from your original code)
 apiClient.interceptors.response.use(
     (response) => {
         logger.info(`Received successful response from ${response.config.method?.toUpperCase()} ${response.config.url}`, {
             status: response.status,
-            dataPreview: response.data ? (JSON.stringify(response.data).substring(0, 100) + '...') : 'No data', // Log a preview of the data
+            // Log a preview of the data to avoid overly long logs
+            dataPreview: response.data ? (JSON.stringify(response.data).substring(0, 100) + '...') : 'No data',
             endpoint: response.config.url,
             method: response.config.method,
         });
@@ -57,11 +79,12 @@ apiClient.interceptors.response.use(
             response: error.response?.data
         });
 
+        // This makes sure the error that is thrown contains the specific message from the server
         return Promise.reject(new Error(errorMessage));
     }
 );
 
-// This is a new helper object to wrap the axios methods
+// Helper object to wrap the axios methods and extract data
 const requests = {
     get: (url: string) => apiClient.get(url).then(response => response.data),
     post: (url: string, body: {}) => apiClient.post(url, body).then(response => response.data),
@@ -70,316 +93,49 @@ const requests = {
     delete: (url: string) => apiClient.delete(url).then(response => response.data),
 };
 
-// We keep your structured api object, but make it use the helper above
+// Your structured api object, now using the dynamic apiClient
 export const api = {
     // --- Auth ---
-    login: async (email: string, password: string): Promise<User | null> => {
-        console.log(`[API] login called with:`, { email });
-        try {
-            const result = await requests.post('/auth/login', { email, password });
-            console.log(`[API] login successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] login failed. Error:`, error);
-            throw error;
-        }
-    },
-    register: async (registrationData: {}): Promise<{ user: User, organizationSettings: { name: string, logoUrl: string } }> => {
-        console.log(`[API] register called with:`, { registrationData });
-        try {
-            const result = await requests.post('/auth/register', registrationData);
-            console.log(`[API] register successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] register failed. Error:`, error);
-            throw error;
-        }
-    },
-    logout: async (): Promise<void> => {
-        console.log(`[API] logout called.`);
-        try {
-            const result = await requests.post('/auth/logout', {});
-            console.log(`[API] logout successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] logout failed. Error:`, error);
-            throw error;
-        }
-    },
-    getMe: async (): Promise<User> => {
-        console.log(`[API] getMe called.`);
-        try {
-            const result = await requests.get('/auth/me');
-            console.log(`[API] getMe successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] getMe failed. Error:`, error);
-            throw error;
-        }
-    },
-    uploadAvatar: async (imageDataUrl: string): Promise<User> => {
-        console.log(`[API] uploadAvatar called.`);
-        try {
-            const result = await requests.post('/auth/me/avatar', { image: imageDataUrl });
-            console.log(`[API] uploadAvatar successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] uploadAvatar failed. Error:`, error);
-            throw error;
-        }
-    },
+    login: (email: string, password: string): Promise<User | null> => requests.post('/auth/login', { email, password }),
+    register: (registrationData: {}): Promise<{ user: User, organizationSettings: { name: string, logoUrl: string } }> => requests.post('/auth/register', registrationData),
+    logout: (): Promise<void> => requests.post('/auth/logout', {}),
+    getMe: (): Promise<User> => requests.get('/auth/me'),
+    uploadAvatar: (imageDataUrl: string): Promise<User> => requests.post('/auth/me/avatar', { image: imageDataUrl }),
 
     // --- Initial Data Fetch ---
-    getInitialData: async (): Promise<{ users: User[], teams: Team[], projects: Project[], tasks: Task[], financials: FinancialTransaction[], organizationSettings: { name: string, logoUrl: string } }> => {
-        console.log(`[API] getInitialData called.`);
-        try {
-            const result = await requests.get('/bootstrap');
-            console.log(`[API] getInitialData successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] getInitialData failed. Error:`, error);
-            throw error;
-        }
-    },
+    getInitialData: (): Promise<{ users: User[], teams: Team[], projects: Project[], tasks: Task[], financials: FinancialTransaction[], organizationSettings: { name: string, logoUrl: string } }> => requests.get('/bootstrap'),
 
     // --- Tasks ---
-    getTask: async (taskId: string): Promise<Task> => {
-        console.log(`[API] getTask called with:`, { taskId });
-        try {
-            const result = await requests.get(`/tasks/${taskId}`);
-            console.log(`[API] getTask successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] getTask failed. Error:`, error);
-            throw error;
-        }
-    },
-    updateTask: async (updatedTask: Task): Promise<Task> => {
-        console.log(`[API] updateTask called with:`, { updatedTask });
-        try {
-            const result = await requests.put(`/tasks/${updatedTask.id}`, updatedTask);
-            console.log(`[API] updateTask successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] updateTask failed. Error:`, error);
-            throw error;
-        }
-    },
-    bulkUpdateTasks: async (updatedTasks: Task[]): Promise<Task[]> => {
-        console.log(`[API] bulkUpdateTasks called with:`, { updatedTasks });
-        try {
-            const result = await requests.patch('/tasks', { tasks: updatedTasks });
-            console.log(`[API] bulkUpdateTasks successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] bulkUpdateTasks failed. Error:`, error);
-            throw error;
-        }
-    },
-    addTask: async (taskData: Omit<Task, 'id'>): Promise<Task> => {
-        console.log(`[API] addTask called with:`, { taskData });
-        try {
-            const result = await requests.post(`/projects/${taskData.projectId}/tasks`, taskData);
-            console.log(`[API] addTask successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] addTask failed. Error:`, error);
-            throw error;
-        }
-    },
-    addComment: async (taskId: string, comment: Comment): Promise<Task> => {
-        console.log(`[API] addComment called with:`, { taskId, comment });
-        try {
-            const result = await requests.post(`/tasks/${taskId}/comments`, { content: comment.text, parentId: comment.parentId });
-            console.log(`[API] addComment successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] addComment failed. Error:`, error);
-            throw error;
-        }
-    },
+    getTask: (taskId: string): Promise<Task> => requests.get(`/tasks/${taskId}`),
+    updateTask: (updatedTask: Task): Promise<Task> => requests.put(`/tasks/${updatedTask.id}`, updatedTask),
+    bulkUpdateTasks: (updatedTasks: Task[]): Promise<Task[]> => requests.patch('/tasks', { tasks: updatedTasks }),
+    addTask: (taskData: Omit<Task, 'id'>): Promise<Task> => requests.post(`/projects/${taskData.projectId}/tasks`, taskData),
+    addComment: (taskId: string, comment: Comment): Promise<Task> => requests.post(`/tasks/${taskId}/comments`, { content: comment.text, parentId: comment.parentId }),
 
-    // This is the function we need for the datastore - it's a generic post
-    post: async (url: string, data: any) => {
-        console.log(`[API] post called with:`, { url, data });
-        try {
-            const result = await requests.post(url, data);
-            console.log(`[API] post successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] post failed. Error:`, error);
-            throw error;
-        }
-    },
+    // --- Generic Post ---
+    post: (url: string, data: any) => requests.post(url, data),
 
     // --- Financials ---
-    addFinancialTransaction: async (transactionData: Omit<FinancialTransaction, 'id'>): Promise<FinancialTransaction> => {
-        console.log(`[API] addFinancialTransaction called with:`, { transactionData });
-        try {
-            const result = await requests.post('/finances/entries', transactionData);
-            console.log(`[API] addFinancialTransaction successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] addFinancialTransaction failed. Error:`, error);
-            throw error;
-        }
-    },
+    addFinancialTransaction: (transactionData: Omit<FinancialTransaction, 'id'>): Promise<FinancialTransaction> => requests.post('/finances/entries', transactionData),
 
     // --- Projects ---
-    createProject: async (projectData: Omit<Project, 'id' | 'status'>): Promise<Project> => {
-        console.log(`[API] createProject called with:`, { projectData });
-        try {
-            const result = await requests.post('/projects', projectData);
-            console.log(`[API] createProject successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] createProject failed. Error:`, error);
-            throw error;
-        }
-    },
-    updateProject: async (projectId: string, projectData: Partial<Project>): Promise<Project> => {
-        console.log(`[API] updateProject called with:`, { projectId, projectData });
-        try {
-            const result = await requests.put(`/projects/${projectId}`, projectData);
-            console.log(`[API] updateProject successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] updateProject failed. Error:`, error);
-            throw error;
-        }
-    },
-    deleteProject: async (projectId: string): Promise<void> => {
-        console.log(`[API] deleteProject called with:`, { projectId });
-        try {
-            const result = await requests.delete(`/projects/${projectId}`);
-            console.log(`[API] deleteProject successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] deleteProject failed. Error:`, error);
-            throw error;
-        }
-    },
+    createProject: (projectData: Omit<Project, 'id' | 'status'>): Promise<Project> => requests.post('/projects', projectData),
+    updateProject: (projectId: string, projectData: Partial<Project>): Promise<Project> => requests.put(`/projects/${projectId}`, projectData),
+    deleteProject: (projectId: string): Promise<void> => requests.delete(`/projects/${projectId}`),
 
     // --- Guests ---
-    inviteGuest: async (email: string, projectId: string): Promise<User> => {
-        console.log(`[API] inviteGuest called with:`, { email, projectId });
-        // This function calls another function in the same object.
-        // The logging for createUser will be triggered automatically.
-        try {
-            const result = await api.createUser({
-                name: email.split('@')[0],
-                email: email,
-                role: 'GUEST',
-                projectId: projectId,
-            });
-            console.log(`[API] inviteGuest successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] inviteGuest failed. Error:`, error);
-            throw error;
-        }
-    },
-    revokeGuest: async (guestId: string): Promise<void> => {
-        console.log(`[API] revokeGuest called with:`, { guestId });
-        try {
-            const result = await requests.delete(`/users/${guestId}`);
-            console.log(`[API] revokeGuest successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] revokeGuest failed. Error:`, error);
-            throw error;
-        }
-    },
+    inviteGuest: (email: string, projectId: string): Promise<User> => api.createUser({ name: email.split('@')[0], email: email, role: 'GUEST', projectId: projectId }),
+    revokeGuest: (guestId: string): Promise<void> => requests.delete(`/users/${guestId}`),
 
     // --- Users ---
-    updateUser: async (updatedUser: User): Promise<User> => {
-        console.log(`[API] updateUser called with:`, { updatedUser });
-        try {
-            const result = await requests.put(`/users/${updatedUser.id}`, updatedUser);
-            console.log(`[API] updateUser successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] updateUser failed. Error:`, error);
-            throw error;
-        }
-    },
-    createUser: async (newUserData: Omit<User, 'id' | 'avatarUrl'>): Promise<User> => {
-        console.log(`[API] createUser called with:`, { newUserData });
-        try {
-            const result = await requests.post('/users', newUserData);
-            console.log(`[API] createUser successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] createUser failed. Error:`, error);
-            throw error;
-        }
-    },
-    deleteUser: async (userId: string): Promise<User> => {
-        console.log(`[API] deleteUser called with:`, { userId });
-        try {
-            const result = await requests.delete(`/users/${userId}`);
-            console.log(`[API] deleteUser successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] deleteUser failed. Error:`, error);
-            throw error;
-        }
-    },
+    updateUser: (updatedUser: User): Promise<User> => requests.put(`/users/${updatedUser.id}`, updatedUser),
+    createUser: (newUserData: Omit<User, 'id' | 'avatarUrl'>): Promise<User> => requests.post('/users', newUserData),
+    deleteUser: (userId: string): Promise<User> => requests.delete(`/users/${userId}`),
 
     // --- Teams ---
-    createTeam: async (newTeamData: Omit<Team, 'id'>, leaderId: string, memberIds: string[]): Promise<{ team: Team, updatedUsers: User[] }> => {
-        console.log(`[API] createTeam called with:`, { newTeamData, leaderId, memberIds });
-        try {
-            const result = await requests.post('/teams', { teamName: newTeamData.name, team_leader_id: leaderId, member_user_ids: memberIds });
-            console.log(`[API] createTeam successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] createTeam failed. Error:`, error);
-            throw error;
-        }
-    },
-    updateTeam: async (updatedTeam: Team, newLeaderId: string | null, newMemberIds: string[]): Promise<{ team: Team, updatedUsers: User[] }> => {
-        console.log(`[API] updateTeam called with:`, { updatedTeam, newLeaderId, newMemberIds });
-        try {
-            const result = await requests.put(`/teams/${updatedTeam.id}`, { teamName: updatedTeam.name, leaderId: newLeaderId, memberIds: newMemberIds });
-            console.log(`[API] updateTeam successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] updateTeam failed. Error:`, error);
-            throw error;
-        }
-    },
-    deleteTeam: async (teamId: string): Promise<{ teamId: string, updatedUsers: User[] }> => {
-        console.log(`[API] deleteTeam called with:`, { teamId });
-        try {
-            const result = await requests.delete(`/teams/${teamId}`);
-            console.log(`[API] deleteTeam successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] deleteTeam failed. Error:`, error);
-            throw error;
-        }
-    },
-    addUsersToTeam: async (userIds: string[], teamId: string): Promise<User[]> => {
-        console.log(`[API] addUsersToTeam called with:`, { userIds, teamId });
-        try {
-            const result = await requests.post(`/teams/${teamId}/members`, { user_ids: userIds });
-            console.log(`[API] addUsersToTeam successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] addUsersToTeam failed. Error:`, error);
-            throw error;
-        }
-    },
-    removeUserFromTeam: async (userId: string, teamId: string): Promise<User> => {
-        console.log(`[API] removeUserFromTeam called with:`, { userId, teamId });
-        try {
-            const result = await requests.delete(`/teams/${teamId}/members/${userId}`);
-            console.log(`[API] removeUserFromTeam successful. Result:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[API] removeUserFromTeam failed. Error:`, error);
-            throw error;
-        }
-    },
+    createTeam: (newTeamData: Omit<Team, 'id'>, leaderId: string, memberIds: string[]): Promise<{ team: Team, updatedUsers: User[] }> => requests.post('/teams', { teamName: newTeamData.name, team_leader_id: leaderId, member_user_ids: memberIds }),
+    updateTeam: (updatedTeam: Team, newLeaderId: string | null, newMemberIds: string[]): Promise<{ team: Team, updatedUsers: User[] }> => requests.put(`/teams/${updatedTeam.id}`, { teamName: updatedTeam.name, leaderId: newLeaderId, memberIds: newMemberIds }),
+    deleteTeam: (teamId: string): Promise<{ teamId: string, updatedUsers: User[] }> => requests.delete(`/teams/${teamId}`),
+    addUsersToTeam: (userIds: string[], teamId: string): Promise<User[]> => requests.post(`/teams/${teamId}/members`, { user_ids: userIds }),
+    removeUserFromTeam: (userId: string, teamId: string): Promise<User> => requests.delete(`/teams/${teamId}/members/${userId}`),
 };
