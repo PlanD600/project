@@ -3,8 +3,11 @@ import axios, { AxiosError } from 'axios';
 import { User, Task, Project, Team, FinancialTransaction, Comment } from '../types';
 import { logger } from './logger';
 
+const apiBaseURL = (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+console.log(`[API] Initializing with base URL: ${apiBaseURL}`); // Helpful log for debugging
+
 const apiClient = axios.create({
-    baseURL: (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:8080/api',
+    baseURL: apiBaseURL,
     withCredentials: true,
     headers: {
         'Content-Type': 'application/json',
@@ -16,12 +19,7 @@ const apiClient = axios.create({
 // Request Interceptor: Attaches the auth token to every outgoing request.
 apiClient.interceptors.request.use(
     (config) => {
-        // Get the token from localStorage
-        const token = localStorage.getItem('token');
-        if (token) {
-            // If the token exists, add it to the Authorization header
-            config.headers['Authorization'] = `Bearer ${token}`;
-        }
+        // The token is now handled by the Authorization header on a per-request basis
         logger.info(`Sending ${config.method?.toUpperCase()} request to ${config.url}`, {
             method: config.method,
             url: config.url,
@@ -46,7 +44,10 @@ apiClient.interceptors.response.use(
     },
     (error: AxiosError) => {
         let errorMessage = 'An unexpected error occurred.';
-        if (error.response?.data && typeof error.response.data === 'object' && 'message' in error.response.data) {
+        // Handle network errors specifically
+        if (error.message === 'Network Error' && !error.response) {
+            errorMessage = 'Network Error: Cannot connect to the API server. Please check the server status and your network connection.';
+        } else if (error.response?.data && typeof error.response.data === 'object' && 'message' in error.response.data) {
             errorMessage = (error.response.data as { message: string }).message;
         } else if (error.message) {
             errorMessage = error.message;
@@ -79,24 +80,21 @@ export const api = {
     login: async (email: string, password: string): Promise<User | null> => {
         console.log(`[API] login called with email: ${email}`);
         try {
-            // The backend is expected to return an object like { user: User, token: string }
             const response = await requests.post('/auth/login', { email, password });
             
             if (response && response.token && response.user) {
-                // Save the token to localStorage
                 localStorage.setItem('token', response.token);
+                // Set the token for the current session
+                apiClient.defaults.headers.common['Authorization'] = `Bearer ${response.token}`;
                 console.log(`[API] login successful. Token has been saved.`);
-                // Return only the user object to the auth store
                 return response.user;
             } else {
                 console.error('[API] login response is invalid. Missing token or user.', response);
-                // Ensure old tokens are cleared if login fails this way
                 localStorage.removeItem('token');
                 return null;
             }
         } catch (error) {
             console.error(`[API] login failed with error:`, error);
-            // Clean up any stale token on failure
             localStorage.removeItem('token');
             throw error;
         }
@@ -104,15 +102,14 @@ export const api = {
     logout: async (): Promise<void> => {
         console.log(`[API] logout called.`);
         try {
-            // It's good practice to inform the backend about the logout
             await requests.post('/auth/logout', {});
         } catch (error) {
             console.error(`[API] Backend logout call failed, but proceeding with local logout.`, error);
         } finally {
-            // Always remove the token from local storage on logout
+            // This is the most important part of logout
             localStorage.removeItem('token');
-            // Remove the header from the current axios instance
-            delete apiClient.defaults.headers['Authorization'];
+            // Remove the auth header from the defaults of the axios instance
+            delete apiClient.defaults.headers.common['Authorization'];
             console.log(`[API] Local logout completed. Token removed.`);
         }
     },
