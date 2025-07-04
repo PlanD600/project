@@ -26,6 +26,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     checkAuthStatus: async () => {
         try {
+            // api.getMe מחזיר ישירות אובייקט User
             const user = await api.getMe();
             if (user) {
                 set({ currentUser: user, isAuthenticated: true });
@@ -41,10 +42,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     handleLogin: async (email, password) => {
         set({ isAppLoading: true });
         try {
+            // api.login מחזיר ישירות אובייקט User (או null)
             const user = await api.login(email, password);
-            if (user) {
+            if (user) { // user הוא כבר אובייקט ה-User, אין צורך ב-user.user
                 console.log("שלב 1: האובייקט שהגיע מה-API", user);
-                set({ currentUser: user, isAuthenticated: true });
+                set({ currentUser: user, isAuthenticated: true }); // השתמש ב-user ישירות
                 console.log("שלב 2: המצב ב-store אחרי העדכון", get().currentUser);
                 await useDataStore.getState().bootstrapApp();
                 set({ isAppLoading: false });
@@ -66,18 +68,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     handleRegistration: async (registrationData: { fullName: string; email: string; password: string; companyName: string; }) => {
         try {
-            // אנחנו כבר לא צריכים את organizationSettings כאן, רק את המשתמש
-            const { user } = await api.register(registrationData);
+            // api.register מחזיר אובייקט עם מאפיין user בתוכו
+            const response = await api.register(registrationData);
+            if (response && response.user) { // כאן זה נכון לגשת ל-response.user
+                 set({ currentUser: response.user, isAuthenticated: true });
 
-            set({ currentUser: user, isAuthenticated: true });
+                await useDataStore.getState().bootstrapApp();
 
-            // --- התיקון ---
-            // הסרנו את הקריאה לפונקציה הישנה.
-            // bootstrapApp יטען את כל המידע הנדרש, כולל פרטי הארגון.
-            await useDataStore.getState().bootstrapApp();
-
-            return { success: true, error: null };
-
+                return { success: true, error: null };
+            }
+            return { success: false, error: "שגיאת הרשמה: לא התקבלו פרטי משתמש." };
         } catch (err) {
             return { success: false, error: (err as Error).message || "שגיאת הרשמה לא צפויה." };
         }
