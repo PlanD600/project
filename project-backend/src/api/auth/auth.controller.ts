@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcryptj';
 import jwt from 'jsonwebtoken';
 import prisma from '../../db';
 import logger from '../../logger';
