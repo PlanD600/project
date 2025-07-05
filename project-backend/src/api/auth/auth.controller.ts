@@ -2,8 +2,10 @@ import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import prisma from '../../db';
 import logger from '../../logger';
+import { sendEmail } from '../../services/emailService'; // ודא שקובץ זה קיים בנתיב הנכון
 
 /**
  * Generates a JWT for a given user ID.
@@ -120,7 +122,6 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
         });
 
     } else {
-        // THIS IS THE FIX:
         res.status(401);
         throw new Error('Invalid email or password');
     }
@@ -176,27 +177,27 @@ export const uploadAvatar = asyncHandler(async (req, res) => {
     });
     
     res.status(200).json(updatedUser);
+});
 
-    /**
+/**
  * @desc    Request a password reset link
  * @route   POST /api/auth/forgotpassword
  * @access  Public
  */
-export const forgotPassword = asyncHandler(async (req: Request, res: Response) => {
+export const forgotPassword = asyncHandler(async (req: Request, res: Response): Promise<void> => { // הוספתי Promise<void>
     const { email } = req.body;
 
     if (!email) {
-        res.status(400);
-        throw new Error('Please provide an email address.');
+        res.status(400).json({ message: 'Please provide an email address.' });
+        return; // ודא חזרה מפורשת של void
     }
 
     const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
 
     if (!user) {
-        // For security reasons, always send a success message even if the user doesn't exist.
-        // This prevents email enumeration.
         logger.warn(`Password reset requested for non-existent email: ${email}`);
-        return res.status(200).json({ message: 'If a user with that email exists, a password reset link has been sent.' });
+        res.status(200).json({ message: 'If a user with that email exists, a password reset link has been sent.' });
+        return; // ודא חזרה מפורשת של void
     }
 
     // Generate a reset token
@@ -235,6 +236,7 @@ export const forgotPassword = asyncHandler(async (req: Request, res: Response) =
 
         logger.info(`Password reset email sent to ${user.email}`);
         res.status(200).json({ message: 'If a user with that email exists, a password reset link has been sent.' });
+        return; // ודא חזרה מפורשת של void
     } catch (error) {
         // If email fails, revert the token in DB to prevent invalid tokens
         await prisma.user.update({
@@ -245,7 +247,7 @@ export const forgotPassword = asyncHandler(async (req: Request, res: Response) =
             },
         });
         logger.error(`Failed to send password reset email to ${user.email}: ${(error as Error).message}`);
-        res.status(500);
+        res.status(500); // קבע סטטוס לפני זריקת שגיאה
         throw new Error('There was an error sending the password reset email. Please try again later.');
     }
 });
@@ -255,13 +257,13 @@ export const forgotPassword = asyncHandler(async (req: Request, res: Response) =
  * @route   PATCH /api/auth/resetpassword/:token
  * @access  Public
  */
-export const resetPassword = asyncHandler(async (req: Request, res: Response) => {
+export const resetPassword = asyncHandler(async (req: Request, res: Response): Promise<void> => { // הוספתי Promise<void>
     const { token } = req.params;
     const { password } = req.body;
 
     if (!password) {
-        res.status(400);
-        throw new Error('Please provide a new password.');
+        res.status(400).json({ message: 'Please provide a new password.' });
+        return; // ודא חזרה מפורשת של void
     }
 
     // Hash the incoming token to compare with the one in the database
@@ -277,8 +279,8 @@ export const resetPassword = asyncHandler(async (req: Request, res: Response) =>
     });
 
     if (!user) {
-        res.status(400);
-        throw new Error('Invalid or expired password reset token.');
+        res.status(400).json({ message: 'Invalid or expired password reset token.' });
+        return; // ודא חזרה מפורשת של void
     }
 
     // Hash new password
@@ -297,6 +299,5 @@ export const resetPassword = asyncHandler(async (req: Request, res: Response) =>
 
     logger.info(`Password successfully reset for user: ${user.email}`);
     res.status(200).json({ message: 'Password has been reset successfully.' });
-
+    return; // ודא חזרה מפורשת של void
 });
-

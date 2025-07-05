@@ -8,18 +8,6 @@ interface MailOptions {
     html: string;
 }
 
-// יצירת טרנספורטר (אובייקט השולח מייל) באמצעות הגדרות SMTP
-// מומלץ להשתמש ב-SendGrid, Mailgun, או שירותי מייל טרנזקציונליים אחרים בסביבת ייצור.
-// לדוגמה עם Gmail (לצורך פיתוח בלבד, לא מומלץ לייצור):
-// const transporter = nodemailer.createTransport({
-//     service: 'gmail',
-//     auth: {
-//         user: process.env.EMAIL_USERNAME, // המייל שלך
-//         pass: process.env.EMAIL_PASSWORD, // סיסמת האפליקציה ב-Gmail (לא הסיסמה הרגילה)
-//     },
-// });
-
-// הגדרת Transporter באמצעות משתני סביבה כלליים
 const transporter = nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
     port: parseInt(process.env.EMAIL_PORT || '587', 10),
@@ -37,7 +25,7 @@ const transporter = nodemailer.createTransport({
 export const sendEmail = async (options: MailOptions) => {
     try {
         const mailOptions = {
-            from: process.env.EMAIL_FROM, // כתובת המייל השולחת
+            from: process.env.EMAIL_FROM,
             to: options.to,
             subject: options.subject,
             html: options.html,
