@@ -24,8 +24,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     currentUser: null,
     isAuthenticated: false,
     isAppLoading: true,
-    setCurrentUser: (user) => set({ currentUser: user }),
-    setIsAuthenticated: (auth) => set({ isAuthenticated: auth }),
 
     checkAuthStatus: async () => {
         set({ isAppLoading: true });
@@ -34,20 +32,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             set({ currentUser: null, isAuthenticated: false, isAppLoading: false });
             return;
         }
-
-        // הגדרה ראשונית של הטוקן ב-apiClient לכל בקשה שתבוא
         apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-
         try {
             const user = await api.getMe();
             set({ currentUser: user, isAuthenticated: true });
             await useDataStore.getState().bootstrapApp();
         } catch (error) {
-            // אם הטוקן לא תקין, נקה הכל
             localStorage.removeItem('token');
             delete apiClient.defaults.headers.common['Authorization'];
             set({ currentUser: null, isAuthenticated: false });
-            logger.error('checkAuthStatus failed:', error);
         } finally {
             set({ isAppLoading: false });
         }
@@ -55,17 +48,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     handleLogin: async (email, password) => {
         try {
-            // api.login מחזיר אובייקט עם user ו-token
             const response = await api.login(email, password);
             if (response && response.user && response.token) {
-                const { user, token } = response;
-                
-                // FIX: עדכון מיידי של הטוקן ב-apiClient לפתרון בעיית התזמון
-                apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-
-                set({ currentUser: user, isAuthenticated: true });
+                // FIX: THE CRITICAL FIX FOR THE RACE CONDITION
+                apiClient.defaults.headers.common['Authorization'] = `Bearer ${response.token}`;
+                set({ currentUser: response.user, isAuthenticated: true });
                 await useDataStore.getState().bootstrapApp();
-                return null; // אין שגיאה
+                return null; // Success
             }
             return "אימייל או סיסמה שגויים.";
         } catch (err) {
@@ -73,23 +62,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
     },
 
-    handleLogout: () => {
-        api.logout().catch(err => console.error("Logout API call failed", err));
-        useDataStore.getState().resetDataState();
-        delete apiClient.defaults.headers.common['Authorization']; // ניקוי הטוקן מה-apiClient
-        set({ currentUser: null, isAuthenticated: false });
-    },
-
     handleRegistration: async (registrationData) => {
         try {
             const response = await api.register(registrationData);
             if (response && response.user && response.token) {
-                const { user, token } = response;
-
-                // FIX: עדכון מיידי של הטוקן ב-apiClient לפתרון בעיית התזמון
-                apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-                
-                set({ currentUser: user, isAuthenticated: true });
+                // FIX: THE CRITICAL FIX FOR THE RACE CONDITION
+                apiClient.defaults.headers.common['Authorization'] = `Bearer ${response.token}`;
+                set({ currentUser: response.user, isAuthenticated: true });
                 await useDataStore.getState().bootstrapApp();
                 return { success: true, error: null };
             }
@@ -97,6 +76,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         } catch (err) {
             return { success: false, error: (err as Error).message || "שגיאת הרשמה לא צפויה." };
         }
+    },
+
+    handleLogout: () => {
+        api.logout().catch(err => logger.error("Logout API call failed", err));
+        useDataStore.getState().resetDataState();
+        delete apiClient.defaults.headers.common['Authorization'];
+        set({ currentUser: null, isAuthenticated: false });
     },
 
     handleUploadAvatar: async (imageDataUrl: string) => {

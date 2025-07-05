@@ -50,8 +50,6 @@ const requests = {
 };
 
 export const api = {
-    // --- Auth ---
-    // FIX: login מחזירה כעת אובייקט המכיל את המשתמש והטוקן
     login: async (email: string, password: string): Promise<{ user: User, token: string }> => {
         const response = await requests.post('/auth/login', { email, password });
         if (response && response.token && response.user) {
@@ -64,13 +62,13 @@ export const api = {
     // FIX: register מחזירה כעת אובייקט המכיל את המשתמש והטוקן
     register: async (registrationData: {}): Promise<{ user: User, token: string }> => {
         const response = await requests.post('/auth/register', registrationData);
-         if (response && response.token && response.user) {
+        if (response && response.token && response.user) {
             localStorage.setItem('token', response.token);
             return response;
         }
         throw new Error('Invalid registration response from server.');
     },
-    
+
     logout: async (): Promise<void> => {
         try {
             await requests.post('/auth/logout', {});
@@ -79,36 +77,36 @@ export const api = {
             delete apiClient.defaults.headers.common['Authorization'];
         }
     },
-    
+
     getMe: (): Promise<User> => requests.get('/auth/me'),
-    
+
     uploadAvatar: (imageDataUrl: string): Promise<User> => requests.post('/auth/me/avatar', { image: imageDataUrl }),
 
     forgotPassword: (email: string): Promise<{ message: string }> => requests.post('/auth/forgotpassword', { email }),
-    
+
     // FIX: שליחת הטוקן בגוף הבקשה כדי להתאים ל-backend
     resetPassword: (token: string, password: string): Promise<{ message: string }> => requests.patch(`/auth/resetpassword`, { token, password }),
 
     // --- Data Fetching ---
-    getInitialData: (): Promise<{users: User[], teams: Team[], projects: Project[], tasks: Task[]}> => requests.get('/bootstrap'),
-    
+    getInitialData: (): Promise<{ users: User[], teams: Team[], projects: Project[], tasks: Task[] }> => requests.get('/bootstrap'),
+
     // ... שאר הפונקציות נשארות כפי שהיו ...
     // --- Tasks ---
     getTask: (taskId: string): Promise<Task> => requests.get(`/tasks/${taskId}`),
     updateTask: (updatedTask: Task): Promise<Task> => requests.put(`/tasks/${updatedTask.id}`, updatedTask),
     addTask: (taskData: any): Promise<Task> => requests.post(`/projects/${taskData.projectId}/tasks`, taskData),
     addComment: (taskId: string, comment: any): Promise<Task> => requests.post(`/tasks/${taskId}/comments`, { content: comment.text, parentId: comment.parentId }),
-    
+
     // --- Projects ---
     createProject: (projectData: any): Promise<Project> => requests.post('/projects', projectData),
     updateProject: (projectId: string, projectData: Partial<Project>): Promise<Project> => requests.put(`/projects/${projectId}`, projectData),
     deleteProject: (projectId: string): Promise<void> => requests.delete(`/projects/${projectId}`),
-    
+
     // --- Users ---
     updateUser: (updatedUser: User): Promise<User> => requests.put(`/users/${updatedUser.id}`, updatedUser),
     createUser: (newUserData: any): Promise<User> => requests.post('/users', newUserData),
     deleteUser: (userId: string): Promise<User> => requests.delete(`/users/${userId}`),
-    
+
     // --- Teams ---
     createTeam: (newTeamData: any, leaderId: string, memberIds: string[]): Promise<{ team: Team, updatedUsers: User[] }> => requests.post('/teams', { teamName: newTeamData.name, team_leader_id: leaderId, member_user_ids: memberIds }),
     updateTeam: (updatedTeam: Team, newLeaderId: string | null, newMemberIds: string[]): Promise<{ team: Team, updatedUsers: User[] }> => requests.put(`/teams/${updatedTeam.id}`, { teamName: updatedTeam.name, leaderId: newLeaderId, memberIds: newMemberIds }),
