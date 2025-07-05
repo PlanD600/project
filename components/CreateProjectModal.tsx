@@ -18,12 +18,13 @@ interface CreateProjectModalProps {
     onClose: () => void;
     onSubmit: (projectData: ProjectSubmissionData) => void;
     // The list of users who can be assigned as leaders
-    potentialLeaders: User[]; 
+    potentialLeaders?: User[]; // FIX: Made this prop optional
     // The project to edit might have a list of teamLeaders
     projectToEdit?: Project & { teamLeaders?: User[] };
 }
 
-const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose, onSubmit, potentialLeaders, projectToEdit }) => {
+// FIX: Added a default empty array for potentialLeaders to prevent crash
+const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose, onSubmit, potentialLeaders = [], projectToEdit }) => {
     const isEditing = !!projectToEdit;
     const d = (days: number) => new Date(Date.now() + days * 86400000).toISOString().split('T')[0];
     

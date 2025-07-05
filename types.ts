@@ -1,10 +1,10 @@
 export type UserRole = 'ADMIN' | 'TEAM_MANAGER' | 'EMPLOYEE' | 'GUEST';
 
 export interface NotificationPreferences {
-    onAssignment: boolean;
-    onComment: boolean;
-    onStatusChange: boolean;
-    onDueDateChange: boolean;
+  onAssignment: boolean;
+  onComment: boolean;
+  onStatusChange: boolean;
+  onDueDateChange: boolean;
 }
 
 export interface User {
@@ -14,30 +14,30 @@ export interface User {
   password?: string;
   avatarUrl: string;
   role: UserRole;
-  teamId?: string;
+  teamLeaders: User[];
   projectId?: string; // For GUEST access
   disabled?: boolean;
   notificationPreferences?: NotificationPreferences;
 }
 
 export interface Team {
-    id: string;
-    name: string;
+  id: string;
+  name: string;
 }
 
 export interface Project {
-    id: string;
-    name: string;
-    description: string;
-    teamId: string;
-    budget: number;
-    startDate: string;
-    endDate: string;
-    status: 'active' | 'archived';
+  id: string;
+  name: string;
+  description: string;
+  teamLeaders: User[];
+  budget: number;
+  startDate: string;
+  endDate: string;
+  status: 'active' | 'archived';
 }
 
 export interface Comment {
-  id:string;
+  id: string;
   user: User;
   text: string;
   timestamp: string;
@@ -88,4 +88,13 @@ export interface Notification {
   timestamp: string;
   read: boolean;
   taskId?: string; // Optional link to a task
+}
+
+export interface ProjectSubmissionData {
+    name: string;
+    description: string;
+    startDate: string;
+    endDate: string;
+    budget: number;
+    teamLeaderIds: string[];
 }
