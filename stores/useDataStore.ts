@@ -31,7 +31,7 @@ interface DataState {
     
     // FIX: Updated function signatures to be correct and flexible
     handleCreateProject: (projectData: ProjectSubmissionData) => Promise<void>;
-    handleUpdateProject: (projectId: string, projectData: Partial<ProjectSubmissionData> | { status: string }) => Promise<void>;
+    handleUpdateProject: (projectId: string, projectData: Partial<ProjectSubmissionData> | { status: 'active' | 'archived' }) => Promise<void>;
     
     handleDeleteProject: (projectId: string) => Promise<void>;
     handleSetNotificationsRead: (ids: string[]) => void;
@@ -80,6 +80,7 @@ export const calculateProjectsForCurrentUser = (currentUser: User | null, projec
     }
 
     // EMPLOYEE sees projects where they have assigned tasks
+    // FIX: Added a fallback `|| []` to prevent crash if assigneeIds is undefined
     const userTaskProjectIds = new Set(
         tasks.filter(t => (t.assigneeIds || []).includes(currentUser.id)).map(t => t.projectId)
     );
