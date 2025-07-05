@@ -12,7 +12,6 @@ import { Tab } from './components/TabBar'; // ייבוא טיפוס Tab
 import { ActiveSection } from './components/SettingsView'; // ייבוא טיפוס ActiveSection
 
 // ייבוא עצל (Lazy loading) של קומפוננטות ראשיות
-const Dashboard = lazy(() => import('./components/Dashboard'));
 const LoginView = lazy(() => import('./components/LoginView'));
 const LegalDocumentView = lazy(() => import('./components/LegalDocumentView'));
 const SettingsView = lazy(() => import('./components/SettingsView'));
