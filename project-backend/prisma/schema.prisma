@@ -11,16 +11,16 @@ datasource db {
 }
 
 model Column {
-  id        String @id @default(cuid())
-  name      String
-  order     Int    // To define the order of columns in the UI
+  id      String @id @default(cuid())
+  name    String
+  order   Int    // To define the order of columns in the UI
 }
 
 model Organization {
-  id      String   @id @default(cuid())
-  name    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(cuid())
+  name       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   users      User[]
   teams      Team[]
@@ -39,27 +39,32 @@ enum UserRole {
 }
 
 model User {
-  id        String    @id @default(cuid())
-  email     String    @unique
+  id        String   @id @default(cuid())
+  email     String   @unique
   name      String
   password  String
   avatarUrl String?
-  role      UserRole      @default(EMPLOYEE)
+  role      UserRole   @default(EMPLOYEE)
+  
+  // This is the new relation for projects where the user is a team leader
+  ledProjects Project[] @relation("ProjectTeamLeaders")
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  teamId    String?
-  team     Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  projects  Project[] @relation("Owner")
-  tasks     Task[]    // This defines the many-to-many relation
-  comments  Comment[]
+  teamId   String?
+  team     Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  
+  // The old "projects" field related to "Owner" has been removed.
+  
+  tasks      Task[]    // This defines the many-to-many relation for task assignees
+  comments   Comment[]
 
-  passwordResetToken    String?   @unique
-  passwordResetExpires  DateTime?
+  passwordResetToken   String?   @unique
+  passwordResetExpires DateTime?
 
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 }
 
 model Team {
@@ -69,35 +74,37 @@ model Team {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  members User[]
+  members  User[]
   projects Project[]
 }
 
 model Project {
-  id          String    @id @default(cuid())
-  name        String
-  description String?
-  startDate   DateTime
-  endDate     DateTime
-  budget      Float
-  status      String    @default("active")
-  deletedAt   DateTime?
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  startDate    DateTime
+  endDate      DateTime
+  budget       Float
+  status       String   @default("active")
+  deletedAt    DateTime?
+  
+  // This is the new relation for the list of team leaders
+  teamLeaders User[] @relation("ProjectTeamLeaders")
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  ownerId String
-  owner   User   @relation("Owner", fields: [ownerId], references: [id])
+  // The old "owner" and "ownerId" fields have been removed.
 
-  teamId  String?
-  team    Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull) // If a team is deleted, the project is not deleted
+  teamId String?
+  team   Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull) // If a team is deleted, the project is not deleted
 
   tasks      Task[]
   financials FinancialTransaction[]
 }
 
 model Task {
-  id                String    @id @default(cuid())
+  id                String   @id @default(cuid())
   title             String
   description       String?
   columnId          String
@@ -106,8 +113,8 @@ model Task {
   baselineStartDate DateTime?
   baselineEndDate   DateTime?
   dependencies      String[]
-  plannedCost       Float     @default(0)
-  actualCost        Float     @default(0)
+  plannedCost       Float    @default(0)
+  actualCost        Float    @default(0)
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -119,15 +126,15 @@ model Task {
 }
 
 model Comment {
-  id        String    @id @default(cuid())
+  id        String   @id @default(cuid())
   text      String
-  timestamp DateTime  @default(now())
+  timestamp DateTime @default(now())
   userId    String
-  user      User      @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
   taskId    String
-  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   parentId  String?
-  parent    Comment?  @relation("Replies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  parent    Comment? @relation("Replies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   replies   Comment[] @relation("Replies")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
