@@ -29,6 +29,8 @@ const generateToken = (userId: string): string => {
  * @access  Public
  */
 export const registerUser = asyncHandler(async (req, res) => {
+        logger.info('ניסיון הרשמה עם גוף הבקשה (body):', req.body);
+
     const { name, email, password, organizationName } = req.body;
 
     if (!name || !email || !password || !organizationName) {
