@@ -1,10 +1,18 @@
 
 
 import express from 'express';
-import { registerUser, loginUser, logoutUser, getMe, uploadAvatar, forgotPassword, forgotPassword,
- } from './auth.controller';
-import { protect } from '../../middleware/auth.middleware';
 import { Router } from 'express';
+import {
+    registerUser,
+    loginUser,
+    getMe,
+    logoutUser,
+    uploadAvatar,
+    forgotPassword, // ייבוא הפונקציה החדשה
+    resetPassword,  // ייבוא הפונקציה החדשה
+} from './auth.controller'; // ודא ש-auth.controller.ts מייצא את הפונקציות הללו
+import { protect } from '../../middleware/auth.middleware';
+
 
 
 
