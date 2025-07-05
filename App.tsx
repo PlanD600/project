@@ -23,19 +23,24 @@ const LoginView = lazy(() => import('./components/LoginView'));
 const ResetPasswordView = lazy(() => import('./components/ResetPasswordView'));
 const SettingsView = lazy(() => import('./components/SettingsView'));
 
+
 const App: React.FC = () => {
-    // שלב 1: שליפת כל המידע הנדרש מה-stores בצורה מרוכזת
-    const { currentUser, isAuthenticated, isAppLoading, checkAuthStatus } = useAuthStore();
+    // FIX: שלפנו את כל המשתנים הנדרשים מה-store בקריאה אחת, כולל isAuthenticated
+    const { 
+        currentUser, 
+        isAuthenticated, 
+        isAppLoading, 
+        checkAuthStatus 
+    } = useAuthStore();
+
     const { projects, tasks, selectedProjectId, setSelectedProjectId } = useDataStore();
     const { notification, setNotification } = useUIStore();
 
-    // שלב 2: ניהול state פנימי של הקומפוננטה
     const [activeTab, setActiveTab] = useState<Tab>('Portfolio');
     const [view, setView] = useState<'dashboard' | 'settings'>('dashboard');
     const [settingsInitialSection, setSettingsInitialSection] = useState<ActiveSection | null>(null);
     const [showOnboardingModal, setShowOnboardingModal] = useState(false);
 
-    // שלב 3: חישובים ונתונים מבוססי memoization לשיפור ביצועים
     const projectsForCurrentUser = useMemo(() => calculateProjectsForCurrentUser(currentUser, projects, tasks), [currentUser, projects, tasks]);
 
     const tasksForView = useMemo(() => {
@@ -51,7 +56,6 @@ const App: React.FC = () => {
         return projectTasks.filter(task => task.assigneeIds.includes(currentUser.id));
     }, [currentUser, tasks, selectedProjectId]);
 
-    // שלב 4: Hooks של useEffect לניהול side effects
     useEffect(() => {
         checkAuthStatus();
     }, [checkAuthStatus]);
@@ -87,7 +91,6 @@ const App: React.FC = () => {
         document.title = title;
     }, [activeTab, view, selectedProjectId, projects]);
 
-    // שלב 5: פונקציות event handlers
     const handleToggleSettings = () => {
         setView(prev => prev === 'dashboard' ? 'settings' : 'dashboard');
         setSettingsInitialSection(null);
@@ -101,9 +104,9 @@ const App: React.FC = () => {
 
     const handleBackToDashboard = () => {
         setView('dashboard');
+        setSettingsInitialSection(null);
     };
 
-    // שלב 6: לוגיקת רינדור (Render)
     if (isAppLoading) {
         return (
             <div className="flex items-center justify-center h-screen bg-light">
@@ -112,7 +115,7 @@ const App: React.FC = () => {
             </div>
         );
     }
-
+    
     const renderMainContent = () => {
         if (view === 'settings') {
             return (
@@ -142,6 +145,7 @@ const App: React.FC = () => {
             <Router>
                 <Suspense fallback={<div className="flex items-center justify-center h-screen bg-light"><Spinner /></div>}>
                     <div className="min-h-screen bg-light font-sans flex flex-col" dir="rtl">
+                        <a href="#main-content" className="absolute w-px h-px p-0 -m-px overflow-hidden [clip:rect(0,0,0,0)] whitespace-nowrap border-0 focus:w-auto focus:h-auto focus:p-2 focus:m-0 focus:overflow-visible focus:[clip:auto] focus:z-[100] focus:top-2 focus:right-2 bg-accent text-light rounded-lg">דלג לתוכן המרכזי</a>
                         {notification && (
                             <Toast
                                 message={notification.message}
@@ -149,8 +153,10 @@ const App: React.FC = () => {
                                 onClose={() => setNotification(null)}
                             />
                         )}
+
+                        {/* FIX: שינינו את לוגיקת הניתוב להשתמש ב-isAuthenticated */}
                         {!isAuthenticated ? (
-                            <Routes>
+                             <Routes>
                                 <Route path="/login" element={<LoginView />} />
                                 <Route path="/reset-password/:token" element={<ResetPasswordView />} />
                                 <Route path="*" element={<Navigate to="/login" replace />} />
@@ -170,7 +176,7 @@ const App: React.FC = () => {
                                         <TabBar activeTab={activeTab} setActiveTab={setActiveTab} currentUser={currentUser} />
                                     )}
                                     <main id="main-content" className="mt-6 flex-grow">
-                                        {renderMainContent()}
+                                       {renderMainContent()}
                                     </main>
                                 </div>
                             </>

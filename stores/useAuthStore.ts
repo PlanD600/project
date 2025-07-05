@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { User } from '../types';
-import { api } from '../services/api';
+import { api, apiClient } from '../services/api'; // ייבוא של apiClient בנוסף ל-api
 import { useDataStore } from './useDataStore';
 import { useUIStore } from './useUIStore';
+import { logger } from '../services/logger';
 
 interface AuthState {
     currentUser: User | null;
@@ -16,9 +17,7 @@ interface AuthState {
     handleRegistration: (data: { fullName: string; email: string; password: string; companyName: string; }) => Promise<{ success: boolean; error: string | null }>;
     handleUploadAvatar: (imageDataUrl: string) => Promise<void>;
     forgotPassword: (email: string) => Promise<{ success: boolean; message: string }>;
-    forgotPassword: (email: string) => Promise<{ success: boolean; message: string }>;
-
-
+    resetPassword: (token: string, password: string) => Promise<{ success: boolean; message: string }>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -29,56 +28,69 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     setIsAuthenticated: (auth) => set({ isAuthenticated: auth }),
 
     checkAuthStatus: async () => {
+        set({ isAppLoading: true });
+        const token = localStorage.getItem('token');
+        if (!token) {
+            set({ currentUser: null, isAuthenticated: false, isAppLoading: false });
+            return;
+        }
+
+        // הגדרה ראשונית של הטוקן ב-apiClient לכל בקשה שתבוא
+        apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
         try {
-            // api.getMe מחזיר ישירות אובייקט User
             const user = await api.getMe();
-            if (user) {
-                set({ currentUser: user, isAuthenticated: true });
-                await useDataStore.getState().bootstrapApp();
-            }
+            set({ currentUser: user, isAuthenticated: true });
+            await useDataStore.getState().bootstrapApp();
         } catch (error) {
-            // Not authenticated, do nothing
+            // אם הטוקן לא תקין, נקה הכל
+            localStorage.removeItem('token');
+            delete apiClient.defaults.headers.common['Authorization'];
+            set({ currentUser: null, isAuthenticated: false });
+            logger.error('checkAuthStatus failed:', error);
         } finally {
             set({ isAppLoading: false });
         }
     },
 
     handleLogin: async (email, password) => {
-        set({ isAppLoading: true });
         try {
-            // api.login מחזיר ישירות אובייקט User (או null)
-            const user = await api.login(email, password);
-            if (user) { // user הוא כבר אובייקט ה-User, אין צורך ב-user.user
-                console.log("שלב 1: האובייקט שהגיע מה-API", user);
-                set({ currentUser: user, isAuthenticated: true }); // השתמש ב-user ישירות
-                console.log("שלב 2: המצב ב-store אחרי העדכון", get().currentUser);
+            // api.login מחזיר אובייקט עם user ו-token
+            const response = await api.login(email, password);
+            if (response && response.user && response.token) {
+                const { user, token } = response;
+                
+                // FIX: עדכון מיידי של הטוקן ב-apiClient לפתרון בעיית התזמון
+                apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+                set({ currentUser: user, isAuthenticated: true });
                 await useDataStore.getState().bootstrapApp();
-                set({ isAppLoading: false });
-                return null;
+                return null; // אין שגיאה
             }
-            set({ isAppLoading: false });
             return "אימייל או סיסמה שגויים.";
         } catch (err) {
-            set({ isAppLoading: false });
             return (err as Error).message || "שגיאה לא צפויה";
         }
     },
 
     handleLogout: () => {
-        api.logout().catch(err => console.error("Logout failed", err));
+        api.logout().catch(err => console.error("Logout API call failed", err));
         useDataStore.getState().resetDataState();
+        delete apiClient.defaults.headers.common['Authorization']; // ניקוי הטוקן מה-apiClient
         set({ currentUser: null, isAuthenticated: false });
     },
 
-    handleRegistration: async (registrationData: { fullName: string; email: string; password: string; companyName: string; }) => {
+    handleRegistration: async (registrationData) => {
         try {
-            // api.register מחזיר אובייקט עם מאפיין user בתוכו
             const response = await api.register(registrationData);
-            if (response && response.user) { // כאן זה נכון לגשת ל-response.user
-                set({ currentUser: response.user, isAuthenticated: true });
+            if (response && response.user && response.token) {
+                const { user, token } = response;
 
+                // FIX: עדכון מיידי של הטוקן ב-apiClient לפתרון בעיית התזמון
+                apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+                
+                set({ currentUser: user, isAuthenticated: true });
                 await useDataStore.getState().bootstrapApp();
-
                 return { success: true, error: null };
             }
             return { success: false, error: "שגיאת הרשמה: לא התקבלו פרטי משתמש." };
@@ -116,5 +128,4 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             return { success: false, message: (error as Error).message || 'Failed to reset password.' };
         }
     },
-
 }));
