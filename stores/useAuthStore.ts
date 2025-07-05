@@ -1,9 +1,10 @@
 import { create } from 'zustand';
 import { User } from '../types';
-import { api, apiClient } from '../services/api';
+import { api } from '../services/api'; // ייבוא של api בלבד
 import { useDataStore } from './useDataStore';
 import { useUIStore } from './useUIStore';
-import { logger } from '../services/logger';
+import { logger } from '../services/logger'; // ודא ייבוא של logger אם הוא בשימוש
+
 
 interface AuthState {
     currentUser: User | null;
@@ -23,68 +24,88 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set, get) => ({
     currentUser: null,
     isAuthenticated: false,
-    isAppLoading: true,
+    isAppLoading: true, // מאותחל כ-true כדי שהאפליקציה תתחיל בבדיקת אימות
 
-    // FIX: הוספת הפונקציות החסרות שה-interface דורש
-    setCurrentUser: (user) => set({ currentUser: user, isAuthenticated: !!user }),
+    // Setters בסיסיים
+    setCurrentUser: (user) => set({ currentUser: user }),
     setIsAuthenticated: (auth) => set({ isAuthenticated: auth }),
 
     checkAuthStatus: async () => {
-        set({ isAppLoading: true });
+        set({ isAppLoading: true }); // הפעל מצב טעינה
         const token = localStorage.getItem('token');
+
         if (!token) {
+            // אם אין טוקן, אין משתמש מחובר
             set({ currentUser: null, isAuthenticated: false, isAppLoading: false });
+            api.removeAuthToken(); // ודא שהטוקן הוסר גם מ-axios defaults
             return;
         }
-        apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+        // הגדר את הטוקן ב-axios defaults לפני כל קריאה מאומתת
+        api.setAuthToken(token); 
+
         try {
-            const user = await api.getMe();
+            const user = await api.getMe(); // קריאה מאומתת לפרטי המשתמש
             set({ currentUser: user, isAuthenticated: true });
-            await useDataStore.getState().bootstrapApp();
+            await useDataStore.getState().bootstrapApp(); // טעינת נתונים ראשוניים מאומתים
         } catch (error) {
+            // אם האימות נכשל (טוקן לא חוקי/פג תוקף), נקה את המצב
+            logger.error("Authentication check failed:", error); // השתמש ב-logger
             localStorage.removeItem('token');
-            delete apiClient.defaults.headers.common['Authorization'];
+            api.removeAuthToken(); // הסר את הטוקן מ-axios defaults
             set({ currentUser: null, isAuthenticated: false });
         } finally {
-            set({ isAppLoading: false });
+            set({ isAppLoading: false }); // כבה מצב טעינה
         }
     },
 
     handleLogin: async (email, password) => {
+        set({ isAppLoading: true }); // הפעל מצב טעינה
         try {
-            const response = await api.login(email, password);
-            if (response && response.user && response.token) {
-                apiClient.defaults.headers.common['Authorization'] = `Bearer ${response.token}`;
-                set({ currentUser: response.user, isAuthenticated: true });
-                await useDataStore.getState().bootstrapApp();
-                return null; // Success
+            // api.login כבר מטפל בשמירת הטוקן ב-localStorage וקריאה ל-api.setAuthToken
+            const user = await api.login(email, password); 
+            if (user) {
+                set({ currentUser: user, isAuthenticated: true });
+                // לאחר ההתחברות, טען את הנתונים הראשוניים של האפליקציה (קריאה מאומתת)
+                await useDataStore.getState().bootstrapApp(); 
+                set({ isAppLoading: false }); // כבה מצב טעינה בהצלחה
+                return null; // הצלחה
             }
+            set({ isAppLoading: false }); // כבה מצב טעינה בכישלון
             return "אימייל או סיסמה שגויים.";
         } catch (err) {
+            set({ isAppLoading: false }); // כבה מצב טעינה בכישלון
             return (err as Error).message || "שגיאה לא צפויה";
         }
     },
 
     handleRegistration: async (registrationData) => {
+        set({ isAppLoading: true }); // הפעל מצב טעינה
         try {
-            const response = await api.register(registrationData);
+            // api.register כבר מטפל בשמירת הטוקן ב-localStorage וקריאה ל-api.setAuthToken
+            // וטיפוס החזרה שלו עודכן לכלול את ה-token.
+            const response = await api.register(registrationData); 
             if (response && response.user && response.token) {
-                apiClient.defaults.headers.common['Authorization'] = `Bearer ${response.token}`;
                 set({ currentUser: response.user, isAuthenticated: true });
+                // לאחר ההרשמה, טען את הנתונים הראשוניים של האפליקציה (קריאה מאומתת)
                 await useDataStore.getState().bootstrapApp();
+                set({ isAppLoading: false }); // כבה מצב טעינה בהצלחה
                 return { success: true, error: null };
             }
-            return { success: false, error: "שגיאת הרשמה: לא התקבלו פרטי משתמש." };
+            set({ isAppLoading: false }); // כבה מצב טעינה בכישלון
+            return { success: false, error: "שגיאת הרשמה: לא התקבלו פרטי משתמש או טוקן." };
         } catch (err) {
+            set({ isAppLoading: false }); // כבה מצב טעינה בכישלון
             return { success: false, error: (err as Error).message || "שגיאת הרשמה לא צפויה." };
         }
     },
-    
+
     handleLogout: () => {
-        api.logout().catch(err => logger.error("Logout API call failed", err));
-        useDataStore.getState().resetDataState();
-        delete apiClient.defaults.headers.common['Authorization'];
+        // קריאה ל-api.logout שתנקה את הטוקן ב-localStorage וב-axios defaults
+        api.logout().catch(err => logger.error("Logout API call failed", err)); 
+        useDataStore.getState().resetDataState(); // איפוס נתוני האפליקציה
         set({ currentUser: null, isAuthenticated: false });
+        // אין צורך ב-delete apiClient.defaults.headers.common['Authorization']; כאן, api.logout כבר מטפל בזה
     },
 
     handleUploadAvatar: async (imageDataUrl: string) => {

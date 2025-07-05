@@ -1,11 +1,12 @@
+// services/api.ts
 import axios, { AxiosError } from 'axios';
 import { User, Task, Project, Team, FinancialTransaction, Comment } from '../types';
 import { logger } from './logger';
 
 const apiBaseURL = (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+console.log(`[API] Initializing with base URL: ${apiBaseURL}`); // Helpful log for debugging
 
-// FIX: ייצאנו את apiClient כדי לאפשר גישה ישירה אליו מה-store
-export const apiClient = axios.create({
+const apiClient = axios.create({
     baseURL: apiBaseURL,
     withCredentials: true,
     headers: {
@@ -13,34 +14,62 @@ export const apiClient = axios.create({
     },
 });
 
-// Interceptor שמוסיף את הטוקן מ-localStorage לכל בקשה יוצאת
+// --- Interceptors ---
+
+// Request Interceptor: Attaches the auth token to every outgoing request.
 apiClient.interceptors.request.use(
     (config) => {
-        const token = localStorage.getItem('token');
-        // הוסף את הכותרת רק אם היא לא קיימת כבר (כדי לא לדרוס את הכותרת המיידית מה-store)
-        if (token && !config.headers['Authorization']) {
+        // The token is now handled by the Authorization header on a per-request basis
+        const token = localStorage.getItem('token'); // תמיד קורא מ-localStorage
+        if (token) {
             config.headers['Authorization'] = `Bearer ${token}`;
         }
+        logger.info(`Sending ${config.method?.toUpperCase()} request to ${config.url}`, {
+            method: config.method,
+            url: config.url,
+        });
         return config;
     },
-    (error) => Promise.reject(error)
+    (error) => {
+        logger.error('Failed to send API request (interceptor)', {
+            message: error.message,
+        });
+        return Promise.reject(error);
+    }
 );
 
-// Interceptor שמטפל בתגובות שגיאה באופן גלובלי
+// Response Interceptor: Handles generic responses and errors.
 apiClient.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        logger.info(`Received successful response from ${response.config.url}`, {
+            status: response.status,
+        });
+        return response;
+    },
     (error: AxiosError) => {
         let errorMessage = 'An unexpected error occurred.';
-        if (error.response?.data && typeof error.response.data === 'object' && 'message' in error.response.data) {
+        // Handle network errors specifically
+        if (error.message === 'Network Error' && !error.response) {
+            errorMessage = 'Network Error: Cannot connect to the API server. Please check the server status and your network connection.';
+        } else if (error.response?.data && typeof error.response.data === 'object' && 'message' in error.response.data) {
             errorMessage = (error.response.data as { message: string }).message;
         } else if (error.message) {
             errorMessage = error.message;
         }
-        logger.error('API call failed', { errorMessage, status: error.response?.status, endpoint: error.config?.url });
+
+        logger.error('API call failed', {
+            errorMessage,
+            status: error.response?.status,
+            endpoint: error.config?.url,
+            method: error.config?.method,
+            response: error.response?.data
+        });
+
         return Promise.reject(new Error(errorMessage));
     }
 );
 
+// --- Request Helpers ---
 const requests = {
     get: (url: string) => apiClient.get(url).then(response => response.data),
     post: (url: string, body: {}) => apiClient.post(url, body).then(response => response.data),
@@ -49,66 +78,110 @@ const requests = {
     delete: (url: string) => apiClient.delete(url).then(response => response.data),
 };
 
+// --- API Definitions ---
 export const api = {
-    login: async (email: string, password: string): Promise<{ user: User, token: string }> => {
-        const response = await requests.post('/auth/login', { email, password });
-        if (response && response.token && response.user) {
-            localStorage.setItem('token', response.token);
-            return response;
+    // --- Auth ---
+    login: async (email: string, password: string): Promise<User | null> => {
+        console.log(`[API] login called with email: ${email}`);
+        try {
+            const response = await requests.post('/auth/login', { email, password });
+            
+            if (response && response.token && response.user) {
+                localStorage.setItem('token', response.token);
+                api.setAuthToken(response.token); // שימוש בפונקציה החדשה
+                console.log(`[API] login successful. Token has been saved.`);
+                return response.user;
+            } else {
+                console.error('[API] login response is invalid. Missing token or user.', response);
+                localStorage.removeItem('token');
+                api.removeAuthToken(); // ודא הסרה גם במקרה של כניסה לא חוקית
+                return null;
+            }
+        } catch (error) {
+            console.error(`[API] login failed with error:`, error);
+            localStorage.removeItem('token');
+            api.removeAuthToken(); // ודא הסרה גם במקרה של כשל
+            throw error;
         }
-        throw new Error('Invalid login response from server.');
     },
-
-    // FIX: register מחזירה כעת אובייקט המכיל את המשתמש והטוקן
-    register: async (registrationData: {}): Promise<{ user: User, token: string }> => {
-        const response = await requests.post('/auth/register', registrationData);
-        if (response && response.token && response.user) {
-            localStorage.setItem('token', response.token);
-            return response;
-        }
-        throw new Error('Invalid registration response from server.');
-    },
-
     logout: async (): Promise<void> => {
+        console.log(`[API] logout called.`);
         try {
             await requests.post('/auth/logout', {});
+        } catch (error) {
+            console.error(`[API] Backend logout call failed, but proceeding with local logout.`, error);
         } finally {
             localStorage.removeItem('token');
-            delete apiClient.defaults.headers.common['Authorization'];
+            api.removeAuthToken(); // הסרה מפורשת
+            console.log(`[API] Local logout completed. Token removed.`);
         }
     },
-
+    // --- התיקון כאן: שינוי טיפוס החזרה והוספת שמירת טוקן בהרשמה ---
+    register: async (registrationData: {}): Promise<{ user: User, organizationSettings: { name: string, logoUrl: string }, token: string }> => {
+        const response = await requests.post('/auth/register', registrationData);
+        if (response && response.user && response.token) {
+            localStorage.setItem('token', response.token);
+            api.setAuthToken(response.token); // הגדר את הטוקן באופן מפורש גם כאן
+            return response; // response כבר מכיל את user, organizationSettings ו-token
+        }
+        throw new Error('Registration failed: Missing user or token in response.');
+    },
+    // --- סוף התיקון ---
     getMe: (): Promise<User> => requests.get('/auth/me'),
-
     uploadAvatar: (imageDataUrl: string): Promise<User> => requests.post('/auth/me/avatar', { image: imageDataUrl }),
 
     forgotPassword: (email: string): Promise<{ message: string }> => requests.post('/auth/forgotpassword', { email }),
+    resetPassword: (token: string, password: string): Promise<{ message: string }> => requests.patch(`/auth/resetpassword/${token}`, { password }),
 
-    // FIX: שליחת הטוקן בגוף הבקשה כדי להתאים ל-backend
-    resetPassword: (token: string, password: string): Promise<{ message: string }> => requests.patch(`/auth/resetpassword`, { token, password }),
+    setAuthToken: (token: string | null) => {
+        if (token) {
+            apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        } else {
+            delete apiClient.defaults.headers.common['Authorization'];
+        }
+    },
+    removeAuthToken: () => {
+        delete apiClient.defaults.headers.common['Authorization'];
+    },
 
-    // --- Data Fetching ---
-    getInitialData: (): Promise<{ users: User[], teams: Team[], projects: Project[], tasks: Task[] }> => requests.get('/bootstrap'),
-
-    // ... שאר הפונקציות נשארות כפי שהיו ...
+    // --- Initial Data Fetch ---
+    getInitialData: (): Promise<{users: User[], teams: Team[], projects: Project[], tasks: Task[], financials: FinancialTransaction[], organizationSettings: {name: string, logoUrl: string}}> => requests.get('/bootstrap'),
+    
     // --- Tasks ---
     getTask: (taskId: string): Promise<Task> => requests.get(`/tasks/${taskId}`),
     updateTask: (updatedTask: Task): Promise<Task> => requests.put(`/tasks/${updatedTask.id}`, updatedTask),
-    addTask: (taskData: any): Promise<Task> => requests.post(`/projects/${taskData.projectId}/tasks`, taskData),
-    addComment: (taskId: string, comment: any): Promise<Task> => requests.post(`/tasks/${taskId}/comments`, { content: comment.text, parentId: comment.parentId }),
+    bulkUpdateTasks: (updatedTasks: Task[]): Promise<Task[]> => requests.patch('/tasks', { tasks: updatedTasks }),
+    addTask: (taskData: Omit<Task, 'id' | 'columnId' | 'comments' | 'plannedCost' | 'actualCost' | 'dependencies' | 'isMilestone'>): Promise<Task> => requests.post(`/projects/${taskData.projectId}/tasks`, taskData),
+    addComment: (taskId: string, comment: Comment): Promise<Task> => requests.post(`/tasks/${taskId}/comments`, { content: comment.text, parentId: comment.parentId }),
+    
+    post: (url: string, data: any) => requests.post(url, data),
+
+    // --- Financials ---
+    addFinancialTransaction: (transactionData: Omit<FinancialTransaction, 'id'>): Promise<FinancialTransaction> => requests.post('/finances/entries', transactionData),
 
     // --- Projects ---
-    createProject: (projectData: any): Promise<Project> => requests.post('/projects', projectData),
+    createProject: (projectData: Omit<Project, 'id' | 'status'>): Promise<Project> => requests.post('/projects', projectData),
     updateProject: (projectId: string, projectData: Partial<Project>): Promise<Project> => requests.put(`/projects/${projectId}`, projectData),
     deleteProject: (projectId: string): Promise<void> => requests.delete(`/projects/${projectId}`),
 
+    // --- Guests ---
+    inviteGuest: (email: string, projectId: string): Promise<User> => api.createUser({ 
+        name: email.split('@')[0], 
+        email: email, 
+        role: 'GUEST',
+        projectId: projectId,
+    }),
+    revokeGuest: (guestId: string): Promise<void> => requests.delete(`/users/${guestId}`),
+    
     // --- Users ---
     updateUser: (updatedUser: User): Promise<User> => requests.put(`/users/${updatedUser.id}`, updatedUser),
-    createUser: (newUserData: any): Promise<User> => requests.post('/users', newUserData),
+    createUser: (newUserData: Omit<User, 'id' | 'avatarUrl'>): Promise<User> => requests.post('/users', newUserData),
     deleteUser: (userId: string): Promise<User> => requests.delete(`/users/${userId}`),
-
+    
     // --- Teams ---
-    createTeam: (newTeamData: any, leaderId: string, memberIds: string[]): Promise<{ team: Team, updatedUsers: User[] }> => requests.post('/teams', { teamName: newTeamData.name, team_leader_id: leaderId, member_user_ids: memberIds }),
+    createTeam: (newTeamData: Omit<Team, 'id'>, leaderId: string, memberIds: string[]): Promise<{ team: Team, updatedUsers: User[] }> => requests.post('/teams', { teamName: newTeamData.name, team_leader_id: leaderId, member_user_ids: memberIds }),
     updateTeam: (updatedTeam: Team, newLeaderId: string | null, newMemberIds: string[]): Promise<{ team: Team, updatedUsers: User[] }> => requests.put(`/teams/${updatedTeam.id}`, { teamName: updatedTeam.name, leaderId: newLeaderId, memberIds: newMemberIds }),
     deleteTeam: (teamId: string): Promise<{ teamId: string, updatedUsers: User[] }> => requests.delete(`/teams/${teamId}`),
+    addUsersToTeam: (userIds: string[], teamId: string): Promise<User[]> => requests.post(`/teams/${teamId}/members`, { user_ids: userIds }),
+    removeUserFromTeam: (userId: string, teamId: string): Promise<User> => requests.delete(`/teams/${teamId}/members/${userId}`),
 };
