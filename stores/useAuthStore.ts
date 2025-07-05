@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { User } from '../types';
-import { api, apiClient } from '../services/api'; // ייבוא של apiClient בנוסף ל-api
+import { api, apiClient } from '../services/api';
 import { useDataStore } from './useDataStore';
 import { useUIStore } from './useUIStore';
 import { logger } from '../services/logger';
@@ -24,6 +24,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     currentUser: null,
     isAuthenticated: false,
     isAppLoading: true,
+
+    // FIX: הוספת הפונקציות החסרות שה-interface דורש
+    setCurrentUser: (user) => set({ currentUser: user, isAuthenticated: !!user }),
+    setIsAuthenticated: (auth) => set({ isAuthenticated: auth }),
 
     checkAuthStatus: async () => {
         set({ isAppLoading: true });
@@ -50,7 +54,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         try {
             const response = await api.login(email, password);
             if (response && response.user && response.token) {
-                // FIX: THE CRITICAL FIX FOR THE RACE CONDITION
                 apiClient.defaults.headers.common['Authorization'] = `Bearer ${response.token}`;
                 set({ currentUser: response.user, isAuthenticated: true });
                 await useDataStore.getState().bootstrapApp();
@@ -66,7 +69,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         try {
             const response = await api.register(registrationData);
             if (response && response.user && response.token) {
-                // FIX: THE CRITICAL FIX FOR THE RACE CONDITION
                 apiClient.defaults.headers.common['Authorization'] = `Bearer ${response.token}`;
                 set({ currentUser: response.user, isAuthenticated: true });
                 await useDataStore.getState().bootstrapApp();
@@ -77,7 +79,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             return { success: false, error: (err as Error).message || "שגיאת הרשמה לא צפויה." };
         }
     },
-
+    
     handleLogout: () => {
         api.logout().catch(err => logger.error("Logout API call failed", err));
         useDataStore.getState().resetDataState();
