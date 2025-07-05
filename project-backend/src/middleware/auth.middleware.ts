@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express';
-import jwt, { JwtPayload } from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import asyncHandler from 'express-async-handler';
 import prisma from '../db';
 import logger from '../logger';
@@ -16,7 +16,7 @@ declare global {
                 name: string;
                 email: string;
                 role: string;
-                teamId: string | null; // Ensures teamId is part of the type
+                teamId: string | null;
                 avatarUrl: string | null;
             };
         }
@@ -25,58 +25,60 @@ declare global {
 
 /**
  * Middleware to protect routes.
- * It checks for a valid JWT in the cookies and attaches the user to the request.
+ * It checks for a valid JWT in the Authorization header and attaches the user to the request.
  */
 export const protect = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     let token;
 
-    if (req.cookies && req.cookies.token) {
-        token = req.cookies.token;
+    // 1. נבדוק אם הטוקן נשלח בכותרת ה-Authorization
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+        try {
+            // 2. נחלץ את הטוקן מהכותרת (הוא מגיע בפורמט 'Bearer <token>')
+            token = req.headers.authorization.split(' ')[1];
+
+            if (!process.env.JWT_SECRET) {
+                logger.error('FATAL: JWT_SECRET is not defined in protect middleware.');
+                throw new Error('Server configuration error');
+            }
+            
+            // 3. נאמת את הטוקן
+            const decoded = jwt.verify(token, process.env.JWT_SECRET) as { id: string };
+
+            // 4. נמצא את המשתמש לפי ה-ID מהטוקן ונצרף אותו לבקשה
+            const user = await prisma.user.findUnique({
+                where: { id: decoded.id },
+                select: {
+                    id: true,
+                    email: true,
+                    name: true,
+                    avatarUrl: true,
+                    role: true,
+                    organizationId: true,
+                    teamId: true,
+                }
+            });
+
+            if (!user) {
+                res.status(401);
+                throw new Error('Not authorized, user not found');
+            }
+            
+            req.user = user; // הוספת המשתמש ל-req
+            
+            next(); // המשתמש מאומת, נעבור לפונקציה הבאה
+            return; // נוודא שהפונקציה מסיימת כאן
+
+        } catch (error) {
+            logger.error('Token verification failed:', { error });
+            res.status(401);
+            throw new Error('Not authorized, token failed');
+        }
     }
 
     if (!token) {
-        logger.warn('Unauthorized access attempt: No token provided.', { path: req.originalUrl, ip: req.ip });
+        logger.warn('Unauthorized access attempt: No token provided in headers.');
         res.status(401);
         throw new Error('Not authorized, no token');
-    }
-
-    try {
-        const secret = process.env.JWT_SECRET;
-        if (!secret) {
-            logger.error('FATAL: JWT_SECRET is not defined. Cannot verify token.');
-            throw new Error('Server configuration error.');
-        }
-
-        const decoded = jwt.verify(token, secret) as JwtPayload;
-
-        // Fetch the user from the database.
-        // *** FIX 1: Added 'teamId' to the select statement. ***
-        const user = await prisma.user.findUnique({
-            where: { id: decoded.id },
-            select: {
-                id: true,
-                name: true,
-                email: true,
-                role: true,
-                organizationId: true,
-                teamId: true, // This was the missing field
-                avatarUrl: true
-            }
-        });
-
-        if (!user || !user.organizationId) {
-             logger.warn('Authorization failed: User from token not found or is invalid.', { userId: decoded.id });
-             res.status(401);
-             throw new Error('Not authorized, user not found.');
-        }
-
-        req.user = user;
-        next();
-
-    } catch (error) {
-        logger.error('Token verification failed. The token might be expired or malformed.', { error });
-        res.status(401);
-        throw new Error('Not authorized, token failed');
     }
 });
 
@@ -85,7 +87,6 @@ export const protect = asyncHandler(async (req: Request, res: Response, next: Ne
  * Example: authorize('ADMIN', 'TEAM_MANAGER')
  * @param {...string} roles - A list of roles that are allowed to access the route.
  */
-// *** FIX 2: Added the missing 'authorize' middleware function. ***
 export const authorize = (...roles: UserRole[]): RequestHandler => {
     return (req, res, next) => {
         if (!req.user || !roles.includes(req.user.role as UserRole)) {
