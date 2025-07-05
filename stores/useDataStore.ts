@@ -6,7 +6,6 @@ import { useAuthStore } from './useAuthStore';
 import { useUIStore } from './useUIStore';
 
 interface DataState {
-    // איחדתי את organization ו-organizationSettings לאובייקט אחד וברור
     organization: { name: string; logoUrl?: string } | null;
     users: User[];
     teams: Team[];
@@ -20,6 +19,8 @@ interface DataState {
     bootstrapApp: () => Promise<void>;
     resetDataState: () => void;
     updateSingleUserInList: (user: User) => void;
+    // --- הוספה חדשה: setter עבור הגדרות הארגון ---
+    setOrganizationSettings: (settings: { name: string; logoUrl?: string }) => void;
 
     // Handlers
     handleUpdateTask: (updatedTask: Task) => Promise<void>;
@@ -45,7 +46,6 @@ interface DataState {
 }
 
 const initialState = {
-    // מעדכנים את ה-state ההתחלתי שיתאים למבנה החדש
     organization: null,
     users: [],
     teams: [],
@@ -83,7 +83,6 @@ export const useDataStore = create<DataState>()((set, get) => ({
 
     bootstrapApp: async () => {
         try {
-            // Using your original and correct API call
             const data = await api.getInitialData();
             set(produce((state: DataState) => {
                 state.users = data.users;
@@ -91,7 +90,6 @@ export const useDataStore = create<DataState>()((set, get) => ({
                 state.projects = data.projects;
                 state.tasks = data.tasks;
                 state.financials = data.financials;
-                // Correctly setting the unified 'organization' state
                 state.organization = data.organizationSettings;
             }));
         } catch (error) {
@@ -101,6 +99,13 @@ export const useDataStore = create<DataState>()((set, get) => ({
     },
 
     resetDataState: () => set(initialState),
+
+    // --- הוספה חדשה: יישום ה-setter עבור הגדרות הארגון ---
+    setOrganizationSettings: (settings) => {
+        set({ organization: settings });
+        // בהמשך, אם תצטרך, תוכל להוסיף כאן קריאה ל-API כדי לשמור את השינויים בשרת
+        // לדוגמה: api.updateOrganizationSettings(settings).catch(err => console.error("Failed to save org settings:", err));
+    },
 
     // Handlers
     handleUpdateTask: async (updatedTask) => {
@@ -138,15 +143,12 @@ export const useDataStore = create<DataState>()((set, get) => ({
 
     handleAddComment: async (taskId, comment) => {
         try {
-            // קריאה לנקודת הקצה הנכונה בשרת, עם המטען (payload) הנכון
             const updatedTask = await api.post(`/tasks/${taskId}/comments`, { content: comment.text });
 
-            // הלוגיקה שלך לעדכון ה-state כבר הייתה מצוינת!
             set(state => ({
                 tasks: state.tasks.map(t => (t.id === taskId ? updatedTask : t))
             }));
 
-            // נוסיף התראה על הצלחה
             useUIStore.getState().setNotification({ message: 'התגובה נוספה בהצלחה!', type: 'success' });
 
         } catch (error) {

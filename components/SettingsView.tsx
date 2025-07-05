@@ -23,7 +23,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDashboard, initialS
         return 'my-profile';
     };
     
-    const [activeSection, setActiveSection] = useState<ActiveSection>(initialSection || getDefaultSection(currentUser!.role));
+    const [activeSection, setActiveSection] = useState<ActiveSection>(
+        initialSection || (currentUser ? getDefaultSection(currentUser.role) : 'my-profile')
+    );
 
     useEffect(() => {
         if (initialSection) {
@@ -229,8 +231,8 @@ const MyProfileSection: React.FC = () => {
 
 
 const GeneralSettingsSection: React.FC = () => {
-    const { organizationSettings, setOrganizationSettings } = useDataStore();
-    const [settings, setSettings] = useState(organizationSettings);
+    const { organization, setOrganizationSettings } = useDataStore();
+    const [settings, setSettings] = useState(organization || { name: '' });
 
     const handleSave = () => {
         setOrganizationSettings(settings);
