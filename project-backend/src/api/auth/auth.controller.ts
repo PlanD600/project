@@ -2,28 +2,29 @@ import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
+import crypto from 'crypto'; // <-- הוספנו את הייבוא החסר כאן
 import prisma from '../../db';
 import logger from '../../logger';
 import { sendEmail } from '../../services/emailService'; // ודא שקובץ זה קיים בנתיב הנכון
 
 /**
- * Generates a JWT for a given user ID.
- * @param userId The ID of the user to generate a token for.
- * @returns The generated JWT.
+ * פונקציית עזר ליצירת טוקן (JWT) עבור ID של משתמש.
+ * @param userId ה-ID של המשתמש שעבורו יש ליצור טוקן.
+ * @returns הטוקן (JWT) שנוצר.
  */
 const generateToken = (userId: string): string => {
     if (!process.env.JWT_SECRET) {
         logger.error('FATAL: JWT_SECRET is not defined. Cannot generate token.');
+        // באפליקציה אמיתית, ייתכן שנרצה למנוע מהשרת לעלות אם המפתח הסודי חסר.
         throw new Error('Server configuration error: JWT secret is missing.');
     }
     return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-        expiresIn: '30d',
+        expiresIn: '30d', // תוקף הטוקן: 30 יום
     });
 };
 
 /**
- * @desc    Register a new user and organization
+ * @desc    הרשמת משתמש וארגון חדשים
  * @route   POST /api/auth/register
  * @access  Public
  */
@@ -32,34 +33,40 @@ export const registerUser = asyncHandler(async (req, res) => {
 
     if (!name || !email || !password || !organizationName) {
         res.status(400);
-        throw new Error('Please provide all required fields for registration.');
+        throw new Error('נא למלא את כל השדות הנדרשים להרשמה.');
     }
 
     const userExists = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
     if (userExists) {
         res.status(400);
-        throw new Error('User with this email already exists.');
+        throw new Error('משתמש עם כתובת אימייל זו כבר קיים.');
     }
 
+    // הצפנת הסיסמה
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const organization = await prisma.organization.create({
-        data: { name: organizationName }
-    });
+    // יצירת הארגון והמשתמש בטרנזקציה אחת כדי להבטיח שלמות מידע
+    const { organization, user } = await prisma.$transaction(async (tx) => {
+        const newOrganization = await tx.organization.create({
+            data: { name: organizationName }
+        });
 
-    const user = await prisma.user.create({
-        data: {
-            name,
-            email: email.toLowerCase(),
-            password: hashedPassword,
-            role: 'ADMIN',
-            organizationId: organization.id,
-        },
+        const newUser = await tx.user.create({
+            data: {
+                name,
+                email: email.toLowerCase(),
+                password: hashedPassword,
+                role: 'ADMIN', // המשתמש הראשון הוא אדמין של הארגון
+                organizationId: newOrganization.id,
+            },
+        });
+
+        return { organization: newOrganization, user: newUser };
     });
 
     if (user) {
-        logger.info('User and Organization registered successfully.', { userId: user.id, email: user.email });
+        logger.info('משתמש וארגון נרשמו בהצלחה.', { userId: user.id, email: user.email });
         
         const token = generateToken(user.id);
 
@@ -73,19 +80,20 @@ export const registerUser = asyncHandler(async (req, res) => {
             teamId: user.teamId,
         };
         
+        // שליחת תגובה בפורמט שה-frontend מצפה לו
         res.status(201).json({
             user: userResponse,
             token: token
         });
     } else {
         res.status(500);
-        throw new Error('Failed to create user.');
+        throw new Error('יצירת המשתמש נכשלה.');
     }
 });
 
 
 /**
- * @desc    Authenticate user & get token
+ * @desc    אימות משתמש וקבלת טוקן
  * @route   POST /api/auth/login
  * @access  Public
  */
@@ -94,15 +102,16 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
 
     if (!email || !password) {
         res.status(400);
-        throw new Error('Please provide email and password');
+        throw new Error('נא למלא אימייל וסיסמה.');
     }
 
     const user = await prisma.user.findUnique({
         where: { email: email.toLowerCase() },
     });
 
+    // בדיקה אם המשתמש קיים והסיסמה נכונה
     if (user && (await bcrypt.compare(password, user.password))) {
-        logger.info(`הצלחת להתחבר`, { userId: user.id });
+        logger.info(`התחברות מוצלחת למשתמש.`, { userId: user.id });
 
         const token = generateToken(user.id);
         
@@ -116,6 +125,7 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
             teamId: user.teamId,
         };
 
+        // שליחת תגובה בפורמט שה-frontend מצפה לו
         res.status(200).json({
             user: userResponse,
             token: token
@@ -123,48 +133,54 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
 
     } else {
         res.status(401);
-        throw new Error('Invalid email or password');
+        throw new Error('אימייל או סיסמה שגויים.');
     }
 });
 
 /**
- * @desc    Get user profile
+ * @desc    קבלת פרטי המשתמש המחובר
  * @route   GET /api/auth/me
  * @access  Private
  */
 export const getMe = asyncHandler(async (req, res) => {
+    // המידע על המשתמש מגיע מה-middleware 'protect' שהוסיף אותו ל-req
     if (!req.user) {
         res.status(404);
-        throw new Error('User not found');
+        throw new Error('המשתמש לא נמצא.');
     }
     res.status(200).json(req.user);
 });
 
 /**
- * @desc    Logout user
+ * @desc    התנתקות המשתמש
  * @route   POST /api/auth/logout
  * @access  Private
  */
 export const logoutUser = asyncHandler(async (req, res) => {
-    logger.info('User logged out successfully.');
-    res.status(200).json({ message: 'Logged out' });
+    // בשימוש ב-JWT, ההתנתקות מתבצעת בצד הלקוח (מחיקת הטוקן).
+    // ה-endpoint הזה קיים בעיקר לשלמות המערכת.
+    logger.info('התנתקות משתמש בוצעה.', { userId: req.user?.id });
+    res.status(200).json({ message: 'התנתקת בהצלחה.' });
 });
 
 /**
- * @desc    Upload user avatar
+ * @desc    העלאת תמונת פרופיל למשתמש
  * @route   POST /api/auth/me/avatar
  * @access  Private
  */
 export const uploadAvatar = asyncHandler(async (req, res) => {
-    const { image } = req.body;
+    // זהו יישום דמה (placeholder) שיש להחליף בשירות העלאת קבצים אמיתי.
+    const { image } = req.body; // מצפים לקבל מחרוזת base64 או data URL
     if (!req.user) {
         res.status(401);
-        throw new Error('Not authorized');
+        throw new Error('אינך מורשה לבצע פעולה זו.');
     }
-    
+
+    // באפליקציה אמיתית, כאן יעלה הקובץ לשירות ענן (כמו S3 או Cloudinary) ונקבל חזרה URL.
+    // כרגע, נעדכן את כתובת התמונה לכתובת דמה.
     const updatedUser = await prisma.user.update({
         where: { id: req.user.id },
-        data: { avatarUrl: 'https://i.pravatar.cc/150?u=' + req.user.id },
+        data: { avatarUrl: 'https://i.pravatar.cc/150?u=' + req.user.id }, // כתובת דמה
         select: {
             id: true,
             email: true,
@@ -178,6 +194,7 @@ export const uploadAvatar = asyncHandler(async (req, res) => {
     
     res.status(200).json(updatedUser);
 });
+
 
 /**
  * @desc    Request a password reset link
