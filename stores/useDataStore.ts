@@ -1,20 +1,10 @@
 import { create } from 'zustand';
 import { produce } from 'immer';
-// FIX: Removed unused imports
-import { User, Task, FinancialTransaction, Notification, Comment, Project, Team } from '../types';
+// FIX: Removed unused imports and added ProjectSubmissionData
+import { User, Task, FinancialTransaction, Notification, Comment, Project, Team, ProjectSubmissionData } from '../types';
 import { api } from '../services/api';
 import { useAuthStore } from './useAuthStore';
 import { useUIStore } from './useUIStore';
-
-// FIX: Define the submission data structure here to be used throughout the store
-interface ProjectSubmissionData {
-    name: string;
-    description: string;
-    startDate: string;
-    endDate: string;
-    budget: number;
-    teamLeaderIds: string[];
-}
 
 interface DataState {
     organization: { name: string; logoUrl?: string } | null;
@@ -39,9 +29,9 @@ interface DataState {
     handleAddComment: (taskId: string, comment: Comment) => Promise<void>;
     handleAddFinancialTransaction: (transactionData: Omit<FinancialTransaction, 'id'>) => Promise<void>;
     
-    // FIX: Updated function signatures to use the new data structure
+    // FIX: Updated function signatures to be correct and flexible
     handleCreateProject: (projectData: ProjectSubmissionData) => Promise<void>;
-    handleUpdateProject: (projectId: string, projectData: Partial<ProjectSubmissionData>) => Promise<void>;
+    handleUpdateProject: (projectId: string, projectData: Partial<ProjectSubmissionData> | { status: string }) => Promise<void>;
     
     handleDeleteProject: (projectId: string) => Promise<void>;
     handleSetNotificationsRead: (ids: string[]) => void;
@@ -90,12 +80,12 @@ export const calculateProjectsForCurrentUser = (currentUser: User | null, projec
     }
 
     // EMPLOYEE sees projects where they have assigned tasks
-    // FIX: Added a fallback `|| []` to prevent crash if assigneeIds is undefined
     const userTaskProjectIds = new Set(
         tasks.filter(t => (t.assigneeIds || []).includes(currentUser.id)).map(t => t.projectId)
     );
     return activeProjects.filter(p => userTaskProjectIds.has(p.id));
 };
+
 
 export const useDataStore = create<DataState>()((set, get) => ({
     ...initialState,
@@ -133,7 +123,6 @@ export const useDataStore = create<DataState>()((set, get) => ({
 
     // --- Handlers ---
     
-    // FIX: The implementation now correctly calls the API with the new structure
     handleCreateProject: async (projectData) => {
         try {
             const newProject = await api.createProject(projectData);
@@ -156,7 +145,6 @@ export const useDataStore = create<DataState>()((set, get) => ({
         }
     },
 
-    // ... The rest of your handler functions remain unchanged ...
     handleUpdateTask: async (updatedTask) => {
         try {
             const returnedTask = await api.updateTask(updatedTask);
