@@ -86,15 +86,16 @@ export const calculateProjectsForCurrentUser = (currentUser: User | null, projec
     
     if (currentUser.role === 'GUEST') {
         // Assuming GUEST is tied to a project via a new field, e.g., `projectId` on the User model
-        // This part might need adjustment based on your guest logic
         return activeProjects.filter(p => (currentUser as any).projectId === p.id);
     }
 
     // EMPLOYEE sees projects where they have assigned tasks
-    const userTaskProjectIds = new Set(tasks.filter(t => t.assigneeIds.includes(currentUser.id)).map(t => t.projectId));
+    // FIX: Added a fallback `|| []` to prevent crash if assigneeIds is undefined
+    const userTaskProjectIds = new Set(
+        tasks.filter(t => (t.assigneeIds || []).includes(currentUser.id)).map(t => t.projectId)
+    );
     return activeProjects.filter(p => userTaskProjectIds.has(p.id));
 };
-
 
 export const useDataStore = create<DataState>()((set, get) => ({
     ...initialState,
