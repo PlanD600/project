@@ -11,6 +11,7 @@
   "dependencies": {
     "@google/genai": "^1.7.0",
     "@prisma/client": "^6.10.1",
+    "@types/nodemailer": "^6.4.17",
     "axios": "^1.7.2",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
@@ -23,12 +24,14 @@
     "jspdf": "^3.0.1",
     "jspdf-autotable": "^5.0.2",
     "mongodb": "^6.17.0",
+    "nodemailer": "^7.0.4",
     "pg": "^8.16.3",
     "pino": "^9.7.0",
     "process": "^0.11.10",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-markdown": "^10.1.0",
+    "react-router-dom": "^7.6.3",
     "remark-gfm": "^4.0.1",
     "zustand": "^4.5.2"
   },

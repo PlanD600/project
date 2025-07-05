@@ -54,6 +54,12 @@ model User {
   projects  Project[] @relation("Owner")
   tasks     Task[]    // This defines the many-to-many relation
   comments  Comment[]
+
+  passwordResetToken    String?   @unique
+  passwordResetExpires  DateTime?
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 }
 
 model Team {

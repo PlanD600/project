@@ -20,6 +20,10 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
     (config) => {
         // The token is now handled by the Authorization header on a per-request basis
+        const token = localStorage.getItem('token');
+        if (token) {
+            config.headers['Authorization'] = `Bearer ${token}`;
+        }
         logger.info(`Sending ${config.method?.toUpperCase()} request to ${config.url}`, {
             method: config.method,
             url: config.url,
@@ -61,6 +65,11 @@ apiClient.interceptors.response.use(
             response: error.response?.data
         });
 
+        // if (error.response?.status === 401) {
+        //     // Optionally, handle unauthenticated redirects here
+        //     // For example: window.location.href = '/login';
+        // }
+
         return Promise.reject(new Error(errorMessage));
     }
 );
@@ -84,7 +93,7 @@ export const api = {
             
             if (response && response.token && response.user) {
                 localStorage.setItem('token', response.token);
-                // Set the token for the current session
+                // Set the token for the current session. This ensures subsequent requests use the token.
                 apiClient.defaults.headers.common['Authorization'] = `Bearer ${response.token}`;
                 console.log(`[API] login successful. Token has been saved.`);
                 return response.user;
@@ -96,6 +105,7 @@ export const api = {
         } catch (error) {
             console.error(`[API] login failed with error:`, error);
             localStorage.removeItem('token');
+            delete apiClient.defaults.headers.common['Authorization']; // Ensure header is cleared on failure
             throw error;
         }
     },
@@ -106,9 +116,7 @@ export const api = {
         } catch (error) {
             console.error(`[API] Backend logout call failed, but proceeding with local logout.`, error);
         } finally {
-            // This is the most important part of logout
             localStorage.removeItem('token');
-            // Remove the auth header from the defaults of the axios instance
             delete apiClient.defaults.headers.common['Authorization'];
             console.log(`[API] Local logout completed. Token removed.`);
         }
@@ -117,6 +125,11 @@ export const api = {
     getMe: (): Promise<User> => requests.get('/auth/me'),
     uploadAvatar: (imageDataUrl: string): Promise<User> => requests.post('/auth/me/avatar', { image: imageDataUrl }),
 
+    // --- הוספה חדשה: API Calls לאיפוס סיסמה ---
+    forgotPassword: (email: string): Promise<{ message: string }> => requests.post('/auth/forgotpassword', { email }),
+    resetPassword: (token: string, password: string): Promise<{ message: string }> => requests.patch(`/auth/resetpassword/${token}`, { password }),
+    // --- סוף הוספה חדשה ---
+
     // --- Initial Data Fetch ---
     getInitialData: (): Promise<{users: User[], teams: Team[], projects: Project[], tasks: Task[], financials: FinancialTransaction[], organizationSettings: {name: string, logoUrl: string}}> => requests.get('/bootstrap'),
     
@@ -124,7 +137,7 @@ export const api = {
     getTask: (taskId: string): Promise<Task> => requests.get(`/tasks/${taskId}`),
     updateTask: (updatedTask: Task): Promise<Task> => requests.put(`/tasks/${updatedTask.id}`, updatedTask),
     bulkUpdateTasks: (updatedTasks: Task[]): Promise<Task[]> => requests.patch('/tasks', { tasks: updatedTasks }),
-    addTask: (taskData: Omit<Task, 'id'>): Promise<Task> => requests.post(`/projects/${taskData.projectId}/tasks`, taskData),
+    addTask: (taskData: Omit<Task, 'id' | 'columnId' | 'comments' | 'plannedCost' | 'actualCost' | 'dependencies' | 'isMilestone'>): Promise<Task> => requests.post(`/projects/${taskData.projectId}/tasks`, taskData),
     addComment: (taskId: string, comment: Comment): Promise<Task> => requests.post(`/tasks/${taskId}/comments`, { content: comment.text, parentId: comment.parentId }),
     
     post: (url: string, data: any) => requests.post(url, data),

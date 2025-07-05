@@ -176,4 +176,127 @@ export const uploadAvatar = asyncHandler(async (req, res) => {
     });
     
     res.status(200).json(updatedUser);
+
+    /**
+ * @desc    Request a password reset link
+ * @route   POST /api/auth/forgotpassword
+ * @access  Public
+ */
+export const forgotPassword = asyncHandler(async (req: Request, res: Response) => {
+    const { email } = req.body;
+
+    if (!email) {
+        res.status(400);
+        throw new Error('Please provide an email address.');
+    }
+
+    const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+
+    if (!user) {
+        // For security reasons, always send a success message even if the user doesn't exist.
+        // This prevents email enumeration.
+        logger.warn(`Password reset requested for non-existent email: ${email}`);
+        return res.status(200).json({ message: 'If a user with that email exists, a password reset link has been sent.' });
+    }
+
+    // Generate a reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    // Set token expiry to 1 hour
+    const passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000);
+
+    // Save token and expiry to user
+    await prisma.user.update({
+        where: { id: user.id },
+        data: {
+            passwordResetToken,
+            passwordResetExpires,
+        },
+    });
+
+    // Create reset URL for the frontend
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+
+    const emailHtml = `
+        <h1>איפוס סיסמה ל-PlanD</h1>
+        <p>קיבלת הודעה זו כי בקשת לאיפוס סיסמתך.</p>
+        <p>אנא לחץ על הקישור הבא כדי לאפס את סיסמתך (הקישור תקף לשעה אחת בלבד):</p>
+        <a href="${resetUrl}">איפוס סיסמה</a>
+        <p>אם לא ביקשת איפוס סיסמה, אנא התעלם ממייל זה.</p>
+    `;
+
+    try {
+        await sendEmail({
+            to: user.email,
+            subject: 'איפוס סיסמה עבור PlanD שלך',
+            html: emailHtml,
+        });
+
+        logger.info(`Password reset email sent to ${user.email}`);
+        res.status(200).json({ message: 'If a user with that email exists, a password reset link has been sent.' });
+    } catch (error) {
+        // If email fails, revert the token in DB to prevent invalid tokens
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                passwordResetToken: null,
+                passwordResetExpires: null,
+            },
+        });
+        logger.error(`Failed to send password reset email to ${user.email}: ${(error as Error).message}`);
+        res.status(500);
+        throw new Error('There was an error sending the password reset email. Please try again later.');
+    }
 });
+
+/**
+ * @desc    Reset user password using token
+ * @route   PATCH /api/auth/resetpassword/:token
+ * @access  Public
+ */
+export const resetPassword = asyncHandler(async (req: Request, res: Response) => {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    if (!password) {
+        res.status(400);
+        throw new Error('Please provide a new password.');
+    }
+
+    // Hash the incoming token to compare with the one in the database
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await prisma.user.findFirst({
+        where: {
+            passwordResetToken: hashedToken,
+            passwordResetExpires: {
+                gt: new Date(), // Check if the token is not expired
+            },
+        },
+    });
+
+    if (!user) {
+        res.status(400);
+        throw new Error('Invalid or expired password reset token.');
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Update user password and clear reset token fields
+    await prisma.user.update({
+        where: { id: user.id },
+        data: {
+            password: hashedPassword,
+            passwordResetToken: null,
+            passwordResetExpires: null,
+        },
+    });
+
+    logger.info(`Password successfully reset for user: ${user.email}`);
+    res.status(200).json({ message: 'Password has been reset successfully.' });
+
+});
+

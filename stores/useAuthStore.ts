@@ -15,6 +15,10 @@ interface AuthState {
     handleLogout: () => void;
     handleRegistration: (data: { fullName: string; email: string; password: string; companyName: string; }) => Promise<{ success: boolean; error: string | null }>;
     handleUploadAvatar: (imageDataUrl: string) => Promise<void>;
+    forgotPassword: (email: string) => Promise<{ success: boolean; message: string }>;
+    forgotPassword: (email: string) => Promise<{ success: boolean; message: string }>;
+
+
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -71,7 +75,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             // api.register מחזיר אובייקט עם מאפיין user בתוכו
             const response = await api.register(registrationData);
             if (response && response.user) { // כאן זה נכון לגשת ל-response.user
-                 set({ currentUser: response.user, isAuthenticated: true });
+                set({ currentUser: response.user, isAuthenticated: true });
 
                 await useDataStore.getState().bootstrapApp();
 
@@ -94,4 +98,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             setNotification({ message: `שגיאה בהעלאת התמונה: ${(err as Error).message}`, type: 'error' });
         }
     },
+
+    forgotPassword: async (email: string) => {
+        try {
+            const response = await api.forgotPassword(email);
+            return { success: true, message: response.message };
+        } catch (error) {
+            return { success: false, message: (error as Error).message || 'Failed to send password reset link.' };
+        }
+    },
+
+    resetPassword: async (token: string, password: string) => {
+        try {
+            const response = await api.resetPassword(token, password);
+            return { success: true, message: response.message };
+        } catch (error) {
+            return { success: false, message: (error as Error).message || 'Failed to reset password.' };
+        }
+    },
+
 }));
