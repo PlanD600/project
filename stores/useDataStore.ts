@@ -59,7 +59,7 @@ const initialState = {
     selectedProjectId: null,
 };
 
-// FIX: This helper function is now updated for the new 'teamLeaders' logic
+// FIX: This helper function is now updated to be more robust and use the new logic
 export const calculateProjectsForCurrentUser = (currentUser: User | null, projects: Project[], tasks: Task[]): Project[] => {
     if (!currentUser) return [];
 
@@ -70,7 +70,7 @@ export const calculateProjectsForCurrentUser = (currentUser: User | null, projec
     // TEAM_MANAGER sees projects they are a leader of
     if (currentUser.role === 'TEAM_MANAGER') {
         return activeProjects.filter(p => 
-            p.teamLeaders?.some(leader => leader.id === currentUser.id)
+            (p.teamLeaders || []).some(leader => leader.id === currentUser.id)
         );
     }
     
@@ -168,7 +168,17 @@ export const useDataStore = create<DataState>()((set, get) => ({
         }
     },
     handleAddTask: async (taskData) => {
-        const fullTaskData: Omit<Task, 'id'> = { ...taskData, columnId: 'col-not-started', comments: [], plannedCost: 0, actualCost: 0, dependencies: [], isMilestone: false };
+        // Ensure assigneeIds is an array, even if not provided
+        const fullTaskData: Omit<Task, 'id'> = { 
+            ...taskData, 
+            assigneeIds: taskData.assigneeIds || [],
+            columnId: 'col-not-started', 
+            comments: [], 
+            plannedCost: 0, 
+            actualCost: 0, 
+            dependencies: [], 
+            isMilestone: false 
+        };
         try {
             const newTask = await api.addTask(fullTaskData);
             set(state => ({ tasks: [...state.tasks, newTask] }));
