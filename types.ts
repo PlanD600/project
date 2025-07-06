@@ -100,3 +100,15 @@ export interface ProjectSubmissionData {
     budget: number;
     teamLeaderIds: string[];
 }
+
+export interface Organization {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  _count?: {
+    users: number;
+    projects: number;
+    teams: number;
+  };
+}

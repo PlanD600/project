@@ -1,6 +1,6 @@
 // services/api.ts
 import axios, { AxiosError } from 'axios';
-import { User, Task, Project, Team, FinancialTransaction, Comment } from '../types';
+import { User, Task, Project, Team, FinancialTransaction, Comment, Organization } from '../types';
 import { logger } from './logger';
 
 const apiBaseURL = (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:8080/api';
@@ -152,6 +152,7 @@ export const api = {
     updateTask: (updatedTask: Task): Promise<Task> => requests.put(`/tasks/${updatedTask.id}`, updatedTask),
     bulkUpdateTasks: (updatedTasks: Task[]): Promise<Task[]> => requests.patch('/tasks', { tasks: updatedTasks }),
     addTask: (taskData: Omit<Task, 'id' | 'columnId' | 'comments' | 'plannedCost' | 'actualCost' | 'dependencies' | 'isMilestone'>): Promise<Task> => requests.post(`/projects/${taskData.projectId}/tasks`, taskData),
+    deleteTask: (taskId: string): Promise<void> => requests.delete(`/tasks/${taskId}`),
     addComment: (taskId: string, comment: Comment): Promise<Task> => requests.post(`/tasks/${taskId}/comments`, { content: comment.text, parentId: comment.parentId }),
     
     post: (url: string, data: any) => requests.post(url, data),
@@ -185,4 +186,10 @@ export const api = {
     deleteTeam: (teamId: string): Promise<{ teamId: string, updatedUsers: User[] }> => requests.delete(`/teams/${teamId}`),
     addUsersToTeam: (userIds: string[], teamId: string): Promise<User[]> => requests.post(`/teams/${teamId}/members`, { user_ids: userIds }),
     removeUserFromTeam: (userId: string, teamId: string): Promise<User> => requests.delete(`/teams/${teamId}/members/${userId}`),
+
+    // --- Organizations ---
+    getOrganizations: (): Promise<Organization[]> => requests.get('/organizations'),
+    createOrganization: (name: string): Promise<Organization> => requests.post('/organizations', { name }),
+    updateOrganization: (name: string): Promise<Organization> => requests.put('/organizations/me', { name }),
+    switchOrganization: (organizationId: string): Promise<Organization> => requests.post('/organizations/switch', { organizationId }),
 };

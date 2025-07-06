@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { produce } from 'immer';
-import { User, Task, FinancialTransaction, Notification, Comment, Project, Team, ProjectSubmissionData } from '../types';
+import { User, Task, FinancialTransaction, Notification, Comment, Project, Team, ProjectSubmissionData, Organization } from '../types';
 import { api } from '../services/api';
 import { useAuthStore } from './useAuthStore';
 import { useUIStore } from './useUIStore';
@@ -8,6 +8,7 @@ import { useUIStore } from './useUIStore';
 // --- ממשק וערכים התחלתיים נשארים זהים ---
 interface DataState {
     organization: { name: string; logoUrl?: string } | null;
+    organizations: Organization[];
     users: User[];
     teams: Team[];
     projects: Project[];
@@ -45,10 +46,15 @@ interface DataState {
     handleDeleteTeam: (teamId: string) => Promise<void>;
     handleAddUsersToTeam: (userIds: string[], teamId: string) => Promise<void>;
     handleRemoveUserFromTeam: (userId: string, teamId: string) => Promise<void>;
+    handleDeleteTask: (taskId: string) => Promise<void>;
+    handleGetOrganizations: () => Promise<void>;
+    handleCreateOrganization: (name: string) => Promise<void>;
+    handleSwitchOrganization: (organizationId: string) => Promise<void>;
 }
 
 const initialState = {
     organization: null,
+    organizations: [],
     users: [],
     teams: [],
     projects: [],
@@ -313,5 +319,49 @@ export const useDataStore = create<DataState>()((set, get) => ({
             const updatedUser = await api.removeUserFromTeam(userId, teamId);
             set(state => ({ users: state.users.map(u => u.id === userId ? updatedUser : u) }));
         } catch (error) { useUIStore.getState().setNotification({ message: `שגיאה בהסרת חבר מצוות: ${(error as Error).message}`, type: 'error' }); }
+    },
+    handleDeleteTask: async (taskId: string) => {
+        try {
+            await api.deleteTask(taskId);
+            set(state => ({
+                tasks: state.tasks.filter(task => task.id !== taskId)
+            }));
+            useUIStore.getState().setNotification({ message: 'המשימה נמחקה בהצלחה!', type: 'success' });
+        } catch (error) {
+            useUIStore.getState().setNotification({ message: `שגיאה במחיקת משימה: ${(error as Error).message}`, type: 'error' });
+        }
+    },
+    handleGetOrganizations: async () => {
+        try {
+            const organizations = await api.getOrganizations();
+            set(state => ({ organizations: organizations }));
+        } catch (error) {
+            console.error("Failed to get organizations:", error);
+            useUIStore.getState().setNotification({ message: `שגיאה בטעינת חברות: ${(error as Error).message}`, type: 'error' });
+        }
+    },
+    handleCreateOrganization: async (name) => {
+        try {
+            const newOrganization = await api.createOrganization(name);
+            if (newOrganization) {
+                set(state => ({ organizations: [...state.organizations, newOrganization] }));
+                useUIStore.getState().setNotification({ message: `חברה "${name}" נוספה בהצלחה!`, type: 'success' });
+            }
+        } catch (error) {
+            useUIStore.getState().setNotification({ message: `שגיאה ביצירת חברה: ${(error as Error).message}`, type: 'error' });
+        }
+    },
+    handleSwitchOrganization: async (organizationId) => {
+        try {
+            const organization = await api.switchOrganization(organizationId);
+            if (organization) {
+                set(state => ({ organization: organization }));
+                // Reload all data for the new organization
+                await get().bootstrapApp();
+                useUIStore.getState().setNotification({ message: `חברה "${organization.name}" נבחרה בהצלחה!`, type: 'success' });
+            }
+        } catch (error) {
+            useUIStore.getState().setNotification({ message: `שגיאה בהחלפת חברה: ${(error as Error).message}`, type: 'error' });
+        }
     },
 }));

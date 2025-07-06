@@ -271,8 +271,20 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, onClose, onUpdateTask, onAd
                 <div>
                   <label className="font-medium text-sm text-primary mb-1 block">תאריכים</label>
                   <div className="flex items-center space-x-2 space-x-reverse">
-                    <input type="date" value={task.endDate} onChange={e => handleUpdateField('endDate', e.target.value)} disabled={!canEditDetails} className="w-full bg-light text-primary p-2 rounded-md border border-dark focus:outline-none focus:ring-2 focus:ring-accent text-sm text-center disabled:bg-dark/20 disabled:text-dimmed disabled:cursor-not-allowed" />
-                    <input type="date" value={task.startDate} onChange={e => handleUpdateField('startDate', e.target.value)} disabled={!canEditDetails} className="w-full bg-light text-primary p-2 rounded-md border border-dark focus:outline-none focus:ring-2 focus:ring-accent text-sm text-center disabled:bg-dark/20 disabled:text-dimmed disabled:cursor-not-allowed" />
+                    <input 
+                        type="date" 
+                        value={task.endDate} 
+                        onChange={e => handleUpdateField('endDate', e.target.value)} 
+                        disabled={!canEditDetails} 
+                        className="w-full bg-light text-primary p-2 rounded-md border border-dark focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent box-border" 
+                    />
+                    <input 
+                        type="date" 
+                        value={task.startDate} 
+                        onChange={e => handleUpdateField('startDate', e.target.value)} 
+                        disabled={!canEditDetails} 
+                        className="w-full bg-light text-primary p-2 rounded-md border border-dark focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent box-border" 
+                    />
                   </div>
                   {scheduleSlippage && <p className="text-xs text-danger mt-1">לוח הזמנים חרג מהבייסליין.</p>}
                   {task.baselineEndDate && <p className="text-xs text-dimmed mt-1">בייסליין: {new Date(task.baselineStartDate!).toLocaleDateString('he-IL')} - {new Date(task.baselineEndDate).toLocaleDateString('he-IL')}</p>}
