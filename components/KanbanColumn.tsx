@@ -10,7 +10,6 @@ interface KanbanColumnProps {
   tasks: Task[];
   users: User[];
   onTaskClick: (task: Task) => void;
-  onOpenAddTaskModal: () => void;
   canAddTask: boolean;
   canAddProject: boolean;
   selectedProjectId: string | null;
@@ -21,7 +20,6 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
   tasks, 
   users, 
   onTaskClick, 
-  onOpenAddTaskModal, 
   canAddTask, 
   canAddProject,
   selectedProjectId 
@@ -86,7 +84,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
           <KanbanCard key={task.id} task={task} onTaskClick={onTaskClick} users={users} />
         ))}
         
-        {/* Quick Add Task */}
+        {/* Quick Add Task - Keep this for quick task creation */}
         {canAddTask && !isQuickAdding && (
           <button
             onClick={() => setIsQuickAdding(true)}
@@ -94,7 +92,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
             className="w-full flex items-center justify-center p-3 text-secondary hover:text-primary rounded-xl transition-colors mt-2 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:opacity-50 hover:bg-dark/10"
           >
             <Icon name="plus" className="w-5 h-5 ml-2" />
-            הוסף משימה
+            הוסף משימה מהירה
           </button>
         )}
 
@@ -126,18 +124,6 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
               </button>
             </div>
           </div>
-        )}
-
-        {/* Full Add Task Button (existing) */}
-        {canAddTask && !isQuickAdding && (
-          <button
-            onClick={onOpenAddTaskModal}
-            disabled={!canAddProject}
-            className="w-full flex items-center justify-center p-2 text-secondary hover:text-primary rounded-xl transition-colors disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:opacity-50 text-sm"
-          >
-            <Icon name="plus" className="w-4 h-4 ml-1" />
-            הוסף משימה מלאה
-          </button>
         )}
       </div>
     </div>

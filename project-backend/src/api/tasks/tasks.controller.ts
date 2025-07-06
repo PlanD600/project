@@ -199,19 +199,49 @@ export const addCommentToTask: RequestHandler = asyncHandler(async (req, res, ne
     await prisma.comment.create({
         data: {
             text: content,
+            taskId,
+            userId: user.id,
             parentId: parentId || null,
-            organizationId: user.organizationId,
-            taskId: taskId,
-            userId: user.id
+            organizationId: user.organizationId
         }
     });
+
+    const result = await getFullTaskViewModel(taskId, user.organizationId);
+    logger.info({ message: 'Comment added successfully.', taskId: result?.id, userId: user.id });
+    res.status(201).json(result);
+});
+
+export const deleteTask: RequestHandler = asyncHandler(async (req, res, next) => {
+    const { taskId } = req.params;
+    const user = req.user;
     
-    const updatedTask = await getFullTaskViewModel(taskId, user.organizationId);
-    if (!updatedTask) {
-        logger.error({ message: 'Task not found after adding comment.', taskId, userId: user.id });
-        res.status(404).json({ message: "Task not found after adding comment." });
+    if (!user || !user.organizationId) {
+        res.status(401).json({ message: 'Unauthorized' });
         return;
     }
-    logger.info({ message: 'Comment added to task successfully.', taskId, userId: user.id });
-    res.status(201).json(updatedTask);
+
+    const taskExists = await prisma.task.findFirst({
+        where: { id: taskId, organizationId: user.organizationId }
+    });
+    
+    if (!taskExists) {
+        logger.warn({ message: 'Delete task failed: Task not found in organization.', taskId, userId: user.id });
+        res.status(404).json({ message: 'Task not found' });
+        return;
+    }
+
+    // Check if user has permission to delete the task
+    if (user.role !== 'ADMIN' && user.role !== 'TEAM_MANAGER') {
+        logger.warn({ message: 'Delete task failed: Insufficient permissions.', taskId, userId: user.id, userRole: user.role });
+        res.status(403).json({ message: 'Insufficient permissions to delete task' });
+        return;
+    }
+
+    // Delete the task (this will cascade delete comments due to foreign key constraints)
+    await prisma.task.delete({
+        where: { id: taskId }
+    });
+
+    logger.info({ message: 'Task deleted successfully.', taskId, userId: user.id });
+    res.status(204).send();
 });

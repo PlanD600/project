@@ -29,8 +29,7 @@ interface CreateProjectModalProps {
 
 // FIX: Added a default empty array for potentialLeaders to prevent crash
 const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose, onSubmit, potentialLeaders = [], projectToEdit }) => {
-    const { currentUser } = useAuthStore();
-    const { users, handleCreateProject, subscriptionInfo } = useDataStore();
+    const { subscriptionInfo } = useDataStore();
     const { setNotification } = useUIStore();
     
     const [showLimitModal, setShowLimitModal] = useState(false);

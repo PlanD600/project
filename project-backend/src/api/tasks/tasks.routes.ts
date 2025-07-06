@@ -1,5 +1,5 @@
 import express from 'express';
-import { updateTaskStatus, addCommentToTask, updateTask, bulkUpdateTasks, getTask } from './tasks.controller';
+import { updateTaskStatus, addCommentToTask, updateTask, bulkUpdateTasks, getTask, deleteTask } from './tasks.controller';
 import { protect, authorize } from '../../middleware/auth.middleware';
 
 const router = express.Router();
@@ -9,7 +9,8 @@ router.patch('/', bulkUpdateTasks); // For gantt drag/drop
 
 router.route('/:taskId')
     .get(getTask)
-    .put(updateTask);
+    .put(updateTask)
+    .delete(deleteTask);
 
 router.put('/:taskId/status', updateTaskStatus);
 router.post('/:taskId/comments', addCommentToTask);

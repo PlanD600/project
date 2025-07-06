@@ -30,6 +30,8 @@ interface ProjectPortfolioData extends Project {
     progressStatus: ProgressStatus;
     progress: number;
     actualCost: number;
+    teamName: string;
+    teamLeaderName: string;
 }
 
 // The data structure for submitting a new/updated project via the modal
@@ -86,12 +88,20 @@ const PortfolioView: React.FC = () => {
             const progress = tasks.length > 0 ? (doneTasks / tasks.length) * 100 : 0;
             const actualCost = expenses.reduce((sum, expense) => sum + expense.amount, 0);
 
+            // Get team name and team leader name
+            const teamName = project.teamId ? allUsers.find(u => u.teamId === project.teamId)?.teamId || 'ללא צוות' : 'ללא צוות';
+            const teamLeaderName = project.teamLeaders && project.teamLeaders.length > 0 
+                ? project.teamLeaders[0].name 
+                : 'לא מוגדר';
+
             // FIX: This structure now matches the ProjectPortfolioData interface
             return {
                 ...project,
                 progressStatus,
                 progress,
                 actualCost,
+                teamName,
+                teamLeaderName,
             };
         });
     }, [allProjects, allTasks, allFinancials]);
@@ -271,6 +281,83 @@ const PortfolioView: React.FC = () => {
             {/* The confirmation modals need to be implemented */}
             {confirmingAction?.action === 'delete' && <div className="fixed inset-0 bg-black/50" />}
             {(confirmingAction?.action === 'archive' || confirmingAction?.action === 'restore') && <div className="fixed inset-0 bg-black/50" />}
+            
+            {/* Archive/Restore Confirmation Modal */}
+            {(confirmingAction?.action === 'archive' || confirmingAction?.action === 'restore') && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-light rounded-lg p-6 max-w-md w-full mx-4">
+                        <h3 className="text-lg font-semibold text-primary mb-4">
+                            {confirmingAction.action === 'archive' ? 'העבר לארכיון' : 'שחזר מארכיון'}
+                        </h3>
+                        <p className="text-primary mb-6">
+                            האם אתה בטוח שברצונך {confirmingAction.action === 'archive' ? 'להעביר את הפרויקט' : 'לשחזר את הפרויקט'} 
+                            <strong>"{confirmingAction.project.name}"</strong> 
+                            {confirmingAction.action === 'archive' ? ' לארכיון?' : ' מהארכיון?'}
+                        </p>
+                        <div className="flex space-x-3 space-x-reverse">
+                            <button
+                                onClick={confirmAction}
+                                className="px-4 py-2 bg-primary text-light rounded-md hover:bg-primary/90 transition-colors"
+                            >
+                                אישור
+                            </button>
+                            <button
+                                onClick={() => setConfirmingAction(null)}
+                                className="px-4 py-2 bg-dark/20 text-primary rounded-md hover:bg-dark/30 transition-colors"
+                            >
+                                ביטול
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            
+            {/* Delete Confirmation Modal */}
+            {confirmingAction?.action === 'delete' && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-light rounded-lg p-6 max-w-md w-full mx-4">
+                        <h3 className="text-lg font-semibold text-danger mb-4">מחק פרויקט</h3>
+                        <p className="text-primary mb-4">
+                            פעולה זו תמחק את הפרויקט <strong>"{confirmingAction.project.name}"</strong> לצמיתות.
+                        </p>
+                        <p className="text-sm text-dimmed mb-6">
+                            כל המשימות, התגובות והנתונים הקשורים לפרויקט זה יימחקו ולא ניתן יהיה לשחזר אותם.
+                        </p>
+                        <div className="mb-4">
+                            <label className="block text-sm text-primary mb-2">
+                                הקלד את שם הפרויקט כדי לאשר:
+                            </label>
+                            <input
+                                type="text"
+                                placeholder={confirmingAction.project.name}
+                                className="w-full p-2 border border-dark rounded-md focus:outline-none focus:ring-2 focus:ring-danger"
+                                id="delete-confirmation-input"
+                            />
+                        </div>
+                        <div className="flex space-x-3 space-x-reverse">
+                            <button
+                                onClick={() => {
+                                    const input = document.getElementById('delete-confirmation-input') as HTMLInputElement;
+                                    if (input.value === confirmingAction.project.name) {
+                                        confirmAction();
+                                    } else {
+                                        alert('שם הפרויקט אינו תואם. אנא נסה שוב.');
+                                    }
+                                }}
+                                className="px-4 py-2 bg-danger text-light rounded-md hover:bg-danger/90 transition-colors"
+                            >
+                                מחק לצמיתות
+                            </button>
+                            <button
+                                onClick={() => setConfirmingAction(null)}
+                                className="px-4 py-2 bg-dark/20 text-primary rounded-md hover:bg-dark/30 transition-colors"
+                            >
+                                ביטול
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

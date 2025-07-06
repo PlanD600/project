@@ -70,12 +70,24 @@ const KanbanBoard: React.FC = () => {
         <>
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-primary">{project?.name || "משימות"}</h2>
-                {canInvite && (
-                    <button onClick={() => setInviteModalOpen(true)} title="הזמן אורח לפרויקט" className="flex items-center space-x-2 space-x-reverse bg-light text-secondary hover:text-primary p-3 rounded-xl shadow-neumorphic-convex hover:shadow-neumorphic-convex-sm active:shadow-neumorphic-concave-sm transition-all">
-                        <Icon name="share-alt" className="w-5 h-5" />
-                        <span className="text-sm font-semibold">שתף</span>
-                    </button>
-                )}
+                <div className="flex items-center space-x-3 space-x-reverse">
+                    {/* Central Add Full Task Button */}
+                    {(currentUser.role === 'ADMIN' || currentUser.role === 'TEAM_MANAGER') && selectedProjectId && (
+                        <button 
+                            onClick={handleOpenAddTaskModal} 
+                            className="flex items-center space-x-2 space-x-reverse bg-primary hover:bg-primary/90 text-light font-semibold py-2 px-4 rounded-lg transition-colors"
+                        >
+                            <Icon name="plus" className="w-4 h-4" />
+                            <span>+ הוסף משימה מלאה</span>
+                        </button>
+                    )}
+                    {canInvite && (
+                        <button onClick={() => setInviteModalOpen(true)} title="הזמן אורח לפרויקט" className="flex items-center space-x-2 space-x-reverse bg-light text-secondary hover:text-primary p-3 rounded-xl shadow-neumorphic-convex hover:shadow-neumorphic-convex-sm active:shadow-neumorphic-concave-sm transition-all">
+                            <Icon name="share-alt" className="w-5 h-5" />
+                            <span className="text-sm font-semibold">שתף</span>
+                        </button>
+                    )}
+                </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
                 {COLUMNS.map(column => (
@@ -84,7 +96,6 @@ const KanbanBoard: React.FC = () => {
                         column={column}
                         tasks={tasksInProject.filter(task => task.columnId === column.id)}
                         onTaskClick={handleTaskClick}
-                        onOpenAddTaskModal={handleOpenAddTaskModal}
                         canAddTask={currentUser.role === 'ADMIN' || currentUser.role === 'TEAM_MANAGER'}
                         canAddProject={!!selectedProjectId}
                         users={users}

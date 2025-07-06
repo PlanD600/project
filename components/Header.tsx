@@ -98,91 +98,91 @@ export const Header: React.FC<HeaderProps> = ({ onGoToSettings, projectsForCurre
                 </div>
               )}
             </div>
-            <div>
-              {/* Workspace Switcher for Admin Users */}
-              {currentUser.role === 'ADMIN' && (
-                <div className="relative" ref={workspaceDropdownRef}>
-                  <button
-                    onClick={() => setIsWorkspaceDropdownOpen(!isWorkspaceDropdownOpen)}
-                    className="flex items-center space-x-2 space-x-reverse text-light hover:text-light/80 transition-colors"
-                  >
-                    <h2 className='text-xl font-bold'>{organization ? organization.name : 'Loading...'}</h2>
-                    <Icon name="briefcase" className="w-4 h-4" />
-                  </button>
-                  
-                  {isWorkspaceDropdownOpen && (
-                    <div className="absolute top-full right-0 mt-2 w-64 bg-light rounded-2xl shadow-neumorphic-convex py-2 text-right z-50">
-                      <div className="px-4 py-2 border-b border-dark">
-                        <p className="text-sm font-semibold text-primary">בחר חברה</p>
-                      </div>
-                      
-                      {organizations.map((org) => (
-                        <button
-                          key={org.id}
-                          onClick={() => handleSwitchOrg(org.id)}
-                          className={`w-full text-right px-4 py-2 text-sm hover:bg-dark/50 transition-colors flex items-center justify-between ${
-                            organization?.name === org.name ? 'bg-dark/30' : ''
-                          }`}
-                        >
-                          <span className="text-primary">{org.name}</span>
-                          {org._count && (
-                            <span className="text-xs text-secondary">
-                              {org._count.users} משתמשים, {org._count.projects} פרויקטים
-                            </span>
-                          )}
-                        </button>
-                      ))}
-                      
-                      <div className="border-t border-dark mt-2 pt-2">
-                        {showCreateOrgForm ? (
-                          <form onSubmit={handleCreateNewOrganization} className="px-4 py-2">
-                            <input
-                              type="text"
-                              value={newOrganizationName}
-                              onChange={(e) => setNewOrganizationName(e.target.value)}
-                              placeholder="שם החברה החדשה"
-                              className="w-full bg-dark/20 text-primary p-2 rounded-md border border-dark focus:outline-none focus:ring-2 focus:ring-accent"
-                              autoFocus
-                            />
-                            <div className="flex space-x-2 space-x-reverse mt-2">
-                              <button
-                                type="submit"
-                                className="px-3 py-1 bg-accent text-light rounded-md text-sm hover:bg-accent/80"
-                              >
-                                צור
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setShowCreateOrgForm(false);
-                                  setNewOrganizationName('');
-                                }}
-                                className="px-3 py-1 bg-dark/20 text-primary rounded-md text-sm hover:bg-dark/30"
-                              >
-                                ביטול
-                              </button>
-                            </div>
-                          </form>
-                        ) : (
-                          <button
-                            onClick={() => setShowCreateOrgForm(true)}
-                            className="w-full text-right px-4 py-2 text-sm text-accent hover:bg-dark/50 transition-colors flex items-center"
-                          >
-                            <Icon name="plus" className="w-4 h-4 ml-2" />
-                            צור חברה חדשה
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+            
+            {/* Organization & User Info - Clickable for Admin */}
+            <div className="relative" ref={workspaceDropdownRef}>
+              <button
+                onClick={() => currentUser.role === 'ADMIN' && setIsWorkspaceDropdownOpen(!isWorkspaceDropdownOpen)}
+                className={`text-right ${currentUser.role === 'ADMIN' ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+              >
+                {/* Organization Name - Large and Prominent */}
+                <h2 className='text-2xl font-bold text-light leading-tight'>
+                  {organization ? organization.name : 'Loading...'}
+                </h2>
+                {/* User Name - Smaller Font */}
+                <p className='text-sm text-light/80 mt-1'>
+                  {currentUser.name}
+                </p>
+                {/* Workspace Switcher Icon for Admin */}
+                {currentUser.role === 'ADMIN' && (
+                  <Icon name="briefcase" className="w-4 h-4 text-light/60 mt-1" />
+                )}
+              </button>
               
-              {/* Regular organization display for non-admin users */}
-              {currentUser.role !== 'ADMIN' && (
-                <div>
-                  <h2 className='text-xl font-bold'>{organization ? organization.name : 'Loading...'}</h2>
-                  <p className='text-sm text-light/80'>Welcome, {currentUser.name}</p>
+              {/* Workspace Switcher Dropdown for Admin Users */}
+              {currentUser.role === 'ADMIN' && isWorkspaceDropdownOpen && (
+                <div className="absolute top-full right-0 mt-2 w-64 bg-light rounded-2xl shadow-neumorphic-convex py-2 text-right z-50">
+                  <div className="px-4 py-2 border-b border-dark">
+                    <p className="text-sm font-semibold text-primary">בחר חברה</p>
+                  </div>
+                  
+                  {organizations.map((org) => (
+                    <button
+                      key={org.id}
+                      onClick={() => handleSwitchOrg(org.id)}
+                      className={`w-full text-right px-4 py-2 text-sm hover:bg-dark/50 transition-colors flex items-center justify-between ${
+                        organization?.name === org.name ? 'bg-dark/30' : ''
+                      }`}
+                    >
+                      <span className="text-primary">{org.name}</span>
+                      {org._count && (
+                        <span className="text-xs text-secondary">
+                          {org._count.users} משתמשים, {org._count.projects} פרויקטים
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                  
+                  <div className="border-t border-dark mt-2 pt-2">
+                    {showCreateOrgForm ? (
+                      <form onSubmit={handleCreateNewOrganization} className="px-4 py-2">
+                        <input
+                          type="text"
+                          value={newOrganizationName}
+                          onChange={(e) => setNewOrganizationName(e.target.value)}
+                          placeholder="שם החברה החדשה"
+                          className="w-full bg-dark/20 text-primary p-2 rounded-md border border-dark focus:outline-none focus:ring-2 focus:ring-accent"
+                          autoFocus
+                        />
+                        <div className="flex space-x-2 space-x-reverse mt-2">
+                          <button
+                            type="submit"
+                            className="px-3 py-1 bg-accent text-light rounded-md text-sm hover:bg-accent/80"
+                          >
+                            צור
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowCreateOrgForm(false);
+                              setNewOrganizationName('');
+                            }}
+                            className="px-3 py-1 bg-dark/20 text-primary rounded-md text-sm hover:bg-dark/30"
+                          >
+                            ביטול
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <button
+                        onClick={() => setShowCreateOrgForm(true)}
+                        className="w-full text-right px-4 py-2 text-sm text-accent hover:bg-dark/50 transition-colors flex items-center"
+                      >
+                        <Icon name="plus" className="w-4 h-4 ml-2" />
+                        צור חברה חדשה
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
