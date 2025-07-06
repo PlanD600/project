@@ -220,43 +220,60 @@ export const deleteProject = asyncHandler(async (req, res) => {
  * @access  Private
  */
 export const createTaskInProject = asyncHandler(async (req, res) => {
-    const { projectId } = req.params;
-    const { title, description, startDate, endDate, assigneeIds, columnId } = req.body;
-    const user = req.user;
+    const { projectId } = req.params;
+    const { title, description, startDate, endDate, assigneeIds, columnId } = req.body;
+    const user = req.user;
 
-    if (!user || !user.organizationId) {
-        res.status(401);
-        throw new Error('Not authorized');
-    }
+    if (!user || !user.organizationId) {
+        res.status(401);
+        throw new Error('Not authorized');
+    }
 
-    if (!title || !startDate || !endDate || !columnId) {
-        res.status(400);
-        throw new Error('Missing required fields for task creation.');
-    }
+    if (!title || !startDate || !endDate || !columnId) {
+        res.status(400);
+        throw new Error('Missing required fields for task creation.');
+    }
 
-    const project = await db.project.findFirst({
-        where: { id: projectId, organizationId: user.organizationId, deletedAt: null }
-    });
+    const project = await db.project.findFirst({
+        where: { id: projectId, organizationId: user.organizationId, deletedAt: null }
+    });
 
-    if (!project) {
-        res.status(404);
-        throw new Error("Project not found or is archived.");
-    }
+    if (!project) {
+        res.status(404);
+        throw new Error("Project not found or is archived.");
+    }
 
-    const newTask = await db.task.create({
-        data: {
-            title,
-            description,
-            startDate: new Date(startDate),
-            endDate: new Date(endDate),
-            projectId,
-            organizationId: user.organizationId,
-            columnId,
-            assignees: {
-                connect: assigneeIds ? assigneeIds.map((id: string) => ({ id })) : [],
-            },
-        }
-    });
-    logger.info({ message: 'Task created successfully in project.', taskId: newTask.id, projectId, userId: user.id });
-    res.status(201).json(newTask);
+    // *** התיקון מתחיל כאן ***
+
+    // 1. יוצרים את המשימה ומבקשים מפורשות לקבל בחזרה את רשימת המשויכים
+    const createdTask = await db.task.create({
+        data: {
+            title,
+            description: description || '', // מוודאים שהתיאור הוא תמיד מחרוזת
+            startDate: new Date(startDate),
+            endDate: new Date(endDate),
+            projectId,
+            organizationId: user.organizationId,
+            columnId,
+            assignees: {
+                connect: assigneeIds ? assigneeIds.map((id: string) => ({ id })) : [],
+            },
+        },
+        include: { // הוספנו את זה כדי לקבל את רשימת המשויכים המלאה
+            assignees: true,
+        },
+    });
+
+    // 2. בונים אובייקט תגובה עקבי שדומה לאובייקטים שהאפליקציה כבר מכירה
+    const newTask = {
+        ...createdTask,
+        assigneeIds: createdTask.assignees.map(a => a.id),
+        comments: [] // משימה חדשה תמיד מתחילה ללא תגובות
+    };
+
+    // מסירים את השדה 'assignees' המלא כי האפליקציה משתמשת רק ב-assigneeIds
+    delete (newTask as any).assignees;
+
+    logger.info({ message: 'Task created successfully in project.', taskId: newTask.id, projectId, userId: user.id });
+    res.status(201).json(newTask);
 });
