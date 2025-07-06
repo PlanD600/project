@@ -99,7 +99,6 @@ export const useDataStore = create<DataState>()((set, get) => ({
                 state.users = data.users || [];
                 state.teams = data.teams || [];
                 state.projects = data.projects || [];
-                // Defensive check to filter out any invalid tasks from the API
                 state.tasks = (data.tasks || []).filter(Boolean);
                 state.financials = data.financials || [];
                 state.organization = data.organizationSettings;
@@ -188,7 +187,6 @@ export const useDataStore = create<DataState>()((set, get) => ({
         };
         try {
             const newTask = await api.addTask(fullTaskData);
-            // Defensive check to ensure the new task is a valid object before adding
             if (newTask && typeof newTask === 'object') {
                 set(state => ({ tasks: [...state.tasks, newTask] }));
             } else {
@@ -264,9 +262,19 @@ export const useDataStore = create<DataState>()((set, get) => ({
         if (query.length < 3) return { projects: [], tasks: [], comments: [] };
         const lowerQuery = query.toLowerCase();
         const accessibleProjectIds = new Set(projectsForCurrentUser.map(p => p.id));
-        const foundProjects = projectsForCurrentUser.filter(p => p.name.toLowerCase().includes(lowerQuery) || p.description.toLowerCase().includes(lowerQuery));
-        const foundTasks = tasks.filter(t => accessibleProjectIds.has(t.projectId) && (t.title.toLowerCase().includes(lowerQuery) || t.description.toLowerCase().includes(lowerQuery)));
+        
+        // *** התיקון כאן ***
+        const foundProjects = projectsForCurrentUser.filter(p => 
+            p.name.toLowerCase().includes(lowerQuery) || 
+            (p.description || '').toLowerCase().includes(lowerQuery)
+        );
+        const foundTasks = tasks.filter(t => 
+            accessibleProjectIds.has(t.projectId) && 
+            (t.title.toLowerCase().includes(lowerQuery) || 
+            (t.description || '').toLowerCase().includes(lowerQuery))
+        );
         const foundComments = tasks.flatMap(t => t.comments.map(c => ({ ...c, task: t }))).filter(c => accessibleProjectIds.has(c.task.projectId) && c.text.toLowerCase().includes(lowerQuery));
+        
         return { projects: foundProjects, tasks: foundTasks, comments: foundComments };
     },
     handleUpdateUser: async (updatedUser) => {
