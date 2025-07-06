@@ -106,9 +106,25 @@ export interface Organization {
   name: string;
   createdAt: string;
   updatedAt: string;
+  planType: 'FREE' | 'BUSINESS' | 'ENTERPRISE';
+  subscriptionStatus: 'ACTIVE' | 'PAST_DUE' | 'CANCELED';
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
   _count?: {
     users: number;
     projects: number;
     teams: number;
   };
+}
+
+export interface SubscriptionInfo {
+  currentPlan: 'FREE' | 'BUSINESS' | 'ENTERPRISE';
+  status: 'ACTIVE' | 'PAST_DUE' | 'CANCELED';
+  nextBillingDate?: string;
+  projectCount: number;
+  projectLimit: number;
+  companyCount: number;
+  companyLimit: number;
+  canDowngrade: boolean;
+  stripeCustomerId?: string;
 }

@@ -5,6 +5,7 @@ import Avatar from './Avatar';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useDataStore } from '../stores/useDataStore';
 import { useUIStore } from '../stores/useUIStore';
+import SubscriptionView from './SubscriptionView';
 
 
 export type ActiveSection = 'my-profile' | 'user-management' | 'team-management' | 'general' | 'billing' | 'my-team';
@@ -456,11 +457,7 @@ const TeamLeaderTeamSection: React.FC = () => {
 };
 
 const BillingSection: React.FC = () => (
-    <SectionWrapper title="חיובים ומנוי">
-        <div className="bg-light p-6 rounded-lg text-center text-dimmed border border-dark">
-            <p>ניהול החיובים מתבצע דרך לוח הבקרה של חשבונך.</p>
-        </div>
-    </SectionWrapper>
+    <SubscriptionView />
 );
 
 const UserModal: React.FC<{ isOpen: boolean; onClose: () => void; userToEdit: User | null }> = ({ isOpen, onClose, userToEdit }) => {

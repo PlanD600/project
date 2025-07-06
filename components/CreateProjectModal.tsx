@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { User, Project } from '../types'; // Assuming Project type is updated
+import { Project, User } from '../types';
+import { useAuthStore } from '../stores/useAuthStore';
+import { useDataStore } from '../stores/useDataStore';
+import { useUIStore } from '../stores/useUIStore';
 import Icon from './Icon';
+import LimitExceededModal from './LimitExceededModal';
 import Avatar from './Avatar'; // Assuming you have an Avatar component
 
 // Define the data structure for submitting a new project
@@ -25,6 +29,18 @@ interface CreateProjectModalProps {
 
 // FIX: Added a default empty array for potentialLeaders to prevent crash
 const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose, onSubmit, potentialLeaders = [], projectToEdit }) => {
+    const { currentUser } = useAuthStore();
+    const { users, handleCreateProject, subscriptionInfo } = useDataStore();
+    const { setNotification } = useUIStore();
+    
+    const [showLimitModal, setShowLimitModal] = useState(false);
+    const [limitModalData, setLimitModalData] = useState({
+        limitType: 'projects' as 'projects' | 'companies',
+        currentCount: 0,
+        limit: 0,
+        planName: ''
+    });
+    
     const isEditing = !!projectToEdit;
     const d = (days: number) => new Date(Date.now() + days * 86400000).toISOString().split('T')[0];
 
@@ -60,6 +76,20 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose
         e.preventDefault();
         if (!name.trim() || !startDate || !endDate) return;
 
+        // Check subscription limits for new projects only
+        if (!isEditing && subscriptionInfo) {
+            if (subscriptionInfo.projectCount >= subscriptionInfo.projectLimit) {
+                setLimitModalData({
+                    limitType: 'projects',
+                    currentCount: subscriptionInfo.projectCount,
+                    limit: subscriptionInfo.projectLimit,
+                    planName: subscriptionInfo.currentPlan.toLowerCase()
+                });
+                setShowLimitModal(true);
+                return;
+            }
+        }
+
         onSubmit({
             name,
             description,
@@ -70,6 +100,11 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose
         });
 
         onClose();
+    };
+
+    const handleUpgrade = () => {
+        // Navigate to subscription page
+        window.location.href = '/settings?section=billing';
     };
 
     const handleLeaderToggle = (userId: string) => {
@@ -194,6 +229,16 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose
                     </button>
                 </footer>
             </form>
+            
+            <LimitExceededModal
+                isOpen={showLimitModal}
+                onClose={() => setShowLimitModal(false)}
+                onUpgrade={handleUpgrade}
+                limitType={limitModalData.limitType}
+                currentCount={limitModalData.currentCount}
+                limit={limitModalData.limit}
+                planName={limitModalData.planName}
+            />
         </div>
     );
 };

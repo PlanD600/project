@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { produce } from 'immer';
-import { User, Task, FinancialTransaction, Notification, Comment, Project, Team, ProjectSubmissionData, Organization } from '../types';
+import { User, Task, FinancialTransaction, Notification, Comment, Project, Team, ProjectSubmissionData, Organization, SubscriptionInfo } from '../types';
 import { api } from '../services/api';
 import { useAuthStore } from './useAuthStore';
 import { useUIStore } from './useUIStore';
@@ -50,6 +50,10 @@ interface DataState {
     handleGetOrganizations: () => Promise<void>;
     handleCreateOrganization: (name: string) => Promise<void>;
     handleSwitchOrganization: (organizationId: string) => Promise<void>;
+    subscriptionInfo: SubscriptionInfo | null;
+    handleGetSubscriptionInfo: () => Promise<void>;
+    handleCreateCheckoutSession: (planId: string) => Promise<{ url: string }>;
+    handleCreatePortalSession: () => Promise<{ url: string }>;
 }
 
 const initialState = {
@@ -362,6 +366,42 @@ export const useDataStore = create<DataState>()((set, get) => ({
             }
         } catch (error) {
             useUIStore.getState().setNotification({ message: `שגיאה בהחלפת חברה: ${(error as Error).message}`, type: 'error' });
+        }
+    },
+    subscriptionInfo: null,
+    handleGetSubscriptionInfo: async () => {
+        try {
+            const info = await api.getSubscriptionInfo();
+            set(state => ({ subscriptionInfo: info }));
+        } catch (error) {
+            console.error("Failed to get subscription info:", error);
+            useUIStore.getState().setNotification({ message: `שגיאה בטעינת מידע תשתית: ${(error as Error).message}`, type: 'error' });
+        }
+    },
+    handleCreateCheckoutSession: async (planId) => {
+        try {
+            const session = await api.createCheckoutSession(planId);
+            if (session) {
+                window.location.href = session.url;
+                return session;
+            }
+            throw new Error("Failed to create checkout session.");
+        } catch (error) {
+            useUIStore.getState().setNotification({ message: `שגיאה ביצירת חלון ביצוע: ${(error as Error).message}`, type: 'error' });
+            return { url: "" };
+        }
+    },
+    handleCreatePortalSession: async () => {
+        try {
+            const session = await api.createPortalSession();
+            if (session) {
+                window.location.href = session.url;
+                return session;
+            }
+            throw new Error("Failed to create portal session.");
+        } catch (error) {
+            useUIStore.getState().setNotification({ message: `שגיאה ביצירת חלון פורטל: ${(error as Error).message}`, type: 'error' });
+            return { url: "" };
         }
     },
 }));

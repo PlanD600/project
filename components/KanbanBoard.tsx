@@ -88,6 +88,7 @@ const KanbanBoard: React.FC = () => {
                         canAddTask={currentUser.role === 'ADMIN' || currentUser.role === 'TEAM_MANAGER'}
                         canAddProject={!!selectedProjectId}
                         users={users}
+                        selectedProjectId={selectedProjectId}
                     />
                 ))}
             </div>

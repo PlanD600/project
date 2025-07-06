@@ -7,6 +7,7 @@ import InviteGuestModal from './InviteGuestModal';
 import Avatar from './Avatar';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useDataStore } from '../stores/useDataStore';
+import { useUIStore } from '../stores/useUIStore';
 
 
 interface TimesViewProps {
@@ -64,7 +65,8 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
     handleUpdateTask, 
     handleBulkUpdateTasks, 
     handleAddComment, 
-    handleInviteGuest 
+    handleInviteGuest, 
+    handleAddTask 
   } = useDataStore();
   
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -75,6 +77,12 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
   const tasksRef = useRef(tasks);
   const [isInviteModalOpen, setInviteModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'gantt'>('gantt');
+  const [isQuickAdding, setIsQuickAdding] = useState(false);
+  const [quickTaskName, setQuickTaskName] = useState('');
+  const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
+  const [hoveredDependency, setHoveredDependency] = useState<{from: string, to: string} | null>(null);
+  const [showDependencies, setShowDependencies] = useState(true);
+  const { setNotification } = useUIStore();
   
   useEffect(() => {
     const checkMobile = () => {
@@ -285,9 +293,119 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
   
   const handleKeyDown = (e: React.KeyboardEvent, task: Task) => {
     if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        setSelectedTask(task);
+      e.preventDefault();
+      setSelectedTask(task);
     }
+  };
+
+  const handleQuickAdd = async () => {
+    if (!quickTaskName.trim() || !selectedProjectId) return;
+
+    try {
+      const today = new Date();
+      const endDate = new Date();
+      endDate.setDate(today.getDate() + 7); // Default to 1 week from now
+
+      await handleAddTask({
+        title: quickTaskName.trim(),
+        description: '',
+        startDate: today.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
+        projectId: selectedProjectId,
+        assigneeIds: []
+      });
+
+      setQuickTaskName('');
+      setIsQuickAdding(false);
+      setNotification({ message: 'המשימה נוספה בהצלחה!', type: 'success' });
+    } catch (error) {
+      setNotification({ 
+        message: `שגיאה ביצירת משימה: ${(error as Error).message}`, 
+        type: 'error' 
+      });
+    }
+  };
+
+  const handleQuickAddKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleQuickAdd();
+    } else if (e.key === 'Escape') {
+      setIsQuickAdding(false);
+      setQuickTaskName('');
+    }
+  };
+
+  const handleCancelQuickAdd = () => {
+    setIsQuickAdding(false);
+    setQuickTaskName('');
+  };
+
+  // Smart path calculation for dependency lines
+  const calculateSmartPath = (fromX: number, fromY: number, toX: number, toY: number, taskPositions: Record<string, any>, fromTaskId: string, toTaskId: string) => {
+    const distance = Math.abs(toX - fromX);
+    const controlPointOffset = Math.min(distance * 0.3, 50); // Smart control point calculation
+    
+    // Check if we need to avoid obstacles
+    const obstacles = Object.entries(taskPositions).filter(([taskId, pos]) => {
+      if (taskId === fromTaskId || taskId === toTaskId) return false;
+      return pos.startX < Math.max(fromX, toX) && pos.startX + pos.width > Math.min(fromX, toX);
+    });
+
+    if (obstacles.length > 0) {
+      // Use S-curve to avoid obstacles
+      const midX = (fromX + toX) / 2;
+      const midY = (fromY + toY) / 2;
+      const verticalOffset = 20;
+      
+      return `M ${fromX} ${fromY} 
+              C ${fromX + controlPointOffset} ${fromY}, ${midX - controlPointOffset} ${midY - verticalOffset}, ${midX} ${midY - verticalOffset}
+              C ${midX + controlPointOffset} ${midY - verticalOffset}, ${toX - controlPointOffset} ${toY}, ${toX} ${toY}`;
+    } else {
+      // Simple curve for direct connections
+      return `M ${fromX} ${fromY} C ${fromX + controlPointOffset} ${fromY}, ${toX - controlPointOffset} ${toY}, ${toX} ${toY}`;
+    }
+  };
+
+  // Check dependency status for coloring
+  const getDependencyStatus = (fromTask: Task, toTask: Task) => {
+    const fromEndDate = new Date(fromTask.endDate);
+    const toStartDate = new Date(toTask.startDate);
+    
+    // Check for schedule conflicts
+    if (toStartDate < fromEndDate) {
+      return 'conflict'; // Red - schedule conflict
+    }
+    
+    // Check for tight dependencies (less than 1 day gap)
+    const gapDays = (toStartDate.getTime() - fromEndDate.getTime()) / (1000 * 60 * 60 * 24);
+    if (gapDays <= 1) {
+      return 'tight'; // Orange - tight dependency
+    }
+    
+    return 'normal'; // Gray - normal dependency
+  };
+
+  // Get dependency line color based on status and hover state
+  const getDependencyColor = (status: string, isHighlighted: boolean, isHovered: boolean) => {
+    if (isHighlighted) {
+      return '#d5bdaf'; // Brand primary color when highlighted
+    }
+    
+    switch (status) {
+      case 'conflict':
+        return isHovered ? '#ef4444' : '#dc2626'; // Red
+      case 'tight':
+        return isHovered ? '#f97316' : '#ea580c'; // Orange
+      default:
+        return isHovered ? '#9a948d' : '#6b7280'; // Gray
+    }
+  };
+
+  // Get dependency line opacity based on hover state
+  const getDependencyOpacity = (isHighlighted: boolean, isHovered: boolean) => {
+    if (isHighlighted) return 1;
+    if (isHovered) return 0.3; // Dimmed when other task is hovered
+    return 0.6; // Default semi-transparent
   };
 
   const GanttHeader = React.memo(() => {
@@ -369,6 +487,108 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
     </svg>
   );
 
+  const DependencyLegend = () => (
+    <div className="absolute top-2 left-2 bg-light/95 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-dark z-50">
+      <h4 className="text-sm font-semibold text-primary mb-2">מפתח תלויות</h4>
+      <div className="space-y-2 text-xs">
+        <div className="flex items-center space-x-2 space-x-reverse">
+          <div className="w-3 h-0.5 bg-gray-500"></div>
+          <span className="text-dimmed">תלות רגילה</span>
+        </div>
+        <div className="flex items-center space-x-2 space-x-reverse">
+          <div className="w-3 h-0.5 bg-orange-500"></div>
+          <span className="text-dimmed">תלות הדוקה</span>
+        </div>
+        <div className="flex items-center space-x-2 space-x-reverse">
+          <div className="w-3 h-0.5 bg-red-500"></div>
+          <span className="text-dimmed">סכסוך לוח זמנים</span>
+        </div>
+        <div className="flex items-center space-x-2 space-x-reverse">
+          <div className="w-2 h-2 rounded-full bg-blue-500 border border-light"></div>
+          <span className="text-dimmed">תלות נכנסת</span>
+        </div>
+        <div className="flex items-center space-x-2 space-x-reverse">
+          <div className="w-2 h-2 rounded-full bg-green-500 border border-light"></div>
+          <span className="text-dimmed">תלות יוצאת</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  const DependencyTooltip = () => {
+    if (!hoveredDependency) return null;
+    
+    const fromTask = hierarchicalTasks.find(t => t.id === hoveredDependency.from);
+    const toTask = hierarchicalTasks.find(t => t.id === hoveredDependency.to);
+    
+    if (!fromTask || !toTask) return null;
+    
+    const status = getDependencyStatus(fromTask, toTask);
+    const statusText = {
+      'normal': 'תלות רגילה',
+      'tight': 'תלות הדוקה',
+      'conflict': 'סכסוך לוח זמנים'
+    }[status];
+    
+    const gapDays = status === 'normal' ? 
+      (new Date(toTask.startDate).getTime() - new Date(fromTask.endDate).getTime()) / (1000 * 60 * 60 * 24) : 0;
+    
+    return (
+      <div className="absolute bg-light/95 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-dark z-50 pointer-events-none" data-dependency-tooltip>
+        <div className="text-xs space-y-1">
+          <div className="font-semibold text-primary">{statusText}</div>
+          <div className="text-dimmed">
+            <div>מ: {fromTask.title}</div>
+            <div>אל: {toTask.title}</div>
+            {status === 'normal' && gapDays > 0 && (
+              <div>מרווח: {Math.round(gapDays)} ימים</div>
+            )}
+            {status === 'conflict' && (
+              <div className="text-red-500">סכסוך: המשימה מתחילה לפני שהמשימה הקודמת מסתיימת</div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const DependencySummary = () => {
+    const allDependencies = hierarchicalTasks.flatMap(task => 
+      task.dependencies.map(depId => {
+        const fromTask = hierarchicalTasks.find(t => t.id === depId);
+        return fromTask ? { from: fromTask, to: task } : null;
+      }).filter(Boolean)
+    );
+
+    const statusCounts = allDependencies.reduce((acc, dep) => {
+      if (!dep) return acc;
+      const status = getDependencyStatus(dep.from, dep.to);
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const totalDependencies = allDependencies.length;
+    const conflicts = statusCounts.conflict || 0;
+    const tightDeps = statusCounts.tight || 0;
+    const normalDeps = statusCounts.normal || 0;
+
+    if (totalDependencies === 0) return null;
+
+    return (
+      <div className="absolute top-2 right-2 bg-light/95 backdrop-blur-sm rounded-lg p-2 shadow-lg border border-dark z-50">
+        <div className="text-xs space-y-1">
+          <div className="font-semibold text-primary">סיכום תלויות</div>
+          <div className="flex space-x-3 space-x-reverse text-dimmed">
+            <span>סה"כ: {totalDependencies}</span>
+            {conflicts > 0 && <span className="text-red-500">סכסוכים: {conflicts}</span>}
+            {tightDeps > 0 && <span className="text-orange-500">הדוקות: {tightDeps}</span>}
+            {normalDeps > 0 && <span>רגילות: {normalDeps}</span>}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const GanttView = () => (
      <div ref={ganttRef} className="bg-light text-primary rounded-lg shadow-sm h-[calc(100vh-18rem)] overflow-auto relative select-none border border-dark">
         <div className="relative" style={{ width: 300 + totalDays * GANTT_DAY_WIDTH, height: 60 + hierarchicalTasks.length * GANTT_ROW_HEIGHT }}>
@@ -392,27 +612,118 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
                     <div className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-danger ring-2 ring-light"/>
                 </div>
 
-                {/* Dependency Lines */}
-                <svg className="absolute top-0 right-0 w-full h-full pointer-events-none" style={{ zIndex: 10 }}>
-                    <defs>
-                        <marker id="arrowhead" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-                            <polygon points="0 0, 6 2, 0 4" fill="#9a948d" />
-                        </marker>
-                    </defs>
-                    {hierarchicalTasks.flatMap(task => 
-                        task.dependencies.map(depId => {
-                            const from = taskPositions[depId];
-                            const to = taskPositions[task.id];
-                            if (!from || !to) return null;
-                            const fromX = 300 + from.startX + from.width;
-                            const toX = 300 + to.startX;
-                            const fromY = from.y + TASK_BAR_HEIGHT / 2;
-                            const toY = to.y + TASK_BAR_HEIGHT / 2;
-                            const path = `M ${fromX} ${fromY} C ${fromX + 25} ${fromY}, ${toX - 25} ${toY}, ${toX} ${toY}`;
-                            return <path key={`${depId}-${task.id}`} d={path} stroke="#9a948d" strokeWidth="1.5" fill="none" markerEnd="url(#arrowhead)" />;
-                        })
-                    )}
-                </svg>
+                {/* Enhanced Dependency Lines */}
+                {showDependencies && (
+                  <svg className="absolute top-0 right-0 w-full h-full" style={{ zIndex: 10 }}>
+                      <defs>
+                          <marker id="arrowhead-normal" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                              <polygon points="0 0, 8 3, 0 6" fill="#6b7280" />
+                          </marker>
+                          <marker id="arrowhead-tight" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                              <polygon points="0 0, 8 3, 0 6" fill="#ea580c" />
+                          </marker>
+                          <marker id="arrowhead-conflict" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                              <polygon points="0 0, 8 3, 0 6" fill="#dc2626" />
+                          </marker>
+                          <marker id="arrowhead-highlighted" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                              <polygon points="0 0, 8 3, 0 6" fill="#d5bdaf" />
+                          </marker>
+                      </defs>
+                      {hierarchicalTasks.flatMap(task => 
+                          task.dependencies.map(depId => {
+                              const fromTask = hierarchicalTasks.find(t => t.id === depId);
+                              const from = taskPositions[depId];
+                              const to = taskPositions[task.id];
+                              
+                              if (!from || !to || !fromTask) return null;
+                              
+                              // Calculate connection points (end of source task to start of target task)
+                              const fromX = 300 + from.startX + from.width; // End of source task
+                              const toX = 300 + to.startX; // Start of target task
+                              const fromY = from.y + TASK_BAR_HEIGHT / 2;
+                              const toY = to.y + TASK_BAR_HEIGHT / 2;
+                              
+                              // Calculate smart path
+                              const path = calculateSmartPath(fromX, fromY, toX, toY, taskPositions, depId, task.id);
+                              
+                              // Determine dependency status and styling
+                              const status = getDependencyStatus(fromTask, task);
+                              const isHighlighted = hoveredTaskId === depId || hoveredTaskId === task.id;
+                              const isHovered = hoveredTaskId !== null && hoveredTaskId !== depId && hoveredTaskId !== task.id;
+                              
+                              const color = getDependencyColor(status, isHighlighted, isHovered);
+                              const opacity = getDependencyOpacity(isHighlighted, isHovered);
+                              const strokeWidth = isHighlighted ? 3 : 2;
+                              
+                              // Choose appropriate arrowhead
+                              let arrowheadId = 'arrowhead-normal';
+                              if (isHighlighted) {
+                                  arrowheadId = 'arrowhead-highlighted';
+                              } else if (status === 'conflict') {
+                                  arrowheadId = 'arrowhead-conflict';
+                              } else if (status === 'tight') {
+                                  arrowheadId = 'arrowhead-tight';
+                              }
+                              
+                              return (
+                                  <g key={`${depId}-${task.id}`}>
+                                      {/* Interactive hit area */}
+                                      <path 
+                                          d={path} 
+                                          stroke="transparent" 
+                                          strokeWidth="8" 
+                                          fill="none" 
+                                          className="cursor-pointer"
+                                          onMouseEnter={(e) => {
+                                              setHoveredDependency({ from: depId, to: task.id });
+                                              // Position tooltip near mouse
+                                              const rect = e.currentTarget.getBoundingClientRect();
+                                              const tooltip = document.querySelector('[data-dependency-tooltip]') as HTMLElement;
+                                              if (tooltip) {
+                                                  tooltip.style.left = `${e.clientX + 10}px`;
+                                                  tooltip.style.top = `${e.clientY - 10}px`;
+                                              }
+                                          }}
+                                          onMouseLeave={() => setHoveredDependency(null)}
+                                      />
+                                      {/* Visible line */}
+                                      <path 
+                                          d={path} 
+                                          stroke={color} 
+                                          strokeWidth={strokeWidth} 
+                                          fill="none" 
+                                          markerEnd={`url(#${arrowheadId})`}
+                                          opacity={opacity}
+                                          className="transition-all duration-200"
+                                      />
+                                      {/* Add subtle glow effect for highlighted lines */}
+                                      {isHighlighted && (
+                                          <path 
+                                              d={path} 
+                                              stroke={color} 
+                                              strokeWidth={strokeWidth + 2} 
+                                              fill="none" 
+                                              opacity={0.3}
+                                              className="transition-all duration-200"
+                                          />
+                                      )}
+                                      {/* Add pulsing animation for conflict dependencies */}
+                                      {status === 'conflict' && (
+                                          <path 
+                                              d={path} 
+                                              stroke={color} 
+                                              strokeWidth={strokeWidth + 1} 
+                                              fill="none" 
+                                              opacity={0.4}
+                                              className="animate-pulse"
+                                          />
+                                      )}
+                                  </g>
+                              );
+                          })
+                      )}
+                  </svg>
+                )}
                 
                 {/* Task Rows */}
                 {hierarchicalTasks.map((task, index) => {
@@ -438,11 +749,50 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
                                 }}
                                 onClick={!interaction ? () => setSelectedTask(task) : undefined}
                                 onMouseDown={isInteractive ? (e) => handleMouseDown(e, 'move', task) : undefined}
+                                onMouseEnter={() => setHoveredTaskId(task.id)}
+                                onMouseLeave={() => setHoveredTaskId(null)}
                             >
                                 <span className="text-primary text-sm font-medium truncate">{task.title}</span>
                                 <div className="flex -space-x-2 overflow-hidden ml-2">
                                 {assignees.slice(0, 2).map(a => <Avatar key={a.id} user={a} className="w-6 h-6 rounded-full ring-1 ring-light/50"/>)}
                                 </div>
+                                
+                                {/* Dependency Status Indicator */}
+                                {(() => {
+                                    const hasDependencies = task.dependencies.length > 0;
+                                    const hasDependents = hierarchicalTasks.some(t => t.dependencies.includes(task.id));
+                                    
+                                    if (!hasDependencies && !hasDependents) return null;
+                                    
+                                    const dependencyStatuses = task.dependencies.map(depId => {
+                                        const depTask = hierarchicalTasks.find(t => t.id === depId);
+                                        return depTask ? getDependencyStatus(depTask, task) : 'normal';
+                                    });
+                                    
+                                    const hasConflicts = dependencyStatuses.includes('conflict');
+                                    const hasTightDeps = dependencyStatuses.includes('tight');
+                                    
+                                    return (
+                                        <div className="absolute -top-1 -right-1 flex space-x-1 space-x-reverse">
+                                            {hasDependencies && (
+                                                <div 
+                                                    className={`w-2 h-2 rounded-full border border-light ${
+                                                        hasConflicts ? 'bg-red-500' : 
+                                                        hasTightDeps ? 'bg-orange-500' : 'bg-blue-500'
+                                                    }`}
+                                                    title={hasConflicts ? 'סכסוך לוח זמנים' : hasTightDeps ? 'תלות הדוקה' : 'תלות רגילה'}
+                                                />
+                                            )}
+                                            {hasDependents && (
+                                                <div 
+                                                    className="w-2 h-2 rounded-full bg-green-500 border border-light"
+                                                    title="משימה תלויה"
+                                                />
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+                                
                                 {isInteractive && <>
                                     <div data-point="start" onMouseDown={(e) => handleMouseDown(e, 'resize-start', task)} className="absolute w-2 h-full right-0 top-0 cursor-ew-resize"/>
                                     <div data-point="end" onMouseDown={(e) => handleMouseDown(e, 'resize-end', task)} className="absolute w-2 h-full left-0 top-0 cursor-ew-resize"/>
@@ -458,6 +808,9 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
                 })}
                 <GhostTask />
                 <LinkLine />
+                {showDependencies && <DependencyLegend />}
+                <DependencyTooltip />
+                {showDependencies && <DependencySummary />}
             </div>
         </div>
     </div>
@@ -505,10 +858,67 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
                     <span className="text-sm font-semibold">שתף</span>
                 </button>
             )}
+            
+            {/* Quick Add Task */}
+            {!isQuickAdding && (currentUser.role === 'ADMIN' || currentUser.role === 'TEAM_MANAGER') && (
+              <button
+                onClick={() => setIsQuickAdding(true)}
+                className="flex items-center space-x-2 space-x-reverse bg-accent hover:bg-accent/80 text-light p-2 rounded-lg transition-colors"
+                title="הוסף משימה מהירה"
+              >
+                <Icon name="plus" className="w-5 h-5" />
+                <span className="text-sm font-semibold">משימה מהירה</span>
+              </button>
+            )}
+
+            {/* Quick Add Input */}
+            {isQuickAdding && (
+              <div className="flex items-center space-x-2 space-x-reverse bg-light border border-accent rounded-lg p-2">
+                <input
+                  type="text"
+                  value={quickTaskName}
+                  onChange={(e) => setQuickTaskName(e.target.value)}
+                  onKeyDown={handleQuickAddKeyPress}
+                  placeholder="שם המשימה..."
+                  className="bg-transparent text-primary border-none outline-none text-sm w-32"
+                  autoFocus
+                />
+                <button
+                  onClick={handleQuickAdd}
+                  disabled={!quickTaskName.trim()}
+                  className="px-2 py-1 text-xs bg-accent text-light rounded hover:bg-accent/80 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  הוסף
+                </button>
+                <button
+                  onClick={handleCancelQuickAdd}
+                  className="px-2 py-1 text-xs text-secondary hover:text-primary"
+                >
+                  ביטול
+                </button>
+              </div>
+            )}
+
             <div className="bg-light p-1 rounded-lg flex items-center shadow-neumorphic-convex-sm">
                 <button onClick={() => setViewMode('list')} className={`px-3 py-1 rounded-md text-sm ${viewMode === 'list' ? 'bg-primary text-light shadow-inner' : 'text-dimmed'}`}>רשימה</button>
                 <button onClick={() => setViewMode('gantt')} className={`px-3 py-1 rounded-md text-sm ${viewMode === 'gantt' ? 'bg-primary text-light shadow-inner' : 'text-dimmed'}`}>גאנט</button>
             </div>
+            
+            {/* Dependency Toggle */}
+            {viewMode === 'gantt' && (
+              <button
+                onClick={() => setShowDependencies(!showDependencies)}
+                className={`flex items-center space-x-2 space-x-reverse p-2 rounded-lg transition-colors border ${
+                  showDependencies 
+                    ? 'bg-accent text-light border-accent' 
+                    : 'bg-light text-dimmed border-dark hover:text-primary'
+                }`}
+                title={showDependencies ? 'הסתר תלויות' : 'הצג תלויות'}
+              >
+                <Icon name="gantt-chart" className="w-4 h-4" />
+                <span className="text-xs font-semibold">תלויות</span>
+              </button>
+            )}
         </div>
         <h2 className="text-2xl font-bold text-primary">{project?.name || "לוח זמנים"}</h2>
       </div>

@@ -59,45 +59,95 @@ export const getProjects = asyncHandler(async (req, res) => {
  * @route   POST /api/projects
  * @access  Private (Admin)
  */
-export const createProject = asyncHandler(async (req, res) => {
-    const { name, description, client, startDate, endDate, budget, teamLeaderIds = [] } = req.body;
-    const creatorId = req.user?.id;
-    const organizationId = req.user?.organizationId;
+export const createProject: RequestHandler = asyncHandler(async (req, res) => {
+  const { name, description, startDate, endDate, budget, teamId, teamLeaderIds } = req.body;
+  const user = req.user;
 
-    if (!creatorId || !organizationId) {
-        res.status(403);
-        throw new Error('User is not authorized or not part of an organization.');
-    }
+  if (!user || !user.organizationId) {
+    res.status(401);
+    throw new Error('Not authorized');
+  }
 
-    if (!name) {
-        res.status(400);
-        throw new Error('Project name is required.');
-    }
-
-    // Ensure the creator is always a team leader and handle duplicates
-    const finalTeamLeaderIds = [...new Set([creatorId, ...teamLeaderIds])];
-
-    const newProject = await db.project.create({
-        data: {
-            name,
-            description,
-            startDate: startDate ? new Date(startDate) : new Date(),
-            endDate: endDate ? new Date(endDate) : new Date(),
-            budget: budget ? parseFloat(budget) : 0,
-            organization: {
-                connect: { id: organizationId },
-            },
-            teamLeaders: {
-                connect: finalTeamLeaderIds.map(id => ({ id })),
-            },
-        },
-        include: {
-            teamLeaders: { select: { id: true, name: true, email: true } }
+  // Check subscription limits
+  const organization = await db.organization.findUnique({
+    where: { id: user.organizationId },
+    include: {
+      _count: {
+        select: {
+          projects: true
         }
-    });
+      }
+    }
+  });
 
-    logger.info(`New project created: "${newProject.name}" by user ${creatorId}`);
-    res.status(201).json(newProject);
+  if (!organization) {
+    res.status(404);
+    throw new Error('Organization not found');
+  }
+
+  // Get plan limits
+  const planLimits = {
+    FREE: 10,
+    BUSINESS: 40,
+    ENTERPRISE: 400
+  };
+
+  const currentLimit = planLimits[organization.planType as keyof typeof planLimits];
+  const currentCount = organization._count.projects;
+
+  if (currentCount >= currentLimit) {
+    res.status(402);
+    throw new Error(`You have reached the project limit (${currentLimit}) for your current plan. Please upgrade to create more projects.`);
+  }
+
+  // Validate required fields
+  if (!name || !startDate || !endDate || !budget) {
+    res.status(400);
+    throw new Error('Name, start date, end date, and budget are required');
+  }
+
+  // Validate dates
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  if (start >= end) {
+    res.status(400);
+    throw new Error('End date must be after start date');
+  }
+
+  // Validate budget
+  if (budget <= 0) {
+    res.status(400);
+    throw new Error('Budget must be greater than 0');
+  }
+
+  // Get team leaders
+  const teamLeaders = teamLeaderIds ? await db.user.findMany({
+    where: { id: { in: teamLeaderIds } }
+  }) : [];
+
+  logger.info({ message: 'Creating new project', projectName: name, organizationId: user.organizationId, userId: user.id });
+
+  const project = await db.project.create({
+    data: {
+      name,
+      description,
+      startDate: start,
+      endDate: end,
+      budget: parseFloat(budget),
+      organizationId: user.organizationId,
+      teamId: teamId || null,
+      teamLeaders: {
+        connect: teamLeaders.map(leader => ({ id: leader.id }))
+      }
+    },
+    include: {
+      teamLeaders: true,
+      team: true
+    }
+  });
+
+  logger.info({ message: 'Project created successfully', projectId: project.id });
+  res.status(201).json(project);
 });
 
 /**

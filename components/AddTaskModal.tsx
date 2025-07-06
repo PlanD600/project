@@ -120,19 +120,19 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSubmit, 
           
           <div>
             <label className="font-semibold text-lg text-dimmed mb-2 block">תאריכים</label>
-            <div className="flex items-center space-x-2 space-x-reverse">
+            <div className="flex flex-wrap items-center gap-2">
                 <input 
                     type="date" 
                     value={endDate} 
                     onChange={e => setEndDate(e.target.value)} 
-                    className="w-full bg-light text-primary p-2 rounded-md border border-dark focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent box-border" 
+                    className="flex-1 min-w-0 bg-light text-primary p-2 rounded-md border border-dark focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent box-border" 
                     required 
                 />
                 <input 
                     type="date" 
                     value={startDate} 
                     onChange={e => setStartDate(e.target.value)} 
-                    className="w-full bg-light text-primary p-2 rounded-md border border-dark focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent box-border" 
+                    className="flex-1 min-w-0 bg-light text-primary p-2 rounded-md border border-dark focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent box-border" 
                     required 
                 />
             </div>

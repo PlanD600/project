@@ -1,6 +1,6 @@
 // services/api.ts
 import axios, { AxiosError } from 'axios';
-import { User, Task, Project, Team, FinancialTransaction, Comment, Organization } from '../types';
+import { User, Task, Project, Team, FinancialTransaction, Comment, Organization, SubscriptionInfo } from '../types';
 import { logger } from './logger';
 
 const apiBaseURL = (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:8080/api';
@@ -192,4 +192,9 @@ export const api = {
     createOrganization: (name: string): Promise<Organization> => requests.post('/organizations', { name }),
     updateOrganization: (name: string): Promise<Organization> => requests.put('/organizations/me', { name }),
     switchOrganization: (organizationId: string): Promise<Organization> => requests.post('/organizations/switch', { organizationId }),
+
+    // --- Billing ---
+    getSubscriptionInfo: (): Promise<SubscriptionInfo> => requests.get('/billing/subscription'),
+    createCheckoutSession: (planId: string): Promise<{ sessionId: string; url: string }> => requests.post('/billing/create-checkout-session', { planId }),
+    createPortalSession: (): Promise<{ url: string }> => requests.post('/billing/create-portal-session', {}),
 };

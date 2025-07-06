@@ -22,12 +22,30 @@ model Organization {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  // Subscription fields
+  planType           PlanType         @default(FREE)
+  subscriptionStatus SubscriptionStatus @default(ACTIVE)
+  stripeCustomerId   String?
+  stripeSubscriptionId String?
+
   users      User[]
   teams      Team[]
   projects   Project[]
   tasks      Task[]
   financials FinancialTransaction[]
   comments   Comment[]
+}
+
+enum PlanType {
+  FREE
+  BUSINESS
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
 }
 
 

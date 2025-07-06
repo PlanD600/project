@@ -10,6 +10,7 @@ import { errorHandler } from './src/middleware/error.middleware';
 import authRoutes from './src/api/auth/auth.routes';
 import usersRoutes from './src/api/users/users.routes';
 import organizationsRoutes from './src/api/organizations/organizations.routes';
+import billingRoutes from './src/api/billing/billing.routes';
 import teamsRoutes from './src/api/teams/teams.routes';
 import projectsRoutes from './src/api/projects/projects.routes';
 import tasksRoutes from './src/api/tasks/tasks.routes';
@@ -65,6 +66,7 @@ app.use('/api/auth', authRoutes);
 // Protected routes - require a valid token for all subsequent routes
 app.use('/api/users', protect, usersRoutes);
 app.use('/api/organizations', protect, organizationsRoutes);
+app.use('/api/billing', billingRoutes);
 app.use('/api/teams', protect, teamsRoutes);
 app.use('/api/projects', protect, projectsRoutes);
 app.use('/api/tasks', protect, tasksRoutes);
