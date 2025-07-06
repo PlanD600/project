@@ -28,7 +28,8 @@ model Organization {
   stripeCustomerId   String?
   stripeSubscriptionId String?
 
-  users      User[]
+  // Multi-tenant relationships
+  memberships Membership[]
   teams      Team[]
   projects   Project[]
   tasks      Task[]
@@ -48,12 +49,29 @@ enum SubscriptionStatus {
   CANCELED
 }
 
-
+// Updated roles to support multi-tenant model
 enum UserRole {
-  ADMIN
-  TEAM_MANAGER
-  EMPLOYEE
-  GUEST
+  SUPER_ADMIN    // Can create and manage multiple organizations
+  ORG_ADMIN      // Organization admin (limited to one org)
+  TEAM_LEADER    // Team leader within an organization
+  EMPLOYEE       // Regular employee
+  GUEST          // Guest user (project-specific access)
+}
+
+// New junction table for user-organization relationships
+model Membership {
+  id             String   @id @default(cuid())
+  userId         String
+  organizationId String
+  role           UserRole
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
 }
 
 model User {
@@ -62,22 +80,20 @@ model User {
   name      String
   password  String
   avatarUrl String?
-  role      UserRole   @default(EMPLOYEE)
   
-  // This is the new relation for projects where the user is a team leader
+  // Multi-tenant relationships
+  memberships Membership[]
+  
+  // Project relationships
   ledProjects Project[] @relation("ProjectTeamLeaders")
-
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  teamId   String?
-  team     Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  
-  // The old "projects" field related to "Owner" has been removed.
-  
   tasks      Task[]    // This defines the many-to-many relation for task assignees
   comments   Comment[]
 
+  // Team relationship (optional - for team-based users)
+  teamId   String?
+  team     Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  
+  // Password reset fields
   passwordResetToken   String?   @unique
   passwordResetExpires DateTime?
 
@@ -112,8 +128,6 @@ model Project {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  // The old "owner" and "ownerId" fields have been removed.
-
   teamId String?
   team   Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull) // If a team is deleted, the project is not deleted
 
@@ -133,6 +147,7 @@ model Task {
   dependencies      String[]
   plannedCost       Float    @default(0)
   actualCost        Float    @default(0)
+  color             String?  // New: color hex code for color-coding
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)

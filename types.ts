@@ -1,4 +1,17 @@
-export type UserRole = 'ADMIN' | 'TEAM_MANAGER' | 'EMPLOYEE' | 'GUEST';
+// Updated roles to support multi-tenant model
+export type UserRole = 'SUPER_ADMIN' | 'ORG_ADMIN' | 'TEAM_LEADER' | 'EMPLOYEE' | 'GUEST';
+
+// New interface for user-organization membership
+export interface Membership {
+  id: string;
+  userId: string;
+  organizationId: string;
+  role: UserRole;
+  createdAt: string;
+  updatedAt: string;
+  user?: User;
+  organization?: Organization;
+}
 
 export interface NotificationPreferences {
   onAssignment: boolean;
@@ -13,8 +26,10 @@ export interface User {
   email: string;
   password?: string;
   avatarUrl: string;
-  role: UserRole;
-  teamLeaders: User[];
+  // Multi-tenant relationships
+  memberships: Membership[];
+  // Project relationships
+  ledProjects: User[];
   teamId?: string; // For team membership
   projectId?: string; // For GUEST access
   disabled?: boolean;
@@ -24,6 +39,7 @@ export interface User {
 export interface Team {
   id: string;
   name: string;
+  organizationId: string;
 }
 
 export interface Project {
@@ -32,6 +48,7 @@ export interface Project {
   description: string;
   teamLeaders: User[];
   teamId?: string; // For team association
+  organizationId: string;
   budget: number;
   startDate: string;
   endDate: string;
@@ -44,6 +61,7 @@ export interface Comment {
   text: string;
   timestamp: string;
   parentId?: string;
+  organizationId: string;
 }
 
 export interface Task {
@@ -61,8 +79,10 @@ export interface Task {
   baselineStartDate?: string;
   baselineEndDate?: string;
   projectId: string;
+  organizationId: string;
   isMilestone?: boolean;
   parentId?: string;
+  color?: string; // Hex color code for task color-coding
 }
 
 export interface Column {
@@ -81,6 +101,7 @@ export interface FinancialTransaction {
   description: string;
   amount: number;
   projectId: string;
+  organizationId: string;
 }
 
 export interface Notification {
@@ -90,6 +111,7 @@ export interface Notification {
   timestamp: string;
   read: boolean;
   taskId?: string; // Optional link to a task
+  organizationId: string;
 }
 
 export interface ProjectSubmissionData {
@@ -110,6 +132,8 @@ export interface Organization {
   subscriptionStatus: 'ACTIVE' | 'PAST_DUE' | 'CANCELED';
   stripeCustomerId?: string;
   stripeSubscriptionId?: string;
+  // Multi-tenant relationships
+  memberships: Membership[];
   _count?: {
     users: number;
     projects: number;

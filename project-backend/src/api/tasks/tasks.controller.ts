@@ -41,12 +41,12 @@ const getFullTaskViewModel = async (taskId: string, organizationId: string) => {
 
 export const getTask: RequestHandler = asyncHandler(async (req, res, next) => {
     const user = req.user;
-    if (!user || !user.organizationId) {
+    if (!user || !user.activeOrganizationId) {
         res.status(401).json({ message: 'Unauthorized' });
         return; // תיקון 4: החזרת void במקום Response
     }
 
-    const task = await getFullTaskViewModel(req.params.taskId, user.organizationId);
+    const task = await getFullTaskViewModel(req.params.taskId, user.activeOrganizationId);
     
     if (!task) {
         logger.warn({ message: 'Single task not found.', taskId: req.params.taskId, userId: user.id });
@@ -63,13 +63,13 @@ export const updateTask: RequestHandler = asyncHandler(async (req, res, next) =>
     const user = req.user;
     const taskData = req.body;
 
-    if (!user || !user.organizationId) {
+    if (!user || !user.activeOrganizationId) {
         res.status(401).json({ message: 'Unauthorized' });
         return;
     }
     
     const taskExists = await prisma.task.findFirst({
-        where: { id: taskId, organizationId: user.organizationId }
+        where: { id: taskId, organizationId: user.activeOrganizationId }
     });
     if (!taskExists) {
         logger.warn({ message: 'Task update failed: Task not found in organization.', taskId, userId: user.id });
@@ -92,7 +92,7 @@ export const updateTask: RequestHandler = asyncHandler(async (req, res, next) =>
         }
     });
     
-    const updatedTask = await getFullTaskViewModel(taskId, user.organizationId);
+    const updatedTask = await getFullTaskViewModel(taskId, user.activeOrganizationId);
     logger.info({ message: 'Task updated successfully.', taskId: updatedTask?.id, userId: user.id });
     res.json(updatedTask);
 });
@@ -100,7 +100,7 @@ export const updateTask: RequestHandler = asyncHandler(async (req, res, next) =>
 export const bulkUpdateTasks: RequestHandler = asyncHandler(async (req, res, next) => {
     const { tasks } = req.body as { tasks: any[] };
     const user = req.user;
-    if (!user || !user.organizationId) {
+    if (!user || !user.activeOrganizationId) {
         res.status(401).json({ message: 'Unauthorized' });
         return;
     }
@@ -111,7 +111,7 @@ export const bulkUpdateTasks: RequestHandler = asyncHandler(async (req, res, nex
     const tasksInOrgCount = await prisma.task.count({
         where: {
             id: { in: taskIds },
-            organizationId: user.organizationId,
+            organizationId: user.activeOrganizationId,
         }
     });
 
@@ -137,7 +137,7 @@ export const bulkUpdateTasks: RequestHandler = asyncHandler(async (req, res, nex
     
     await prisma.$transaction(updatePromises);
 
-    const updatedTasks = await Promise.all(tasks.map((t: any) => getFullTaskViewModel(t.id, user.organizationId!)));
+    const updatedTasks = await Promise.all(tasks.map((t: any) => getFullTaskViewModel(t.id, user.activeOrganizationId!)));
     logger.info({ message: 'Bulk update tasks completed successfully.', updatedTaskCount: updatedTasks.length, userId: user.id });
     res.json(updatedTasks.filter(Boolean));
 });
@@ -146,7 +146,7 @@ export const updateTaskStatus: RequestHandler = asyncHandler(async (req, res, ne
     const { taskId } = req.params;
     const { status } = req.body;
     const user = req.user;
-    if (!user || !user.organizationId) {
+    if (!user || !user.activeOrganizationId) {
         res.status(401).json({ message: 'Unauthorized' });
         return;
     }
@@ -158,7 +158,7 @@ export const updateTaskStatus: RequestHandler = asyncHandler(async (req, res, ne
     }
 
     const taskExists = await prisma.task.findFirst({
-        where: { id: taskId, organizationId: user.organizationId }
+        where: { id: taskId, organizationId: user.activeOrganizationId }
     });
     if (!taskExists) {
         logger.warn({ message: 'Task status update failed: Task not found in organization.', taskId, userId: user.id });
@@ -171,7 +171,7 @@ export const updateTaskStatus: RequestHandler = asyncHandler(async (req, res, ne
         data: { columnId: status }
     });
 
-    const result = await getFullTaskViewModel(taskId, user.organizationId);
+    const result = await getFullTaskViewModel(taskId, user.activeOrganizationId);
     logger.info({ message: 'Task status updated successfully.', taskId: result?.id, newStatus: result?.columnId, userId: user.id });
     res.status(200).json(result);
 });
@@ -181,14 +181,14 @@ export const addCommentToTask: RequestHandler = asyncHandler(async (req, res, ne
     const { content, parentId } = req.body;
     const user = req.user;
     
-    if (!content || !user || !user.organizationId) {
+    if (!content || !user || !user.activeOrganizationId) {
         logger.warn({ message: 'Add comment failed: Missing content or user/org.', taskId, userId: user?.id });
         res.status(400).json({ message: 'Content and user are required.' });
         return;
     }
 
     const taskExists = await prisma.task.findFirst({
-        where: { id: taskId, organizationId: user.organizationId }
+        where: { id: taskId, organizationId: user.activeOrganizationId }
     });
     if (!taskExists) {
         logger.warn({ message: 'Add comment failed: Task not found in organization.', taskId, userId: user.id });
@@ -202,11 +202,11 @@ export const addCommentToTask: RequestHandler = asyncHandler(async (req, res, ne
             taskId,
             userId: user.id,
             parentId: parentId || null,
-            organizationId: user.organizationId
+            organizationId: user.activeOrganizationId
         }
     });
 
-    const result = await getFullTaskViewModel(taskId, user.organizationId);
+    const result = await getFullTaskViewModel(taskId, user.activeOrganizationId);
     logger.info({ message: 'Comment added successfully.', taskId: result?.id, userId: user.id });
     res.status(201).json(result);
 });
@@ -215,13 +215,13 @@ export const deleteTask: RequestHandler = asyncHandler(async (req, res, next) =>
     const { taskId } = req.params;
     const user = req.user;
     
-    if (!user || !user.organizationId) {
+    if (!user || !user.activeOrganizationId) {
         res.status(401).json({ message: 'Unauthorized' });
         return;
     }
 
     const taskExists = await prisma.task.findFirst({
-        where: { id: taskId, organizationId: user.organizationId }
+        where: { id: taskId, organizationId: user.activeOrganizationId }
     });
     
     if (!taskExists) {
@@ -230,9 +230,10 @@ export const deleteTask: RequestHandler = asyncHandler(async (req, res, next) =>
         return;
     }
 
-    // Check if user has permission to delete the task
-    if (user.role !== 'ADMIN' && user.role !== 'TEAM_MANAGER') {
-        logger.warn({ message: 'Delete task failed: Insufficient permissions.', taskId, userId: user.id, userRole: user.role });
+    // Check if user has permission to delete the task (temporary until schema migration)
+    const canDeleteTask = ['ADMIN', 'TEAM_MANAGER'].includes(user.activeRole as any);
+    if (!canDeleteTask) {
+        logger.warn({ message: 'Delete task failed: Insufficient permissions.', taskId, userId: user.id, userRole: user.activeRole });
         res.status(403).json({ message: 'Insufficient permissions to delete task' });
         return;
     }

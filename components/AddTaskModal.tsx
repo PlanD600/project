@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { User, Task } from '../types';
 import Icon from './Icon';
 import Avatar from './Avatar';
+import { useDataStore } from '../stores/useDataStore';
 
 interface AddTaskModalProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ interface AddTaskModalProps {
 
 const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSubmit, users, currentUser, projectId }) => {
   const d = (days: number) => new Date(Date.now() + days * 86400000).toISOString().split('T')[0];
+  const { getUserRoleInActiveOrg, getActiveOrganization } = useDataStore();
   
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -21,17 +23,18 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSubmit, 
   const [startDate, setStartDate] = useState(d(0));
   const [endDate, setEndDate] = useState(d(7));
 
-  const canManageAssignees = currentUser.role === 'ADMIN' || currentUser.role === 'TEAM_MANAGER';
+  const userRole = getUserRoleInActiveOrg();
+  const canManageAssignees = userRole === 'SUPER_ADMIN' || userRole === 'ORG_ADMIN' || userRole === 'TEAM_LEADER';
 
   const assignableUsers = useMemo(() => {
-      if (currentUser.role === 'ADMIN') {
-          return users.filter(u => u.role === 'EMPLOYEE' || u.role === 'TEAM_MANAGER');
+      if (userRole === 'SUPER_ADMIN' || userRole === 'ORG_ADMIN') {
+          return users.filter(u => (u as any).role === 'EMPLOYEE' || (u as any).role === 'TEAM_LEADER');
       }
-      if (currentUser.role === 'TEAM_MANAGER') {
+      if (userRole === 'TEAM_LEADER') {
           return users.filter(u => u.teamId === currentUser.teamId);
       }
       return [];
-  }, [currentUser, users]);
+  }, [userRole, users, currentUser.teamId]);
 
   const handleAssigneeChange = (userId: string) => {
     setAssigneeIds(prev => 
@@ -44,8 +47,17 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSubmit, 
     if (!title.trim()) return;
     
     const finalAssigneeIds = canManageAssignees ? assigneeIds : [currentUser.id];
+    const activeOrg = getActiveOrganization();
 
-    onSubmit({ title, description, assigneeIds: finalAssigneeIds, startDate, endDate, projectId });
+    onSubmit({ 
+      title, 
+      description, 
+      assigneeIds: finalAssigneeIds, 
+      startDate, 
+      endDate, 
+      projectId,
+      organizationId: activeOrg?.id || ''
+    });
     
     onClose();
   };
@@ -103,7 +115,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSubmit, 
                   <div key={user.id} className="flex items-center space-x-2 space-x-reverse p-1 rounded hover:bg-dark/50">
                     <label htmlFor={`add-task-assignee-${user.id}`} className="flex items-center text-sm text-primary w-full cursor-pointer">
                       <Avatar user={user} className="w-6 h-6 rounded-full ml-2"/>
-                      {user.name} ({user.role})
+                      {user.name} ({(user as any).role})
                     </label>
                     <input
                       type="checkbox"

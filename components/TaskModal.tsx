@@ -3,6 +3,7 @@ import { Task, Comment, User, Project } from '../types';
 import { COLUMNS } from '../constants';
 import Icon from './Icon';
 import Avatar from './Avatar';
+import ColorPicker from './ColorPicker';
 import { summarizeText } from '../services/geminiService';
 import Spinner from './Spinner';
 
@@ -29,10 +30,11 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, onClose, onUpdateTask, onAd
   const { canEditDetails, canChangeStatus, canComment, assignableUsers } = useMemo(() => {
     const project = allProjects.find(p => p.id === task.projectId);
 
-    const isSuperAdmin = currentUser.role === 'ADMIN';
-    const isTeamLeaderOfProject = currentUser.role === 'TEAM_MANAGER' && currentUser.teamId === project?.teamId;
+    // Temporary role checks until schema migration
+    const isSuperAdmin = (currentUser as any).role === 'ADMIN';
+    const isTeamLeaderOfProject = (currentUser as any).role === 'TEAM_MANAGER' && currentUser.teamId === project?.teamId;
     const isAssignee = task.assigneeIds && task.assigneeIds.includes(currentUser.id);
-    const isGuest = currentUser.role === 'GUEST';
+    const isGuest = (currentUser as any).role === 'GUEST';
 
     const canEditDetails = isSuperAdmin || isTeamLeaderOfProject;
     const canChangeStatus = isSuperAdmin || isTeamLeaderOfProject || isAssignee;
@@ -40,7 +42,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, onClose, onUpdateTask, onAd
 
     let assignableUsersList: User[] = [];
     if (isSuperAdmin) {
-      assignableUsersList = users.filter(u => u.role === 'EMPLOYEE' || u.role === 'TEAM_MANAGER');
+      assignableUsersList = users.filter(u => (u as any).role === 'EMPLOYEE' || (u as any).role === 'TEAM_MANAGER');
     } else if (isTeamLeaderOfProject) {
       assignableUsersList = users.filter(u => u.teamId === currentUser.teamId);
     }
@@ -60,6 +62,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, onClose, onUpdateTask, onAd
         user: currentUser,
         text: newComment.trim(),
         timestamp: new Date().toISOString(),
+        organizationId: task.organizationId,
       };
       onAddComment(task.id, comment);
       setNewComment('');
@@ -74,6 +77,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, onClose, onUpdateTask, onAd
         text: replyText.trim(),
         timestamp: new Date().toISOString(),
         parentId: parentId,
+        organizationId: task.organizationId,
       };
       onAddComment(task.id, comment);
       setReplyingTo(null);
@@ -267,6 +271,14 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, onClose, onUpdateTask, onAd
                       </div>
                     ))}
                   </div>
+                </div>
+                <div>
+                  <label className="font-medium text-sm text-primary mb-1 block">צבע משימה</label>
+                  <ColorPicker
+                    selectedColor={task.color}
+                    onColorSelect={(color) => handleUpdateField('color', color)}
+                    className="w-full"
+                  />
                 </div>
                 <div>
                   <label className="font-medium text-sm text-primary mb-1 block">תאריכים</label>

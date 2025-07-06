@@ -33,7 +33,7 @@ const App: React.FC = () => {
         checkAuthStatus 
     } = useAuthStore();
 
-    const { projects, tasks, selectedProjectId, setSelectedProjectId } = useDataStore();
+    const { projects, tasks, selectedProjectId, setSelectedProjectId, activeOrganizationId, getUserRoleInActiveOrg } = useDataStore();
     const { notification, setNotification } = useUIStore();
 
     const [activeTab, setActiveTab] = useState<Tab>('Portfolio');
@@ -41,20 +41,21 @@ const App: React.FC = () => {
     const [settingsInitialSection, setSettingsInitialSection] = useState<ActiveSection | null>(null);
     const [showOnboardingModal, setShowOnboardingModal] = useState(false);
 
-    const projectsForCurrentUser = useMemo(() => calculateProjectsForCurrentUser(currentUser, projects, tasks), [currentUser, projects, tasks]);
+    const projectsForCurrentUser = useMemo(() => calculateProjectsForCurrentUser(currentUser, projects, tasks, activeOrganizationId), [currentUser, projects, tasks, activeOrganizationId]);
 
     const tasksForView = useMemo(() => {
         if (!currentUser) return [];
+        const userRole = getUserRoleInActiveOrg();
         if (!selectedProjectId) {
-            if (currentUser.role === 'EMPLOYEE') return tasks.filter(task => task.assigneeIds && task.assigneeIds.includes(currentUser.id));
+            if (userRole === 'EMPLOYEE') return tasks.filter(task => task.assigneeIds && task.assigneeIds.includes(currentUser.id));
             return [];
         }
         const projectTasks = tasks.filter(task => task.projectId === selectedProjectId);
-        if (['GUEST', 'ADMIN', 'TEAM_MANAGER'].includes(currentUser.role)) {
+        if (['GUEST', 'SUPER_ADMIN', 'ORG_ADMIN', 'TEAM_LEADER'].includes(userRole || '')) {
             return projectTasks;
         }
         return projectTasks.filter(task => task.assigneeIds && task.assigneeIds.includes(currentUser.id));
-    }, [currentUser, tasks, selectedProjectId]);
+    }, [currentUser, tasks, selectedProjectId, getUserRoleInActiveOrg]);
 
     useEffect(() => {
         checkAuthStatus();
@@ -70,13 +71,14 @@ const App: React.FC = () => {
 
     useEffect(() => {
         if (!currentUser) return;
+        const userRole = getUserRoleInActiveOrg();
         let availableTabs: Tab[] = ['משימות', 'זמנים'];
-        if (currentUser.role === 'ADMIN') availableTabs = ['Portfolio', 'משימות', 'זמנים', 'כספים'];
-        else if (currentUser.role === 'TEAM_MANAGER') availableTabs = ['משימות', 'זמנים', 'כספים'];
+        if (userRole === 'SUPER_ADMIN' || userRole === 'ORG_ADMIN') availableTabs = ['Portfolio', 'משימות', 'זמנים', 'כספים'];
+        else if (userRole === 'TEAM_LEADER') availableTabs = ['משימות', 'זמנים', 'כספים'];
         if (!availableTabs.includes(activeTab)) {
-            setActiveTab(currentUser.role === 'ADMIN' ? 'Portfolio' : 'משימות');
+            setActiveTab((userRole === 'SUPER_ADMIN' || userRole === 'ORG_ADMIN') ? 'Portfolio' : 'משימות');
         }
-    }, [currentUser, activeTab]);
+    }, [currentUser, activeTab, getUserRoleInActiveOrg]);
 
     useEffect(() => {
         let title = 'PlanD';
@@ -128,11 +130,13 @@ const App: React.FC = () => {
         
         switch (activeTab) {
             case 'Portfolio':
-                return currentUser?.role === 'ADMIN' ? <PortfolioView /> : null;
+                const userRole = getUserRoleInActiveOrg();
+                return (userRole === 'SUPER_ADMIN' || userRole === 'ORG_ADMIN') ? <PortfolioView /> : null;
             case 'זמנים':
                 return <TimesView tasks={tasksForView} />;
             case 'כספים':
-                return ['ADMIN', 'TEAM_MANAGER'].includes(currentUser?.role || '') ? <FinancesView /> : null;
+                const financeUserRole = getUserRoleInActiveOrg();
+                return ['SUPER_ADMIN', 'ORG_ADMIN', 'TEAM_LEADER'].includes(financeUserRole || '') ? <FinancesView /> : null;
             case 'משימות':
                 return <KanbanBoard />;
             default:

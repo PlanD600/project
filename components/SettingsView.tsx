@@ -6,9 +6,10 @@ import { useAuthStore } from '../stores/useAuthStore';
 import { useDataStore } from '../stores/useDataStore';
 import { useUIStore } from '../stores/useUIStore';
 import SubscriptionView from './SubscriptionView';
+import { GuestManagementView } from './GuestManagementView';
 
 
-export type ActiveSection = 'my-profile' | 'user-management' | 'team-management' | 'general' | 'billing' | 'my-team';
+export type ActiveSection = 'my-profile' | 'user-management' | 'team-management' | 'general' | 'billing' | 'my-team' | 'guest-management';
 
 interface SettingsViewProps {
     onBackToDashboard: () => void;
@@ -49,6 +50,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDashboard, initialS
                 { id: 'general', label: 'כללי', icon: 'settings' },
                 { id: 'user-management', label: 'ניהול משתמשים', icon: 'users' },
                 { id: 'team-management', label: 'ניהול צוותים', icon: 'team' },
+                { id: 'guest-management', label: 'ניהול אורחים', icon: 'users' },
                 { id: 'billing', label: 'חיובים', icon: 'billing' }
             );
         }
@@ -87,6 +89,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDashboard, initialS
                     {currentUser.role === 'ADMIN' && activeSection === 'general' && <GeneralSettingsSection />}
                     {currentUser.role === 'ADMIN' && activeSection === 'user-management' && <UserManagementSection />}
                     {currentUser.role === 'ADMIN' && activeSection === 'team-management' && <SuperAdminTeamManagementSection />}
+                    {currentUser.role === 'ADMIN' && activeSection === 'guest-management' && <GuestManagementView />}
                     {currentUser.role === 'ADMIN' && activeSection === 'billing' && <BillingSection />}
                     {currentUser.role === 'TEAM_MANAGER' && activeSection === 'my-team' && <TeamLeaderTeamSection />}
                 </main>

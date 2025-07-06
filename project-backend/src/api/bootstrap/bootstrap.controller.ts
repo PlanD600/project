@@ -5,82 +5,87 @@ import logger from '../../logger';
 import { UserRole } from '@prisma/client';
 
 export const getInitialData: RequestHandler = async (req, res, next) => {
-    const user = req.user;
-    if (!user || !user.organizationId) {
-        logger.warn({ message: 'Unauthorized attempt to get initial data: No user or org in request.' });
-        return res.status(401).json({ message: 'Not authorized' });
-    }
+    const user = req.user;
+    if (!user || !user.activeOrganizationId) {
+        logger.warn({ message: 'Unauthorized attempt to get initial data: No user or active organization in request.' });
+        return res.status(401).json({ message: 'Not authorized' });
+    }
 
-    try {
-        logger.info({ message: 'Attempting to fetch initial data for user.', userId: user.id, orgId: user.organizationId, role: user.role });
+    try {
+        logger.info({ message: 'Attempting to fetch initial data for user.', userId: user.id, orgId: user.activeOrganizationId, role: user.activeRole });
         
-        const orgId = user.organizationId;
+        const orgId = user.activeOrganizationId;
 
         // "כלל הזהב": כל השאילתות מסוננות לפי הארגון
-        const allUsersQuery = prisma.user.findMany({
-            where: { organizationId: orgId },
-            select: { id: true, name: true, email: true, role: true, teamId: true, avatarUrl: true }
-        });
-        const allTeamsQuery = prisma.team.findMany({
+        // Temporary implementation until schema migration
+        const allUsersQuery = prisma.user.findMany({
+            where: { organizationId: orgId }, // Temporary until schema migration
+            select: { 
+                id: true, 
+                name: true, 
+                email: true, 
+                role: true, // Temporary until schema migration
+                teamId: true, 
+                avatarUrl: true
+            }
+        });
+        
+        const allTeamsQuery = prisma.team.findMany({
             where: { organizationId: orgId }
         });
+        
         const organizationQuery = prisma.organization.findUnique({
             where: { id: orgId }
         });
 
-        let projectsQuery;
-        // כלל #2: שימוש ב-enum
-        if (user.role === UserRole.ADMIN) {
-            projectsQuery = prisma.project.findMany({
-                where: { organizationId: orgId, status: 'active' }, // כלל #1
-                orderBy: { startDate: 'desc' }
-            });
-        } else if (user.role === UserRole.TEAM_MANAGER && user.teamId) {
-            projectsQuery = prisma.project.findMany({
-                where: { organizationId: orgId, teamId: user.teamId, status: 'active' }, // כלל #1
-                orderBy: { startDate: 'desc' }
-            });
-        } else { // Employee or GUEST
-            const tasksForUser = await prisma.task.findMany({
-                where: { 
-                organizationId: orgId, // כלל #1
-                    assignees: { some: { id: user.id } } 
-                },
-                select: { projectId: true }
-            });
-            const projectIdsFromTasks = tasksForUser.map(t => t.projectId);
-            const projectIds = [...new Set(projectIdsFromTasks)];
-            
-            projectsQuery = prisma.project.findMany({
-                where: { organizationId: orgId, id: { in: projectIds }, status: 'active' }, // כלל #1
-                orderBy: { startDate: 'desc' }
-            });
-        }
+        let projectsQuery;
+        // כלל #2: שימוש ב-enum - updated for multi-tenant roles (temporary)
+        if (user.activeRole === 'ADMIN' || user.activeRole === 'TEAM_MANAGER') {
+            projectsQuery = prisma.project.findMany({
+                where: { organizationId: orgId, status: 'active' }, // כלל #1
+                orderBy: { startDate: 'desc' }
+            });
+        } else { // Employee or GUEST
+            const tasksForUser = await prisma.task.findMany({
+                where: { 
+                    organizationId: orgId, // כלל #1
+                    assignees: { some: { id: user.id } } 
+                },
+                select: { projectId: true }
+            });
+            const projectIdsFromTasks = tasksForUser.map(t => t.projectId);
+            const projectIds = [...new Set(projectIdsFromTasks)];
+            
+            projectsQuery = prisma.project.findMany({
+                where: { organizationId: orgId, id: { in: projectIds }, status: 'active' }, // כלל #1
+                orderBy: { startDate: 'desc' }
+            });
+        }
 
-        const [allUsers, teams, projects, organization] = await Promise.all([allUsersQuery, allTeamsQuery, projectsQuery, organizationQuery]);
-        const projectIds = projects.map((p: { id: string }) => p.id);
+        const [allUsers, teams, projects, organization] = await Promise.all([allUsersQuery, allTeamsQuery, projectsQuery, organizationQuery]);
+        const projectIds = projects.map((p: { id: string }) => p.id);
 
-        let tasksQuery, financialsQuery;
-        if (projectIds.length > 0) {
-            tasksQuery = prisma.task.findMany({
-                where: { organizationId: orgId, projectId: { in: projectIds } }, // כלל #1
-                include: {
-                    assignees: { select: { id: true, name: true, avatarUrl: true } },
-                    comments: {
-                        include: { user: { select: { id: true, name: true, avatarUrl: true } } },
-                        orderBy: { timestamp: 'asc' }
-                    }
-                }
-            });
-            financialsQuery = prisma.financialTransaction.findMany({
-                where: { organizationId: orgId, projectId: { in: projectIds } } // כלל #1
-            });
-        } else {
-            tasksQuery = Promise.resolve([]);
-            financialsQuery = Promise.resolve([]);
-        }
+        let tasksQuery, financialsQuery;
+        if (projectIds.length > 0) {
+            tasksQuery = prisma.task.findMany({
+                where: { organizationId: orgId, projectId: { in: projectIds } }, // כלל #1
+                include: {
+                    assignees: { select: { id: true, name: true, avatarUrl: true } },
+                    comments: {
+                        include: { user: { select: { id: true, name: true, avatarUrl: true } } },
+                        orderBy: { timestamp: 'asc' }
+                    }
+                }
+            });
+            financialsQuery = prisma.financialTransaction.findMany({
+                where: { organizationId: orgId, projectId: { in: projectIds } } // כלל #1
+            });
+        } else {
+            tasksQuery = Promise.resolve([]);
+            financialsQuery = Promise.resolve([]);
+        }
 
-        const [tasks, financials] = await Promise.all([tasksQuery, financialsQuery]);
+        const [tasks, financials] = await Promise.all([tasksQuery, financialsQuery]);
         
         // Transform tasks to include assigneeIds instead of assignees
         const transformedTasks = tasks.map(task => ({
@@ -106,8 +111,8 @@ export const getInitialData: RequestHandler = async (req, res, next) => {
             organizationSettings,
         });
 
-    } catch (error) {
-        logger.error({ message: 'Failed to bootstrap initial data.', context: { userId: user.id, role: user.role }, error });
-        next(error);
-    }
+    } catch (error) {
+        logger.error({ message: 'Failed to bootstrap initial data.', context: { userId: user.id, role: user.activeRole }, error });
+        next(error);
+    }
 };

@@ -11,27 +11,27 @@ import logger from '../../logger'; // ייבוא הלוגר
  */
 export const getProjects = asyncHandler(async (req, res) => {
     const user = req.user;
-    if (!user || !user.organizationId) {
+    if (!user || !user.activeOrganizationId) {
         res.status(401);
         throw new Error('Not authorized');
     }
 
     // Base query: always filter by organization and non-deleted projects
     const where: Prisma.ProjectWhereInput = {
-        organizationId: user.organizationId,
+        organizationId: user.activeOrganizationId,
         deletedAt: null
     };
 
-    // Role-based filtering
-    if (user.role === UserRole.TEAM_MANAGER) {
+    // Role-based filtering (temporary until schema migration)
+    if (user.activeRole === 'TEAM_MANAGER') {
         // Team managers see projects they are leading
         where.teamLeaders = { some: { id: user.id } };
         logger.info({ message: 'Filtering projects by team leadership for manager.', userId: user.id });
-    } else if (user.role === UserRole.EMPLOYEE) {
+    } else if (user.activeRole === 'EMPLOYEE') {
         // Employees see projects where they have assigned tasks
         const tasks = await db.task.findMany({
             where: {
-                organizationId: user.organizationId,
+                organizationId: user.activeOrganizationId,
                 assignees: { some: { id: user.id } }
             },
             select: { projectId: true }
@@ -57,20 +57,28 @@ export const getProjects = asyncHandler(async (req, res) => {
 /**
  * @desc    Create a new project with multiple team leaders
  * @route   POST /api/projects
- * @access  Private (Admin)
+ * @access  Private (Admin or Org Admin)
  */
 export const createProject: RequestHandler = asyncHandler(async (req, res) => {
   const { name, description, startDate, endDate, budget, teamId, teamLeaderIds } = req.body;
   const user = req.user;
 
-  if (!user || !user.organizationId) {
+  if (!user || !user.activeOrganizationId) {
     res.status(401);
     throw new Error('Not authorized');
   }
 
+  // Check if user can create projects (Admin, Super Admin, or Org Admin)
+  const canCreateProjects = ['ADMIN', 'TEAM_MANAGER'].includes(user.activeRole as any); // Temporary until schema migration
+
+  if (!canCreateProjects) {
+    res.status(403);
+    throw new Error('User is not authorized to create projects');
+  }
+
   // Check subscription limits
   const organization = await db.organization.findUnique({
-    where: { id: user.organizationId },
+    where: { id: user.activeOrganizationId },
     include: {
       _count: {
         select: {
@@ -125,7 +133,7 @@ export const createProject: RequestHandler = asyncHandler(async (req, res) => {
     where: { id: { in: teamLeaderIds } }
   }) : [];
 
-  logger.info({ message: 'Creating new project', projectName: name, organizationId: user.organizationId, userId: user.id });
+  logger.info({ message: 'Creating new project', projectName: name, organizationId: user.activeOrganizationId, userId: user.id });
 
   const project = await db.project.create({
     data: {
@@ -134,7 +142,7 @@ export const createProject: RequestHandler = asyncHandler(async (req, res) => {
       startDate: start,
       endDate: end,
       budget: parseFloat(budget),
-      organizationId: user.organizationId,
+      organizationId: user.activeOrganizationId,
       teamId: teamId || null,
       teamLeaders: {
         connect: teamLeaders.map(leader => ({ id: leader.id }))
@@ -159,7 +167,7 @@ export const getProjectDetails = asyncHandler(async (req, res) => {
     const { projectId } = req.params;
     const user = req.user;
 
-    if (!user || !user.organizationId) {
+    if (!user || !user.activeOrganizationId) {
         res.status(401);
         throw new Error('Not authorized');
     }
@@ -167,7 +175,7 @@ export const getProjectDetails = asyncHandler(async (req, res) => {
     const project = await db.project.findFirst({
         where: {
             id: projectId,
-            organizationId: user.organizationId,
+            organizationId: user.activeOrganizationId,
             deletedAt: null
         },
         include: {
@@ -195,13 +203,13 @@ export const updateProject = asyncHandler(async (req, res) => {
     const { projectId } = req.params;
     const user = req.user;
 
-    if (!user || !user.organizationId) {
+    if (!user || !user.activeOrganizationId) {
         res.status(401);
         throw new Error('Not authorized');
     }
 
     const project = await db.project.findFirst({
-        where: { id: projectId, organizationId: user.organizationId },
+        where: { id: projectId, organizationId: user.activeOrganizationId },
         include: { teamLeaders: { select: { id: true } } }
     });
 
@@ -211,7 +219,9 @@ export const updateProject = asyncHandler(async (req, res) => {
     }
 
     const isTeamLeader = project.teamLeaders.some(leader => leader.id === user.id);
-    if (user.role !== 'ADMIN' && !isTeamLeader) {
+    const canUpdateProject = ['ADMIN', 'TEAM_MANAGER'].includes(user.activeRole as any) || isTeamLeader; // Temporary until schema migration
+
+    if (!canUpdateProject) {
         res.status(403);
         throw new Error('User is not authorized to update this project.');
     }
@@ -234,13 +244,13 @@ export const deleteProject = asyncHandler(async (req, res) => {
     const { projectId } = req.params;
     const user = req.user;
 
-    if (!user || !user.organizationId) {
+    if (!user || !user.activeOrganizationId) {
         res.status(401);
         throw new Error('Not authorized');
     }
 
     const project = await db.project.findFirst({
-        where: { id: projectId, organizationId: user.organizationId },
+        where: { id: projectId, organizationId: user.activeOrganizationId },
         include: { teamLeaders: { select: { id: true } } }
     });
 
@@ -250,7 +260,9 @@ export const deleteProject = asyncHandler(async (req, res) => {
     }
 
     const isTeamLeader = project.teamLeaders.some(leader => leader.id === user.id);
-    if (user.role !== 'ADMIN' && !isTeamLeader) {
+    const canDeleteProject = ['ADMIN', 'TEAM_MANAGER'].includes(user.activeRole as any) || isTeamLeader; // Temporary until schema migration
+
+    if (!canDeleteProject) {
         res.status(403);
         throw new Error('User is not authorized to delete this project.');
     }
@@ -270,49 +282,49 @@ export const deleteProject = asyncHandler(async (req, res) => {
  * @access  Private
  */
 export const createTaskInProject = asyncHandler(async (req, res) => {
-    const { projectId } = req.params;
-    const { title, description, startDate, endDate, assigneeIds, columnId } = req.body;
-    const user = req.user;
+    const { projectId } = req.params;
+    const { title, description, startDate, endDate, assigneeIds, columnId } = req.body;
+    const user = req.user;
 
-    if (!user || !user.organizationId) {
-        res.status(401);
-        throw new Error('Not authorized');
-    }
+    if (!user || !user.activeOrganizationId) {
+        res.status(401);
+        throw new Error('Not authorized');
+    }
 
-    if (!title || !startDate || !endDate || !columnId) {
-        res.status(400);
-        throw new Error('Missing required fields for task creation.');
-    }
+    if (!title || !startDate || !endDate || !columnId) {
+        res.status(400);
+        throw new Error('Missing required fields for task creation.');
+    }
 
-    const project = await db.project.findFirst({
-        where: { id: projectId, organizationId: user.organizationId, deletedAt: null }
-    });
+    const project = await db.project.findFirst({
+        where: { id: projectId, organizationId: user.activeOrganizationId, deletedAt: null }
+    });
 
-    if (!project) {
-        res.status(404);
-        throw new Error("Project not found or is archived.");
-    }
+    if (!project) {
+        res.status(404);
+        throw new Error("Project not found or is archived.");
+    }
 
     // *** התיקון מתחיל כאן ***
 
-    // 1. יוצרים את המשימה ומבקשים מפורשות לקבל בחזרה את רשימת המשויכים
-    const createdTask = await db.task.create({
-        data: {
-            title,
+    // 1. יוצרים את המשימה ומבקשים מפורשות לקבל בחזרה את רשימת המשויכים
+    const createdTask = await db.task.create({
+        data: {
+            title,
             description: description || '', // מוודאים שהתיאור הוא תמיד מחרוזת
-            startDate: new Date(startDate),
-            endDate: new Date(endDate),
-            projectId,
-            organizationId: user.organizationId,
-            columnId,
-            assignees: {
-                connect: assigneeIds ? assigneeIds.map((id: string) => ({ id })) : [],
-            },
-        },
+            startDate: new Date(startDate),
+            endDate: new Date(endDate),
+            projectId,
+            organizationId: user.activeOrganizationId,
+            columnId,
+            assignees: {
+                connect: assigneeIds ? assigneeIds.map((id: string) => ({ id })) : [],
+            },
+        },
         include: { // הוספנו את זה כדי לקבל את רשימת המשויכים המלאה
             assignees: true,
         },
-    });
+    });
 
     // 2. בונים אובייקט תגובה עקבי שדומה לאובייקטים שהאפליקציה כבר מכירה
     const newTask = {
@@ -324,6 +336,6 @@ export const createTaskInProject = asyncHandler(async (req, res) => {
     // מסירים את השדה 'assignees' המלא כי האפליקציה משתמשת רק ב-assigneeIds
     delete (newTask as any).assignees;
 
-    logger.info({ message: 'Task created successfully in project.', taskId: newTask.id, projectId, userId: user.id });
-    res.status(201).json(newTask);
+    logger.info({ message: 'Task created successfully in project.', taskId: newTask.id, projectId, userId: user.id });
+    res.status(201).json(newTask);
 });

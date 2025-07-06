@@ -19,18 +19,19 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ task, users, onTaskClick, onEdi
   const dropdownRef = useRef<HTMLDivElement>(null);
   const optionsRef = useRef<HTMLDivElement>(null);
   const { currentUser } = useAuthStore();
-  const { handleUpdateTask, handleDeleteTask } = useDataStore();
+  const { handleUpdateTask, handleDeleteTask, getUserRoleInActiveOrg } = useDataStore();
   
   const assignees = users.filter(u => task.assigneeIds && task.assigneeIds.includes(u.id));
   const { startDate, endDate } = task;
   
-  // Check if user can modify the task
-  const canModifyTask = currentUser?.role === 'ADMIN' || 
-    currentUser?.role === 'TEAM_MANAGER' || 
+  // Check if user can modify the task (temporary until schema migration)
+  const userRole = getUserRoleInActiveOrg();
+  const canModifyTask = userRole === 'ADMIN' || 
+    userRole === 'TEAM_MANAGER' || 
     (task.assigneeIds && task.assigneeIds.includes(currentUser?.id || ''));
   
-  const canDeleteTask = currentUser?.role === 'ADMIN' || 
-    currentUser?.role === 'TEAM_MANAGER';
+  const canDeleteTask = userRole === 'ADMIN' || 
+    userRole === 'TEAM_MANAGER';
   
   const formatDate = (dateString: string) => {
       if (!dateString) return '';
@@ -99,12 +100,15 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ task, users, onTaskClick, onEdi
   const currentStatus = getCurrentStatusInfo();
 
   return (
-    <div className="w-full text-right bg-light p-4 rounded-xl shadow-neumorphic-convex hover:shadow-neumorphic-convex-sm active:shadow-neumorphic-concave-sm transition-all duration-200">
+    <div 
+      className="w-full text-right bg-light p-4 rounded-xl shadow-neumorphic-convex hover:shadow-neumorphic-convex-sm active:shadow-neumorphic-concave-sm transition-all duration-200 cursor-pointer relative overflow-hidden"
+      onClick={() => onTaskClick(task)}
+      style={{
+        borderLeft: task.color ? `4px solid ${task.color}` : undefined
+      }}
+    >
       <div className="flex justify-between items-start mb-2">
-        <h3 
-          className="font-semibold text-primary cursor-pointer hover:text-primary/80 transition-colors"
-          onClick={() => onTaskClick(task)}
-        >
+        <h3 className="font-semibold text-primary hover:text-primary/80 transition-colors">
           {task.title}
         </h3>
         

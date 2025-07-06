@@ -1,6 +1,6 @@
 // services/api.ts
 import axios, { AxiosError } from 'axios';
-import { User, Task, Project, Team, FinancialTransaction, Comment, Organization, SubscriptionInfo } from '../types';
+import { User, Task, Project, Team, FinancialTransaction, Comment, Organization, SubscriptionInfo, Membership } from '../types';
 import { logger } from './logger';
 
 const apiBaseURL = (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:8080/api';
@@ -16,7 +16,7 @@ const apiClient = axios.create({
 
 // --- Interceptors ---
 
-// Request Interceptor: Attaches the auth token to every outgoing request.
+// Request Interceptor: Attaches the auth token and active organization to every outgoing request.
 apiClient.interceptors.request.use(
     (config) => {
         // The token is now handled by the Authorization header on a per-request basis
@@ -24,9 +24,17 @@ apiClient.interceptors.request.use(
         if (token) {
             config.headers['Authorization'] = `Bearer ${token}`;
         }
+        
+        // Add active organization header for multi-tenant support
+        const activeOrganizationId = localStorage.getItem('activeOrganizationId');
+        if (activeOrganizationId) {
+            config.headers['x-active-organization-id'] = activeOrganizationId;
+        }
+        
         logger.info(`Sending ${config.method?.toUpperCase()} request to ${config.url}`, {
             method: config.method,
             url: config.url,
+            activeOrganizationId,
         });
         return config;
     },
@@ -112,6 +120,7 @@ export const api = {
             console.error(`[API] Backend logout call failed, but proceeding with local logout.`, error);
         } finally {
             localStorage.removeItem('token');
+            localStorage.removeItem('activeOrganizationId'); // Clear active organization on logout
             api.removeAuthToken(); // הסרה מפורשת
             console.log(`[API] Local logout completed. Token removed.`);
         }
@@ -121,6 +130,10 @@ export const api = {
         const response = await requests.post('/auth/register', registrationData);
         if (response && response.user && response.token) {
             localStorage.setItem('token', response.token);
+            // Set the first organization as active after registration
+            if (response.organizationId) {
+                localStorage.setItem('activeOrganizationId', response.organizationId);
+            }
             api.setAuthToken(response.token); // הגדר את הטוקן באופן מפורש גם כאן
             return response; // response כבר מכיל את user, organizationSettings ו-token
         }
@@ -142,6 +155,17 @@ export const api = {
     },
     removeAuthToken: () => {
         delete apiClient.defaults.headers.common['Authorization'];
+    },
+
+    // --- Multi-tenant organization management ---
+    setActiveOrganization: (organizationId: string | null) => {
+        if (organizationId) {
+            localStorage.setItem('activeOrganizationId', organizationId);
+            apiClient.defaults.headers.common['x-active-organization-id'] = organizationId;
+        } else {
+            localStorage.removeItem('activeOrganizationId');
+            delete apiClient.defaults.headers.common['x-active-organization-id'];
+        }
     },
 
     // --- Initial Data Fetch ---
@@ -166,14 +190,12 @@ export const api = {
     deleteProject: (projectId: string): Promise<void> => requests.delete(`/projects/${projectId}`),
 
     // --- Guests ---
-    inviteGuest: (email: string, projectId: string): Promise<User> => api.createUser({ 
-        name: email.split('@')[0], 
+    inviteGuest: (email: string, projectId: string): Promise<User> => requests.post('/guests/invite', { 
         email: email, 
-        role: 'GUEST',
         projectId: projectId,
-        teamLeaders: [], // Add empty teamLeaders array
     }),
-    revokeGuest: (guestId: string): Promise<void> => requests.delete(`/users/${guestId}`),
+    revokeGuest: (guestId: string, projectId: string): Promise<void> => requests.delete(`/guests/${guestId}/project/${projectId}`),
+    getProjectGuests: (projectId: string): Promise<User[]> => requests.get(`/guests/project/${projectId}`),
     
     // --- Users ---
     updateUser: (updatedUser: User): Promise<User> => requests.put(`/users/${updatedUser.id}`, updatedUser),
@@ -187,11 +209,16 @@ export const api = {
     addUsersToTeam: (userIds: string[], teamId: string): Promise<User[]> => requests.post(`/teams/${teamId}/members`, { user_ids: userIds }),
     removeUserFromTeam: (userId: string, teamId: string): Promise<User> => requests.delete(`/teams/${teamId}/members/${userId}`),
 
-    // --- Organizations ---
+    // --- Multi-tenant Organizations ---
     getOrganizations: (): Promise<Organization[]> => requests.get('/organizations'),
     createOrganization: (name: string): Promise<Organization> => requests.post('/organizations', { name }),
     updateOrganization: (name: string): Promise<Organization> => requests.put('/organizations/me', { name }),
-    switchOrganization: (organizationId: string): Promise<Organization> => requests.post('/organizations/switch', { organizationId }),
+    switchOrganization: (organizationId: string): Promise<Organization> => {
+        // Update active organization in localStorage and headers
+        api.setActiveOrganization(organizationId);
+        return requests.post('/organizations/switch', { organizationId });
+    },
+    getUserMemberships: (): Promise<Membership[]> => requests.get('/organizations/memberships'),
 
     // --- Billing ---
     getSubscriptionInfo: (): Promise<SubscriptionInfo> => requests.get('/billing/subscription'),

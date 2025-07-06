@@ -19,6 +19,8 @@ export const Header: React.FC<HeaderProps> = ({ onGoToSettings, projectsForCurre
   const {
     organization,
     organizations,
+    userMemberships,
+    activeOrganizationId,
     notifications,
     handleSetNotificationsRead,
     selectedProjectId,
@@ -26,7 +28,10 @@ export const Header: React.FC<HeaderProps> = ({ onGoToSettings, projectsForCurre
     handleGlobalSearch,
     handleGetOrganizations,
     handleCreateOrganization,
-    handleSwitchOrganization
+    handleSwitchOrganization,
+    handleGetUserMemberships,
+    canManageOrganizations,
+    getUserRoleInActiveOrg
   } = useDataStore();
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -50,12 +55,15 @@ export const Header: React.FC<HeaderProps> = ({ onGoToSettings, projectsForCurre
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Load organizations for admin users
+  // Load user memberships and organizations for super admin users
   useEffect(() => {
-    if (currentUser?.role === 'ADMIN' && organizations.length === 0) {
+    if (currentUser && userMemberships.length === 0) {
+      handleGetUserMemberships();
+    }
+    if (canManageOrganizations() && organizations.length === 0) {
       handleGetOrganizations();
     }
-  }, [currentUser?.role, organizations.length, handleGetOrganizations]);
+  }, [currentUser, userMemberships.length, organizations.length, canManageOrganizations, handleGetUserMemberships, handleGetOrganizations]);
 
   const handleCreateNewOrganization = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,6 +81,9 @@ export const Header: React.FC<HeaderProps> = ({ onGoToSettings, projectsForCurre
 
   if (!currentUser) return null;
 
+  const userRoleInActiveOrg = getUserRoleInActiveOrg();
+  const canManageOrgs = canManageOrganizations();
+
   return (
     <header className="bg-primary text-light shadow-lg p-4 sm:p-6 rounded-b-3xl relative z-20">
       <div className='max-w-7xl mx-auto'>
@@ -88,6 +99,9 @@ export const Header: React.FC<HeaderProps> = ({ onGoToSettings, projectsForCurre
                   <div className="px-4 py-3 border-b border-shadow-dark">
                     <p className="font-semibold text-primary truncate">{currentUser.name}</p>
                     <p className="text-sm text-secondary truncate">{currentUser.email}</p>
+                    {userRoleInActiveOrg && (
+                      <p className="text-xs text-secondary mt-1">תפקיד: {userRoleInActiveOrg}</p>
+                    )}
                   </div>
                   <a href="#" onClick={(e) => { e.preventDefault(); onGoToSettings(); setIsDropdownOpen(false); }} className="w-full flex items-center justify-end gap-3 text-right px-4 py-2 text-sm text-primary hover:bg-light/50">
                     הפרופיל שלי <Icon name="user" className="w-4 h-4 text-secondary" />
@@ -99,11 +113,11 @@ export const Header: React.FC<HeaderProps> = ({ onGoToSettings, projectsForCurre
               )}
             </div>
             
-            {/* Organization & User Info - Clickable for Admin */}
+            {/* Organization & User Info - Clickable for Super Admin */}
             <div className="relative" ref={workspaceDropdownRef}>
               <button
-                onClick={() => currentUser.role === 'ADMIN' && setIsWorkspaceDropdownOpen(!isWorkspaceDropdownOpen)}
-                className={`text-right ${currentUser.role === 'ADMIN' ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                onClick={() => canManageOrgs && setIsWorkspaceDropdownOpen(!isWorkspaceDropdownOpen)}
+                className={`text-right ${canManageOrgs ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
               >
                 {/* Organization Name - Large and Prominent */}
                 <h2 className='text-2xl font-bold text-light leading-tight'>
@@ -113,14 +127,14 @@ export const Header: React.FC<HeaderProps> = ({ onGoToSettings, projectsForCurre
                 <p className='text-sm text-light/80 mt-1'>
                   {currentUser.name}
                 </p>
-                {/* Workspace Switcher Icon for Admin */}
-                {currentUser.role === 'ADMIN' && (
+                {/* Workspace Switcher Icon for Super Admin */}
+                {canManageOrgs && (
                   <Icon name="briefcase" className="w-4 h-4 text-light/60 mt-1" />
                 )}
               </button>
               
-              {/* Workspace Switcher Dropdown for Admin Users */}
-              {currentUser.role === 'ADMIN' && isWorkspaceDropdownOpen && (
+              {/* Workspace Switcher Dropdown for Super Admin Users */}
+              {canManageOrgs && isWorkspaceDropdownOpen && (
                 <div className="absolute top-full right-0 mt-2 w-64 bg-light rounded-2xl shadow-neumorphic-convex py-2 text-right z-50">
                   <div className="px-4 py-2 border-b border-dark">
                     <p className="text-sm font-semibold text-primary">בחר חברה</p>

@@ -18,13 +18,15 @@ interface HierarchicalTask extends Task {
   depth: number;
 }
 
-type InteractionType = 'move' | 'resize-end' | 'resize-start';
+type InteractionType = 'move' | 'resize-end' | 'resize-start' | 'reorder';
 interface InteractionState {
   type: InteractionType;
   taskId: string;
   initialMouseX: number;
+  initialMouseY: number;
   initialTaskStartPos: number;
   initialTaskWidth: number;
+  initialTaskIndex: number;
 }
 
 const GANTT_ROW_HEIGHT = 48;
@@ -70,6 +72,7 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [interaction, setInteraction] = useState<InteractionState | null>(null);
   const [ghostPosition, setGhostPosition] = useState<{ x: number; y: number; width: number } | null>(null);
+  const [reorderGhost, setReorderGhost] = useState<{ y: number; taskId: string } | null>(null);
   const ganttRef = useRef<HTMLDivElement>(null);
   const tasksRef = useRef(tasks);
   const [isInviteModalOpen, setInviteModalOpen] = useState(false);
@@ -97,13 +100,23 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
   // Auto-scroll to today's position when component mounts
   useEffect(() => {
     if (ganttRef.current && tasks.length > 0) {
+      scrollToToday();
+    }
+  }, [tasks]);
+
+  const scrollToToday = useCallback(() => {
+    if (ganttRef.current) {
       const today = new Date();
       const todayPosition = dateToPosition(today.toISOString().split('T')[0]);
       const containerWidth = ganttRef.current.clientWidth;
       const scrollTo = Math.max(0, todayPosition - containerWidth / 2);
-      ganttRef.current.scrollLeft = scrollTo;
+      
+      ganttRef.current.scrollTo({
+        left: scrollTo,
+        behavior: 'smooth'
+      });
     }
-  }, [tasks]);
+  }, []);
 
   const hierarchicalTasks = useMemo(() => buildTaskHierarchy(tasks), [tasks]);
 
@@ -154,23 +167,31 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
   }, [hierarchicalTasks, dateToPosition]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>, type: InteractionType, task: HierarchicalTask) => {
-    const isInteractive = currentUser?.role === 'ADMIN' || currentUser?.role === 'TEAM_MANAGER';
+    const isInteractive = (currentUser as any)?.role === 'ADMIN' || (currentUser as any)?.role === 'TEAM_MANAGER';
     if (!isInteractive) return;
     
     e.stopPropagation();
     const taskPos = taskPositions[task.id];
     if (!taskPos) return;
 
+    const taskIndex = hierarchicalTasks.findIndex(t => t.id === task.id);
+
     setInteraction({
       type,
       taskId: task.id,
       initialMouseX: e.clientX,
+      initialMouseY: e.clientY,
       initialTaskStartPos: taskPos.startX,
       initialTaskWidth: taskPos.width,
+      initialTaskIndex: taskIndex,
     });
     
-    setGhostPosition({ x: taskPos.startX, width: taskPos.width, y: taskPos.y });
-  }, [currentUser?.role, taskPositions]);
+    if (type === 'reorder') {
+      setReorderGhost({ y: taskPos.y, taskId: task.id });
+    } else {
+      setGhostPosition({ x: taskPos.startX, width: taskPos.width, y: taskPos.y });
+    }
+  }, [currentUser, taskPositions, hierarchicalTasks]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!interaction || !ganttRef.current) return;
@@ -178,11 +199,16 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
     const ganttRect = ganttRef.current.getBoundingClientRect();
     const mouseXInGantt = e.clientX - ganttRect.left + ganttRef.current.scrollLeft;
     const deltaX = e.clientX - interaction.initialMouseX;
+    const deltaY = e.clientY - interaction.initialMouseY;
 
     const taskPos = taskPositions[interaction.taskId];
     if (!taskPos) return;
 
-    if (interaction.type === 'move') {
+    if (interaction.type === 'reorder') {
+      const newY = taskPos.y + deltaY;
+      const newIndex = Math.max(0, Math.min(hierarchicalTasks.length - 1, Math.round(newY / GANTT_ROW_HEIGHT)));
+      setReorderGhost({ y: newIndex * GANTT_ROW_HEIGHT + (GANTT_ROW_HEIGHT - TASK_BAR_HEIGHT) / 2, taskId: interaction.taskId });
+    } else if (interaction.type === 'move') {
       const newX = interaction.initialTaskStartPos + deltaX;
       const snappedX = Math.round(newX / GANTT_DAY_WIDTH) * GANTT_DAY_WIDTH;
       setGhostPosition(g => g ? { ...g, x: snappedX } : null);
@@ -197,17 +223,32 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
         const snappedWidth = Math.max(GANTT_DAY_WIDTH, Math.round(newWidth / GANTT_DAY_WIDTH) * GANTT_DAY_WIDTH);
         setGhostPosition({ x: interaction.initialTaskStartPos, width: snappedWidth, y: taskPos.y });
     }
-  }, [interaction, taskPositions]);
+  }, [interaction, taskPositions, hierarchicalTasks]);
 
   const handleMouseUp = useCallback(async () => {
-    if (!interaction || !ghostPosition) {
+    if (!interaction) {
       setInteraction(null);
       setGhostPosition(null);
+      setReorderGhost(null);
       return;
     }
 
     const task = tasksRef.current.find(t => t.id === interaction.taskId);
     if (!task) {
+      setInteraction(null);
+      setGhostPosition(null);
+      setReorderGhost(null);
+      return;
+    }
+
+    if (interaction.type === 'reorder') {
+      // Handle reordering logic here if needed
+      setInteraction(null);
+      setReorderGhost(null);
+      return;
+    }
+
+    if (!ghostPosition) {
       setInteraction(null);
       setGhostPosition(null);
       return;
@@ -245,9 +286,9 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
     }
   }, [interaction, handleMouseMove, handleMouseUp]);
 
-  const getTaskColor = (taskId: string) => {
-    const task = tasks.find(t => t.id === taskId);
-    if (!task) return '#6366f1';
+  const getTaskColor = (task: Task) => {
+    // Use task color if set, otherwise fall back to status-based colors
+    if (task.color) return task.color;
     
     const columnId = task.columnId;
     if (columnId === 'col-done') return '#10b981';
@@ -256,13 +297,24 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
     return '#6366f1';
   };
 
+  const isWeekend = (date: Date) => {
+    const day = date.getDay();
+    return day === 0 || day === 6; // Sunday or Saturday
+  };
+
   const handleCreateTask = useCallback((taskData: Pick<Task, 'title' | 'description' | 'assigneeIds' | 'startDate' | 'endDate' | 'projectId'>) => {
-    handleAddTask(taskData);
+    const project = allProjects.find(p => p.id === selectedProjectId);
+    if (!project) return;
+    
+    handleAddTask({
+      ...taskData,
+      organizationId: project.organizationId
+    });
     setIsAddTaskModalOpen(false);
-  }, [handleAddTask]);
+  }, [handleAddTask, allProjects, selectedProjectId]);
 
   const project = allProjects.find(p => p.id === selectedProjectId);
-  const canInvite = selectedProjectId && (currentUser?.role === 'ADMIN' || currentUser?.role === 'TEAM_MANAGER');
+  const canInvite = selectedProjectId && ((currentUser as any)?.role === 'ADMIN' || (currentUser as any)?.role === 'TEAM_MANAGER');
 
   const GhostTask = () => ghostPosition && (
     <div
@@ -276,13 +328,34 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
     />
   );
 
+  const ReorderGhost = () => reorderGhost && (
+    <div
+      className="absolute bg-accent/30 border-2 border-accent border-dashed rounded-lg pointer-events-none z-10"
+      style={{
+        left: 0,
+        top: reorderGhost.y,
+        width: '100%',
+        height: TASK_BAR_HEIGHT,
+      }}
+    />
+  );
+
   const GanttView = () => (
     <div className="bg-light rounded-2xl shadow-neumorphic-convex overflow-hidden">
       <div className="flex justify-between items-center p-4 border-b border-dark">
         <h2 className="text-xl font-bold text-primary">תכנון זמן</h2>
         <div className="flex items-center space-x-3 space-x-reverse">
+          {/* Today Button */}
+          <button 
+            onClick={scrollToToday}
+            className="flex items-center space-x-2 space-x-reverse bg-accent hover:bg-accent/80 text-light font-semibold py-2 px-4 rounded-lg transition-colors"
+          >
+            <Icon name="calendar" className="w-4 h-4" />
+            <span>היום</span>
+          </button>
+          
           {/* Central Add Task Button */}
-          {(currentUser?.role === 'ADMIN' || currentUser?.role === 'TEAM_MANAGER') && selectedProjectId && (
+          {((currentUser as any)?.role === 'ADMIN' || (currentUser as any)?.role === 'TEAM_MANAGER') && selectedProjectId && (
             <button 
               onClick={() => setIsAddTaskModalOpen(true)} 
               className="flex items-center space-x-2 space-x-reverse bg-primary hover:bg-primary/90 text-light font-semibold py-2 px-4 rounded-lg transition-colors"
@@ -317,19 +390,20 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
                   const date = new Date(ganttStartDate);
                   date.setDate(date.getDate() + i);
                   const isToday = date.toDateString() === new Date().toDateString();
+                  const isWeekendDay = isWeekend(date);
                   return (
                     <div
                       key={i}
                       className={`absolute top-0 bottom-0 border-r border-dark/30 flex items-center justify-center text-xs ${
                         isToday ? 'bg-primary/10 border-primary' : ''
-                      }`}
+                      } ${isWeekendDay ? 'bg-gray-50' : ''}`}
                       style={{ left: i * GANTT_DAY_WIDTH, width: GANTT_DAY_WIDTH }}
                     >
                       <div className="text-center">
-                        <div className="font-semibold text-primary">
+                        <div className={`font-semibold ${isWeekendDay ? 'text-gray-500' : 'text-primary'}`}>
                           {date.toLocaleDateString('he-IL', { day: 'numeric' })}
                         </div>
-                        <div className="text-dimmed">
+                        <div className={`${isWeekendDay ? 'text-gray-400' : 'text-dimmed'}`}>
                           {date.toLocaleDateString('he-IL', { month: 'short' })}
                         </div>
                       </div>
@@ -352,7 +426,7 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
               if (!position) return null;
 
               const assignees = allUsers.filter(u => task.assigneeIds && task.assigneeIds.includes(u.id));
-              const isInteractive = currentUser?.role === 'ADMIN' || currentUser?.role === 'TEAM_MANAGER';
+              const isInteractive = (currentUser as any)?.role === 'ADMIN' || (currentUser as any)?.role === 'TEAM_MANAGER';
 
               return (
                 <div key={task.id} className="flex border-b border-dark/30" style={{ height: GANTT_ROW_HEIGHT }}>
@@ -374,6 +448,16 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
                         )}
                       </div>
                     </div>
+                    {/* Reorder handle */}
+                    {isInteractive && (
+                      <div
+                        className="cursor-move p-1 text-dimmed hover:text-primary transition-colors"
+                        onMouseDown={(e) => handleMouseDown(e, 'reorder', task)}
+                        title="גרור לסידור מחדש"
+                      >
+                        <Icon name="ellipsis-vertical" className="w-4 h-4" />
+                      </div>
+                    )}
                   </div>
 
                   {/* Task bar */}
@@ -385,7 +469,7 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
                         top: position.y,
                         width: position.width,
                         height: TASK_BAR_HEIGHT,
-                        backgroundColor: getTaskColor(task.id),
+                        backgroundColor: getTaskColor(task),
                       }}
                       onClick={() => setSelectedTask(task)}
                       onMouseDown={(e) => isInteractive && handleMouseDown(e, 'move', task)}
@@ -413,6 +497,7 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
               );
             })}
             <GhostTask />
+            <ReorderGhost />
           </div>
         </div>
       </div>
@@ -457,7 +542,7 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
         <div className="flex items-center gap-3">
             
             {/* Quick Add Task */}
-            {!isAddTaskModalOpen && (currentUser?.role === 'ADMIN' || currentUser?.role === 'TEAM_MANAGER') && (
+            {!isAddTaskModalOpen && ((currentUser as any)?.role === 'ADMIN' || (currentUser as any)?.role === 'TEAM_MANAGER') && (
               <button
                 onClick={() => setIsAddTaskModalOpen(true)}
                 className="flex items-center space-x-2 space-x-reverse bg-accent hover:bg-accent/80 text-light p-2 rounded-lg transition-colors"

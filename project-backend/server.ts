@@ -16,6 +16,7 @@ import projectsRoutes from './src/api/projects/projects.routes';
 import tasksRoutes from './src/api/tasks/tasks.routes';
 import financesRoutes from './src/api/finances/finances.routes';
 import bootstrapRoutes from './src/api/bootstrap/bootstrap.routes';
+import guestsRoutes from './src/api/guests/guests.routes';
 // Corrected import to handle default export
 import logger from './src/logger';
 
@@ -72,6 +73,7 @@ app.use('/api/projects', protect, projectsRoutes);
 app.use('/api/tasks', protect, tasksRoutes);
 app.use('/api/finances', protect, financesRoutes);
 app.use('/api/bootstrap', protect, bootstrapRoutes);
+app.use('/api/guests', protect, guestsRoutes);
 
 // --- SERVE FRONTEND IN PRODUCTION ---
 if (process.env.NODE_ENV === 'production') {

@@ -3,6 +3,7 @@ import { useAuthStore } from '../stores/useAuthStore';
 import { useDataStore } from '../stores/useDataStore';
 import { useUIStore } from '../stores/useUIStore';
 import { SUBSCRIPTION_PLANS } from '../constants';
+import Icon from './Icon';
 
 const SubscriptionView: React.FC = () => {
   const { currentUser } = useAuthStore();
@@ -79,12 +80,8 @@ const SubscriptionView: React.FC = () => {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('he-IL', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+  const getCurrentPlan = () => {
+    return SUBSCRIPTION_PLANS.find(plan => plan.id === subscriptionInfo?.currentPlan?.toLowerCase());
   };
 
   if (!currentUser) {
@@ -111,75 +108,137 @@ const SubscriptionView: React.FC = () => {
               {getPlanStatusText(subscriptionInfo.status)}
             </span>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white rounded-lg p-4 shadow-neumorphic-convex">
-              <h3 className="text-lg font-bold text-primary mb-2">תוכן המנוי</h3>
-              <p className="text-secondary">
-                {subscriptionInfo.currentPlan || subscriptionInfo.status}
-                <br />
-                תאריך תחילת מנוי: {formatDate(subscriptionInfo.startDate)}
-                <br />
-                תאריך סיום מנוי: {formatDate(subscriptionInfo.endDate)}
-              </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-primary">{subscriptionInfo.projectCount || 0}</div>
+              <div className="text-sm text-secondary">פרויקטים נוכחיים</div>
+              <div className="text-xs text-dimmed">מתוך {subscriptionInfo.projectLimit || 0}</div>
             </div>
-            <div className="bg-white rounded-lg p-4 shadow-neumorphic-convex">
-              <h3 className="text-lg font-bold text-primary mb-2">סטטוס התשלום</h3>
-              <p className="text-secondary">
-                תשלום אחרון: {formatDate(subscriptionInfo.lastPaymentDate)}
-                <br />
-                תשלום בפיגור: {subscriptionInfo.isPastDue ? 'כן' : 'לא'}
-                <br />
-                סטטוס התשלום: {getPlanStatusText(subscriptionInfo.status)}
-              </p>
+            
+            {currentUser.role === 'ADMIN' && (
+              <div className="text-center">
+                <div className="text-2xl font-bold text-primary">{subscriptionInfo.companyCount || 0}</div>
+                <div className="text-sm text-secondary">חברות נוכחיות</div>
+                <div className="text-xs text-dimmed">מתוך {subscriptionInfo.companyLimit || 0}</div>
+              </div>
+            )}
+            
+            <div className="text-center">
+              <div className="text-2xl font-bold text-primary">{getCurrentPlan()?.name || 'לא מוגדר'}</div>
+              <div className="text-sm text-secondary">תוכנית נוכחית</div>
+              <div className="text-xs text-dimmed">
+                {getCurrentPlan()?.price === 0 ? 'חינם' : `${getCurrentPlan()?.price} ₪ לחודש`}
+              </div>
             </div>
-            <div className="bg-white rounded-lg p-4 shadow-neumorphic-convex">
-              <h3 className="text-lg font-bold text-primary mb-2">פרטי תשלום</h3>
-              <p className="text-secondary">
-                מספר חשבון: {subscriptionInfo.stripeCustomerId}
-                <br />
-                מספר תשלום: {subscriptionInfo.stripeSubscriptionId}
-                <br />
-                מספר תשלום בפיגור: {subscriptionInfo.stripeLatestInvoiceId}
+          </div>
+
+          {subscriptionInfo.stripeCustomerId && (
+            <div className="mt-6 pt-4 border-t border-dark">
+              <button
+                onClick={handleManageBilling}
+                disabled={loading}
+                className="bg-accent text-light px-4 py-2 rounded-lg hover:bg-accent/80 transition-colors disabled:opacity-50"
+              >
+                {loading ? 'טוען...' : 'נהל תשלומים'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Subscription Plans */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {SUBSCRIPTION_PLANS.map((plan) => {
+          const isCurrentPlan = subscriptionInfo?.currentPlan?.toLowerCase() === plan.id;
+          const canUpgrade = !isCurrentPlan && plan.id !== 'free';
+          const canDowngrade = isCurrentPlan && plan.id === 'free' && subscriptionInfo?.canDowngrade;
+          
+          return (
+            <div
+              key={plan.id}
+              className={`bg-light rounded-xl p-6 shadow-neumorphic-convex border-2 transition-all ${
+                isCurrentPlan 
+                  ? 'border-accent shadow-neumorphic-convex-lg' 
+                  : 'border-transparent hover:border-accent/30'
+              }`}
+            >
+              {isCurrentPlan && (
+                <div className="bg-accent text-light text-xs font-medium px-2 py-1 rounded-full inline-block mb-4">
+                  התוכנית שלך
+                </div>
+              )}
+              
+              <div className="text-center mb-6">
+                <h3 className="text-xl font-bold text-primary mb-2">{plan.name}</h3>
+                <div className="text-3xl font-bold text-accent mb-1">
+                  {plan.price === 0 ? 'חינם' : `${plan.price} ₪`}
+                </div>
+                <div className="text-sm text-secondary">לחודש</div>
+              </div>
+
+              <div className="space-y-3 mb-6">
+                {plan.features.map((feature, index) => (
+                  <div key={index} className="flex items-center text-sm">
+                    <Icon name="check" className="w-4 h-4 text-success ml-2 flex-shrink-0" />
+                    <span className="text-primary">{feature}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="text-center">
+                {isCurrentPlan ? (
+                  <button
+                    disabled
+                    className="w-full bg-dark/20 text-secondary px-4 py-2 rounded-lg cursor-not-allowed"
+                  >
+                    התוכנית הנוכחית
+                  </button>
+                ) : canUpgrade ? (
+                  <button
+                    onClick={() => handleUpgrade(plan.id)}
+                    disabled={loading}
+                    className="w-full bg-accent text-light px-4 py-2 rounded-lg hover:bg-accent/80 transition-colors disabled:opacity-50"
+                  >
+                    {loading ? 'טוען...' : 'שדרג עכשיו'}
+                  </button>
+                ) : canDowngrade ? (
+                  <button
+                    onClick={() => handleUpgrade('free')}
+                    disabled={loading}
+                    className="w-full bg-secondary text-light px-4 py-2 rounded-lg hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                  >
+                    {loading ? 'טוען...' : 'הורד תוכנית'}
+                  </button>
+                ) : (
+                  <button
+                    disabled
+                    className="w-full bg-dark/20 text-secondary px-4 py-2 rounded-lg cursor-not-allowed"
+                  >
+                    לא זמין
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Usage Limits Warning */}
+      {subscriptionInfo && !subscriptionInfo.canDowngrade && (
+        <div className="mt-8 bg-warning/10 border border-warning rounded-xl p-4">
+          <div className="flex items-start">
+            <Icon name="warning" className="w-5 h-5 text-warning ml-2 mt-0.5 flex-shrink-0" />
+            <div>
+              <h4 className="font-semibold text-primary mb-1">לא ניתן להוריד תוכנית</h4>
+              <p className="text-sm text-secondary">
+                יש לך {subscriptionInfo.projectCount} פרויקטים פעילים, אך התוכנית החינמית מאפשרת רק {subscriptionInfo.projectLimit} פרויקטים. 
+                אנא מחק פרויקטים לפני הורדת התוכנית.
               </p>
             </div>
           </div>
         </div>
       )}
-
-      {/* Subscription Plans */}
-      <div className="bg-light rounded-xl p-6 mb-8 shadow-neumorphic-convex">
-        <h2 className="text-2xl font-bold text-primary mb-4">תוכניות מנוי</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {SUBSCRIPTION_PLANS.map(plan => (
-            <div key={plan.id} className="bg-white rounded-lg p-6 shadow-neumorphic-convex">
-              <h3 className="text-xl font-bold text-primary mb-2">{plan.name}</h3>
-              <p className="text-3xl font-bold text-primary mb-4">₪{plan.price}</p>
-              <button
-                onClick={() => handleUpgrade(plan.id)}
-                className="w-full bg-primary text-white py-2 px-4 rounded-lg font-semibold hover:bg-primary-dark transition-colors"
-                disabled={loading}
-              >
-                {loading ? 'טוען...' : 'עדכן מנוי'}
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Billing Management */}
-      <div className="bg-light rounded-xl p-6 mb-8 shadow-neumorphic-convex">
-        <h2 className="text-2xl font-bold text-primary mb-4">ניהול תשלומים</h2>
-        <p className="text-secondary mb-4">
-          ניתן לנהל את התשלומים שלך ולעדכן את הפרטים שלך בפורטל Stripe.
-        </p>
-        <button
-          onClick={handleManageBilling}
-          className="w-full bg-secondary text-white py-2 px-4 rounded-lg font-semibold hover:bg-secondary-dark transition-colors"
-          disabled={loading}
-        >
-          {loading ? 'טוען...' : 'ניהול תשלומים'}
-        </button>
-      </div>
     </div>
   );
 };
