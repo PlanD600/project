@@ -199,7 +199,7 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
   const handleMouseUp = useCallback((e: MouseEvent) => {
     if (!interaction) return;
 
-    const updatedTasksMap = new Map(tasksRef.current.map(t => [t.id, { ...t }]));
+    const updatedTasksMap = new Map(tasksRef.current.map(t => [t.id, Object.assign({}, t)]));
     const mainTask = updatedTasksMap.get(interaction.taskId);
     if (!mainTask) { setInteraction(null); return; }
 
@@ -251,7 +251,7 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
         if (toTaskId && fromTaskId !== toTaskId && !isCircular(fromTaskId, toTaskId)) {
             const toTask = updatedTasksMap.get(toTaskId);
             if(toTask && toTask.dependencies && !toTask.dependencies.includes(fromTaskId)) {
-                toTask.dependencies.push(fromTaskId);
+                toTask.dependencies = [...toTask.dependencies, fromTaskId];
                 finalTasksToUpdate.push(toTask);
             }
         }

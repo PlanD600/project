@@ -59,11 +59,10 @@ const initialState = {
 };
 
 // Utility function to ensure task safety
-const ensureTaskSafety = (task: any): Task => ({
-    ...task,
-    assigneeIds: Array.isArray(task.assigneeIds) ? task.assigneeIds : [],
-    dependencies: Array.isArray(task.dependencies) ? task.dependencies : [],
-    comments: Array.isArray(task.comments) ? task.comments : [],
+const ensureTaskSafety = (task: any): Task => Object.assign({}, task, {
+    assigneeIds: Array.isArray(task.assigneeIds) ? [...task.assigneeIds] : [],
+    dependencies: Array.isArray(task.dependencies) ? [...task.dependencies] : [],
+    comments: Array.isArray(task.comments) ? [...task.comments] : [],
     description: task.description || ''
 });
 

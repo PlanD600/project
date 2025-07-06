@@ -122,8 +122,8 @@ export const bulkUpdateTasks: RequestHandler = asyncHandler(async (req, res, nex
     }
 
     const updatePromises = tasks.map((task: any) => {
-        // Extract only the fields that should be updated, excluding relations
-        const { id, comments, assignees, assigneeIds, ...updateData } = task;
+        // Extract only the fields that should be updated, excluding relations and date fields
+        const { id, comments, assignees, assigneeIds, startDate, endDate, ...updateData } = task;
         return prisma.task.update({
             where: { id: task.id },
             data: {
