@@ -159,7 +159,9 @@ export const useDataStore = create<DataState>()((set, get) => ({
     },
     handleUpdateTask: async (updatedTask) => {
         try {
-            const returnedTask = await api.updateTask(updatedTask);
+            // Exclude comments field from the update request since it's a relation
+            const { comments, ...taskDataForUpdate } = updatedTask;
+            const returnedTask = await api.updateTask(taskDataForUpdate as Task);
             if (returnedTask) {
                 // Ensure the updated task has proper assigneeIds
                 const safeTask = ensureTaskSafety(returnedTask);
@@ -173,7 +175,12 @@ export const useDataStore = create<DataState>()((set, get) => ({
     },
     handleBulkUpdateTasks: async (updatedTasks) => {
         try {
-            const returnedTasks = await api.bulkUpdateTasks(updatedTasks);
+            // Exclude comments field from each task update since it's a relation
+            const tasksForUpdate = updatedTasks.map(task => {
+                const { comments, ...taskDataForUpdate } = task;
+                return taskDataForUpdate as Task;
+            });
+            const returnedTasks = await api.bulkUpdateTasks(tasksForUpdate);
             // Ensure all returned tasks have proper assigneeIds
             const safeTasks = returnedTasks.map(ensureTaskSafety);
             const updatedTaskMap = new Map(safeTasks.map(t => [t.id, t]));

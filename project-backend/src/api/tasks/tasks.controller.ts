@@ -77,12 +77,13 @@ export const updateTask: RequestHandler = asyncHandler(async (req, res, next) =>
         return;
     }
 
-    const { assigneeIds, ...otherData } = taskData;
+    // Extract assigneeIds and exclude relation fields that shouldn't be updated directly
+    const { assigneeIds, comments, assignees, ...updateData } = taskData;
 
     await prisma.task.update({
         where: { id: taskId },
         data: {
-            ...otherData,
+            ...updateData,
             ...(assigneeIds !== undefined && {
                 assignees: {
                     set: assigneeIds.map((id: string) => ({ id: id }))
@@ -120,16 +121,19 @@ export const bulkUpdateTasks: RequestHandler = asyncHandler(async (req, res, nex
         return;
     }
 
-    const updatePromises = tasks.map((task: any) =>
-        prisma.task.update({
+    const updatePromises = tasks.map((task: any) => {
+        // Extract only the fields that should be updated, excluding relations
+        const { id, comments, assignees, assigneeIds, ...updateData } = task;
+        return prisma.task.update({
             where: { id: task.id },
             data: {
                 startDate: new Date(task.startDate),
                 endDate: new Date(task.endDate),
-                dependencies: task.dependencies || []
+                dependencies: task.dependencies || [],
+                ...updateData
             }
-        })
-    );
+        });
+    });
     
     await prisma.$transaction(updatePromises);
 
