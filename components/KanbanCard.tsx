@@ -10,7 +10,7 @@ interface KanbanCardProps {
 }
 
 const KanbanCard: React.FC<KanbanCardProps> = ({ task, users, onTaskClick }) => {
-  const assignees = users.filter(u => task.assigneeIds.includes(u.id));
+  const assignees = users.filter(u => task.assigneeIds && task.assigneeIds.includes(u.id));
   const { startDate, endDate } = task;
   
   const formatDate = (dateString: string) => {

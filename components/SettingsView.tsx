@@ -477,7 +477,10 @@ const UserModal: React.FC<{ isOpen: boolean; onClose: () => void; userToEdit: Us
         if (userToEdit) {
             handleUpdateUser({ ...userToEdit, ...formData, teamId: formData.teamId || undefined });
         } else {
-            handleCreateUser(formData as Omit<User, 'id' | 'avatarUrl'>);
+            handleCreateUser({
+                ...formData,
+                teamLeaders: [], // Add empty teamLeaders array
+            } as Omit<User, 'id' | 'avatarUrl'>);
         }
         onClose();
     };
@@ -547,10 +550,10 @@ const TeamModal: React.FC<{ isOpen: boolean; onClose: () => void; teamToEdit: Te
     const [leaderId, setLeaderId] = useState<string | null>(getInitialLeader());
     const [memberIds, setMemberIds] = useState<string[]>(getInitialMembers());
 
-    const availableMembers = employees.filter(e => !e.teamId || memberIds.includes(e.id));
+    const availableMembers = employees.filter(e => !e.teamId || (memberIds && memberIds.includes(e.id)));
     
     const handleMemberToggle = (id: string) => {
-        setMemberIds(prev => prev.includes(id) ? prev.filter(mId => mId !== id) : [...prev, id]);
+        setMemberIds(prev => prev && prev.includes(id) ? prev.filter(mId => mId !== id) : [...(prev || []), id]);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -597,7 +600,7 @@ const TeamModal: React.FC<{ isOpen: boolean; onClose: () => void; teamToEdit: Te
                 <div className="bg-light p-2 rounded-md border border-dark max-h-48 overflow-y-auto">
                     {availableMembers.map(user => (
                          <label key={user.id} className="flex items-center gap-3 p-2 hover:bg-dark/50 rounded-md cursor-pointer">
-                            <input type="checkbox" checked={memberIds.includes(user.id)} onChange={() => handleMemberToggle(user.id)} className="h-4 w-4 rounded bg-light border-dark text-accent focus:ring-accent"/>
+                            <input type="checkbox" checked={memberIds && memberIds.includes(user.id)} onChange={() => handleMemberToggle(user.id)} className="h-4 w-4 rounded bg-light border-dark text-accent focus:ring-accent"/>
                             <Avatar user={user} className="w-7 h-7 rounded-full"/>
                             <span className="text-primary">{user.name}</span>
                         </label>
@@ -618,7 +621,7 @@ const AddTeamMemberModal: React.FC<{ isOpen: boolean; onClose: () => void; unass
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
     const handleToggle = (id: string) => {
-        setSelectedIds(prev => prev.includes(id) ? prev.filter(uId => uId !== id) : [...prev, id]);
+        setSelectedIds(prev => prev && prev.includes(id) ? prev.filter(uId => uId !== id) : [...(prev || []), id]);
     };
 
     const handleSubmit = () => {
@@ -645,7 +648,7 @@ const AddTeamMemberModal: React.FC<{ isOpen: boolean; onClose: () => void; unass
             <div className="bg-light p-2 rounded-md border border-dark max-h-64 overflow-y-auto space-y-1">
                 {unassignedUsers.length > 0 ? unassignedUsers.map(user => (
                     <label key={user.id} className="flex items-center gap-3 p-2 hover:bg-dark/50 rounded-md cursor-pointer">
-                        <input type="checkbox" checked={selectedIds.includes(user.id)} onChange={() => handleToggle(user.id)} className="h-4 w-4 rounded bg-light border-dark text-accent focus:ring-accent"/>
+                        <input type="checkbox" checked={selectedIds && selectedIds.includes(user.id)} onChange={() => handleToggle(user.id)} className="h-4 w-4 rounded bg-light border-dark text-accent focus:ring-accent"/>
                         <Avatar user={user} className="w-7 h-7 rounded-full"/>
                         <span className="text-primary">{user.name}</span>
                     </label>

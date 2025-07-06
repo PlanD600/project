@@ -73,10 +73,8 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose
     };
 
     const handleLeaderToggle = (userId: string) => {
-        setTeamLeaderIds(prev =>
-            prev.includes(userId)
-                ? prev.filter(id => id !== userId)
-                : [...prev, userId]
+        setTeamLeaderIds(prev => 
+            prev && prev.includes(userId) ? prev.filter(id => id !== userId) : [...(prev || []), userId]
         );
     };
 
@@ -135,7 +133,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose
                                     <input
                                         id={`leader-${leader.id}`}
                                         type="checkbox"
-                                        checked={teamLeaderIds.includes(leader.id)}
+                                        checked={teamLeaderIds && teamLeaderIds.includes(leader.id)}
                                         onChange={() => handleLeaderToggle(leader.id)}
                                         className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent"
                                     />

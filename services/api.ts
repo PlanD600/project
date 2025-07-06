@@ -170,6 +170,7 @@ export const api = {
         email: email, 
         role: 'GUEST',
         projectId: projectId,
+        teamLeaders: [], // Add empty teamLeaders array
     }),
     revokeGuest: (guestId: string): Promise<void> => requests.delete(`/users/${guestId}`),
     

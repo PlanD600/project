@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Task, Comment, User, Project } from '../types';
 import { COLUMNS } from '../constants';
 import Icon from './Icon';
@@ -31,7 +31,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, onClose, onUpdateTask, onAd
 
     const isSuperAdmin = currentUser.role === 'ADMIN';
     const isTeamLeaderOfProject = currentUser.role === 'TEAM_MANAGER' && currentUser.teamId === project?.teamId;
-    const isAssignee = task.assigneeIds.includes(currentUser.id);
+    const isAssignee = task.assigneeIds && task.assigneeIds.includes(currentUser.id);
     const isGuest = currentUser.role === 'GUEST';
 
     const canEditDetails = isSuperAdmin || isTeamLeaderOfProject;
@@ -84,7 +84,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, onClose, onUpdateTask, onAd
 
   const handleAssigneeChange = (userId: string) => {
     if (!canEditDetails) return;
-    const newAssigneeIds = task.assigneeIds.includes(userId)
+    const newAssigneeIds = task.assigneeIds && task.assigneeIds.includes(userId)
       ? task.assigneeIds.filter(id => id !== userId)
       : [...task.assigneeIds, userId];
     handleUpdateField('assigneeIds', newAssigneeIds);
@@ -252,13 +252,13 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, onClose, onUpdateTask, onAd
                         <input
                           type="checkbox"
                           id={`assignee-${user.id}-${task.id}`}
-                          checked={task.assigneeIds.includes(user.id)}
+                          checked={task.assigneeIds && task.assigneeIds.includes(user.id)}
                           onChange={() => handleAssigneeChange(user.id)}
                           disabled={!canEditDetails}
                           className="h-4 w-4 text-accent bg-light border-dark rounded focus:ring-accent disabled:cursor-not-allowed"
                         />
                       </div>
-                    )) : users.filter(u => task.assigneeIds.includes(u.id)).map(user => (
+                    )) : users.filter(u => task.assigneeIds && task.assigneeIds.includes(u.id)).map(user => (
                       <div key={user.id} className="flex items-center space-x-2 space-x-reverse p-1 rounded">
                         <label className="flex items-center text-sm text-dimmed w-full">
                           <Avatar user={user} className="w-6 h-6 rounded-full ml-2" />

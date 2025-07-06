@@ -199,7 +199,6 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
   const handleMouseUp = useCallback((e: MouseEvent) => {
     if (!interaction) return;
 
-    const originalTasksMap = new Map(tasksRef.current.map(t => [t.id, t]));
     const updatedTasksMap = new Map(tasksRef.current.map(t => [t.id, { ...t }]));
     const mainTask = updatedTasksMap.get(interaction.taskId);
     if (!mainTask) { setInteraction(null); return; }
@@ -251,42 +250,15 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
 
         if (toTaskId && fromTaskId !== toTaskId && !isCircular(fromTaskId, toTaskId)) {
             const toTask = updatedTasksMap.get(toTaskId);
-            if(toTask && !toTask.dependencies.includes(fromTaskId)) {
+            if(toTask && toTask.dependencies && !toTask.dependencies.includes(fromTaskId)) {
                 toTask.dependencies.push(fromTaskId);
                 finalTasksToUpdate.push(toTask);
             }
         }
     }
     
-    if(finalTasksToUpdate.length > 0) {
-        const updateQueue = [...finalTasksToUpdate.map(t => t.id)];
-        const processed = new Set<string>(updateQueue.map(id => id));
-
-        while(updateQueue.length > 0) {
-            const currentId = updateQueue.shift()!;
-            
-            for(const task of updatedTasksMap.values()) {
-                if(task.dependencies.includes(currentId)) {
-                    const parentTask = updatedTasksMap.get(currentId)!;
-                    const parentEndDate = new Date(parentTask.endDate);
-                    const taskDuration = (new Date(task.endDate).getTime() - new Date(task.startDate).getTime());
-
-                    const newStartDate = new Date(parentEndDate);
-                    newStartDate.setDate(newStartDate.getDate() + 2); // 1 day buffer
-                    
-                    if(new Date(task.startDate).getTime() < newStartDate.getTime()){
-                        task.startDate = newStartDate.toISOString().split('T')[0];
-                        task.endDate = new Date(newStartDate.getTime() + taskDuration).toISOString().split('T')[0];
-                        if(!processed.has(task.id)) {
-                            finalTasksToUpdate.push(task);
-                            updateQueue.push(task.id);
-                            processed.add(task.id);
-                        }
-                    }
-                }
-            }
-        }
-        handleBulkUpdateTasks(finalTasksToUpdate, originalTasksMap);
+    if (finalTasksToUpdate.length > 0) {
+        handleBulkUpdateTasks(finalTasksToUpdate);
     }
 
     setInteraction(null);
@@ -319,7 +291,7 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
   };
 
   const GanttHeader = React.memo(() => {
-    const months = [];
+    const months: Array<{ name: string; start: number }> = [];
     for (let i = 0; i < totalDays; i++) {
         const date = new Date(ganttStartDate);
         date.setDate(date.getDate() + i);
@@ -444,7 +416,7 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
                 
                 {/* Task Rows */}
                 {hierarchicalTasks.map((task, index) => {
-                    const assignees = allUsers.filter(u => task.assigneeIds.includes(u.id));
+                    const assignees = allUsers.filter(u => task.assigneeIds && task.assigneeIds.includes(u.id));
                     const position = taskPositions[task.id];
                     if(!position) return null;
                     const isInteractive = currentUser.role === 'ADMIN' || (currentUser.role === 'TEAM_MANAGER' && !task.isMilestone);
@@ -502,7 +474,7 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
     <div className="bg-medium p-4 rounded-lg shadow-sm h-[calc(100vh-18rem)] overflow-y-auto border border-dark">
         <div className="space-y-3">
             {hierarchicalTasks.map(task => {
-                const assignees = allUsers.filter(u => task.assigneeIds.includes(u.id));
+                const assignees = allUsers.filter(u => task.assigneeIds && task.assigneeIds.includes(u.id));
                 return (
                     <button key={task.id} onClick={() => setSelectedTask(task)} className="w-full flex items-center justify-between text-right p-3 bg-light rounded-lg shadow-neumorphic-convex hover:shadow-neumorphic-convex-sm active:shadow-neumorphic-concave-sm transition-all">
                         <div className="flex-1 min-w-0">

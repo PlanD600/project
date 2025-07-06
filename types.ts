@@ -15,6 +15,7 @@ export interface User {
   avatarUrl: string;
   role: UserRole;
   teamLeaders: User[];
+  teamId?: string; // For team membership
   projectId?: string; // For GUEST access
   disabled?: boolean;
   notificationPreferences?: NotificationPreferences;
@@ -30,6 +31,7 @@ export interface Project {
   name: string;
   description: string;
   teamLeaders: User[];
+  teamId?: string; // For team association
   budget: number;
   startDate: string;
   endDate: string;

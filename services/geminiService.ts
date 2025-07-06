@@ -33,7 +33,7 @@ export const summarizeText = async (textToSummarize: string): Promise<string> =>
       contents: prompt,
     });
 
-    return response.text;
+    return response.text || "לא התקבלה תגובה מהבינה המלאכותית.";
   } catch (error) {
     console.error("Error summarizing text with Gemini API:", error);
     if (error instanceof Error) {

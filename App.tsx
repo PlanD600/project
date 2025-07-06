@@ -46,14 +46,14 @@ const App: React.FC = () => {
     const tasksForView = useMemo(() => {
         if (!currentUser) return [];
         if (!selectedProjectId) {
-            if (currentUser.role === 'EMPLOYEE') return tasks.filter(task => task.assigneeIds.includes(currentUser.id));
+            if (currentUser.role === 'EMPLOYEE') return tasks.filter(task => task.assigneeIds && task.assigneeIds.includes(currentUser.id));
             return [];
         }
         const projectTasks = tasks.filter(task => task.projectId === selectedProjectId);
         if (['GUEST', 'ADMIN', 'TEAM_MANAGER'].includes(currentUser.role)) {
             return projectTasks;
         }
-        return projectTasks.filter(task => task.assigneeIds.includes(currentUser.id));
+        return projectTasks.filter(task => task.assigneeIds && task.assigneeIds.includes(currentUser.id));
     }, [currentUser, tasks, selectedProjectId]);
 
     useEffect(() => {
@@ -134,7 +134,7 @@ const App: React.FC = () => {
             case 'כספים':
                 return ['ADMIN', 'TEAM_MANAGER'].includes(currentUser?.role || '') ? <FinancesView /> : null;
             case 'משימות':
-                return <KanbanBoard tasks={tasksForView} />;
+                return <KanbanBoard />;
             default:
                 return null;
         }

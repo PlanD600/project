@@ -34,7 +34,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSubmit, 
   }, [currentUser, users]);
 
   const handleAssigneeChange = (userId: string) => {
-    setAssigneeIds(prev =>
+    setAssigneeIds(prev => 
       prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
     );
   };

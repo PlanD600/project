@@ -81,19 +81,30 @@ export const getInitialData: RequestHandler = async (req, res, next) => {
         }
 
         const [tasks, financials] = await Promise.all([tasksQuery, financialsQuery]);
+        
+        // Transform tasks to include assigneeIds instead of assignees
+        const transformedTasks = tasks.map(task => ({
+            ...task,
+            assigneeIds: task.assignees.map((a: { id: string }) => a.id),
+            description: task.description ?? ''
+        }));
+        
+        // Remove the assignees property from the response
+        const tasksWithoutAssignees = transformedTasks.map(({ assignees, ...task }) => task);
+        
         // שולפים את שם הארגון האמיתי
-        const organizationSettings = { name: organization?.name || 'My Company', logoUrl: '' };
+        const organizationSettings = { name: organization?.name || 'My Company', logoUrl: '' };
 
-        logger.info({ message: 'Initial data fetched successfully.', userId: user.id, dataCounts: { users: allUsers.length, teams: teams.length, projects: projects.length, tasks: tasks.length, financials: financials.length } });
+        logger.info({ message: 'Initial data fetched successfully.', userId: user.id, dataCounts: { users: allUsers.length, teams: teams.length, projects: projects.length, tasks: tasksWithoutAssignees.length, financials: financials.length } });
 
-        res.json({
-            users: allUsers,
-            teams: teams,
-            projects: projects,
-            tasks: tasks,
-            financials: financials,
-            organizationSettings,
-        });
+        res.json({
+            users: allUsers,
+            teams: teams,
+            projects: projects,
+            tasks: tasksWithoutAssignees,
+            financials: financials,
+            organizationSettings,
+        });
 
     } catch (error) {
         logger.error({ message: 'Failed to bootstrap initial data.', context: { userId: user.id, role: user.role }, error });

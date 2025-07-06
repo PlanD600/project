@@ -58,17 +58,17 @@ const initialState = {
     selectedProjectId: null,
 };
 
+// Utility function to ensure task safety
+const ensureTaskSafety = (task: any): Task => ({
+    ...task,
+    assigneeIds: Array.isArray(task.assigneeIds) ? task.assigneeIds : [],
+    dependencies: Array.isArray(task.dependencies) ? task.dependencies : [],
+    comments: Array.isArray(task.comments) ? task.comments : [],
+    description: task.description || ''
+});
+
 // *** גרסת דיבאג עם לוגים ***
 export const calculateProjectsForCurrentUser = (currentUser: User | null, projects: Project[], tasks: Task[]): Project[] => {
-    // --- START DEBUG LOG ---
-    console.log(`%cDEBUG: Running calculateProjectsForCurrentUser. Found ${tasks.length} tasks.`, "color: blue; font-weight: bold;");
-    tasks.forEach((task, index) => {
-        if (!task || !task.assigneeIds || !Array.isArray(task.assigneeIds)) {
-            console.error(`%cDEBUG: Invalid task found in calculateProjectsForCurrentUser at index ${index}`, "color: red; font-weight: bold;", task);
-        }
-    });
-    // --- END DEBUG LOG ---
-
     if (!currentUser) return [];
 
     const activeProjects = projects.filter(p => p.status === 'active');
@@ -85,10 +85,11 @@ export const calculateProjectsForCurrentUser = (currentUser: User | null, projec
         return activeProjects.filter(p => (currentUser as any).projectId === p.id);
     }
 
+    // *** שכבת הגנה נוספת ***
     const userTaskProjectIds = new Set(
         tasks
-            .filter(t => t && Array.isArray(t.assigneeIds))
-            .filter(t => t.assigneeIds.includes(currentUser.id))
+            .filter(t => t && Array.isArray(t.assigneeIds)) // בדיקה קפדנית שהמשימה והשדה קיימים ותקינים
+            .filter(t => t.assigneeIds && t.assigneeIds.includes(currentUser.id))
             .map(t => t.projectId)
     );
     return activeProjects.filter(p => userTaskProjectIds.has(p.id));
@@ -105,11 +106,13 @@ export const useDataStore = create<DataState>()((set, get) => ({
                 state.users = data.users || [];
                 state.teams = data.teams || [];
                 state.projects = data.projects || [];
-                state.tasks = (data.tasks || []).filter(Boolean);
+                // Ensure all tasks have assigneeIds as an array
+                state.tasks = (data.tasks || []).filter(Boolean).map(ensureTaskSafety);
                 state.financials = data.financials || [];
                 state.organization = data.organizationSettings;
             }));
         } catch (error) {
+            console.error("Bootstrap failed:", error);
             useAuthStore.getState().handleLogout();
         }
     },
@@ -120,20 +123,6 @@ export const useDataStore = create<DataState>()((set, get) => ({
         const { projects, tasks } = get();
         const currentUser = useAuthStore.getState().currentUser;
         const projectsForCurrentUser = calculateProjectsForCurrentUser(currentUser, projects, tasks);
-
-        // --- START DEBUG LOG ---
-        console.log(`%cDEBUG: Running handleGlobalSearch. Query: "${query}"`, "color: blue; font-weight: bold;");
-        projectsForCurrentUser.forEach((p, index) => {
-            if (!p || typeof p.name !== 'string' || typeof (p.description ?? '') !== 'string') {
-                console.error(`%cDEBUG: Invalid project found in handleGlobalSearch at index ${index}`, "color: red; font-weight: bold;", p);
-            }
-        });
-        tasks.forEach((t, index) => {
-            if (!t || typeof t.title !== 'string' || typeof (t.description ?? '') !== 'string') {
-                console.error(`%cDEBUG: Invalid task found for search in handleGlobalSearch at index ${index}`, "color: red; font-weight: bold;", t);
-            }
-        });
-        // --- END DEBUG LOG ---
 
         if (query.length < 3) return { projects: [], tasks: [], comments: [] };
         const lowerQuery = query.toLowerCase();
@@ -148,7 +137,7 @@ export const useDataStore = create<DataState>()((set, get) => ({
             (t.title.toLowerCase().includes(lowerQuery) || 
             (t.description || '').toLowerCase().includes(lowerQuery))
         );
-        const foundComments = tasks.flatMap(t => t.comments.map(c => ({ ...c, task: t }))).filter(c => accessibleProjectIds.has(c.task.projectId) && c.text.toLowerCase().includes(lowerQuery));
+        const foundComments = tasks.flatMap(t => (t.comments || []).map(c => ({ ...c, task: t }))).filter(c => accessibleProjectIds.has(c.task.projectId) && c.text.toLowerCase().includes(lowerQuery));
         
         return { projects: foundProjects, tasks: foundTasks, comments: foundComments };
     },
@@ -171,32 +160,70 @@ export const useDataStore = create<DataState>()((set, get) => ({
     handleUpdateTask: async (updatedTask) => {
         try {
             const returnedTask = await api.updateTask(updatedTask);
-            if (returnedTask) set(state => ({ tasks: state.tasks.map(task => (task.id === returnedTask.id ? returnedTask : task)) }));
-        } catch (error) { useUIStore.getState().setNotification({ message: `שגיאה בעדכון המשימה: ${(error as Error).message}`, type: 'error' }); }
+            if (returnedTask) {
+                // Ensure the updated task has proper assigneeIds
+                const safeTask = ensureTaskSafety(returnedTask);
+                set(state => ({
+                    tasks: state.tasks.map(task => (task.id === safeTask.id ? safeTask : task))
+                }));
+            }
+        } catch (error) {
+            useUIStore.getState().setNotification({ message: `שגיאה בעדכון המשימה: ${(error as Error).message}`, type: 'error' });
+        }
     },
     handleBulkUpdateTasks: async (updatedTasks) => {
         try {
             const returnedTasks = await api.bulkUpdateTasks(updatedTasks);
-            const updatedTaskMap = new Map(returnedTasks.map(t => [t.id, t]));
-            set(state => ({ tasks: state.tasks.map(task => updatedTaskMap.get(task.id) || task) }));
-        } catch (error) { useUIStore.getState().setNotification({ message: `שגיאה בעדכון מספר משימות: ${(error as Error).message}`, type: 'error' }); }
+            // Ensure all returned tasks have proper assigneeIds
+            const safeTasks = returnedTasks.map(ensureTaskSafety);
+            const updatedTaskMap = new Map(safeTasks.map(t => [t.id, t]));
+            set(state => ({
+                tasks: state.tasks.map(task => updatedTaskMap.get(task.id) || task)
+            }));
+        } catch (error) {
+            useUIStore.getState().setNotification({ message: `שגיאה בעדכון מספר משימות: ${(error as Error).message}`, type: 'error' });
+        }
     },
     handleAddTask: async (taskData) => {
-        const fullTaskData: Omit<Task, 'id'> = { ...taskData, assigneeIds: taskData.assigneeIds || [], columnId: 'col-not-started', comments: [], plannedCost: 0, actualCost: 0, dependencies: [], isMilestone: false };
+        const fullTaskData: Omit<Task, 'id'> = { 
+            ...taskData, 
+            assigneeIds: taskData.assigneeIds || [],
+            columnId: 'col-not-started', 
+            comments: [], 
+            plannedCost: 0, 
+            actualCost: 0, 
+            dependencies: [], 
+            isMilestone: false 
+        };
         try {
             const newTask = await api.addTask(fullTaskData);
-            if (newTask && typeof newTask === 'object') set(state => ({ tasks: [...state.tasks, newTask] }));
-            else { useUIStore.getState().setNotification({ message: `שגיאה בהוספת משימה: התקבלה תגובה לא תקינה מהשרת.`, type: 'error' }); }
-        } catch (error) { useUIStore.getState().setNotification({ message: `שגיאה בהוספת משימה: ${(error as Error).message}`, type: 'error' }); }
+            if (newTask && typeof newTask === 'object') {
+                // Ensure the new task has proper assigneeIds
+                const safeTask = ensureTaskSafety(newTask);
+                set(state => ({ tasks: [...state.tasks, safeTask] }));
+            } else {
+                console.error("API returned an invalid task object after creation.", newTask);
+                useUIStore.getState().setNotification({ message: `שגיאה בהוספת משימה: התקבלה תגובה לא תקינה מהשרת.`, type: 'error' });
+            }
+        } catch (error) {
+            useUIStore.getState().setNotification({ message: `שגיאה בהוספת משימה: ${(error as Error).message}`, type: 'error' });
+        }
     },
     handleAddComment: async (taskId, comment) => {
         try {
             const updatedTask = await api.post(`/tasks/${taskId}/comments`, { content: comment.text });
             if (updatedTask) {
-                set(state => ({ tasks: state.tasks.map(t => (t.id === taskId ? updatedTask : t)) }));
+                // Ensure the updated task has proper assigneeIds
+                const safeTask = ensureTaskSafety(updatedTask);
+                set(state => ({
+                    tasks: state.tasks.map(t => (t.id === taskId ? safeTask : t))
+                }));
                 useUIStore.getState().setNotification({ message: 'התגובה נוספה בהצלחה!', type: 'success' });
             }
-        } catch (error) { useUIStore.getState().setNotification({ message: `שגיאה בהוספת תגובה: ${(error as Error).message}`, type: 'error' }); }
+        } catch (error) {
+            console.error("Failed to add comment:", error);
+            useUIStore.getState().setNotification({ message: `שגיאה בהוספת תגובה: ${(error as Error).message}`, type: 'error' });
+        }
     },
     handleAddFinancialTransaction: async (transactionData) => {
         try {
