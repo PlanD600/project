@@ -23,7 +23,7 @@ interface DataState {
 
     // Handlers
     handleUpdateTask: (updatedTask: Task) => Promise<void>;
-    handleBulkUpdateTasks: (updatedTasks: Task[], originalTasksMap: Map<string, Task>) => Promise<void>;
+    handleBulkUpdateTasks: (updatedTasks: Task[]) => Promise<void>;
     handleAddTask: (taskData: Omit<Task, 'id' | 'columnId' | 'comments' | 'plannedCost' | 'actualCost' | 'dependencies' | 'isMilestone'>) => Promise<void>;
     handleAddComment: (taskId: string, comment: Comment) => Promise<void>;
     handleAddFinancialTransaction: (transactionData: Omit<FinancialTransaction, 'id'>) => Promise<void>;
@@ -120,7 +120,15 @@ export const useDataStore = create<DataState>()((set, get) => ({
     
     handleCreateProject: async (projectData) => {
         try {
-            const newProject = await api.createProject(projectData);
+            const { users } = get();
+            const leaders = users.filter(u => projectData.teamLeaderIds.includes(u.id));
+
+            const projectForApi = {
+                ...projectData,
+                teamLeaders: leaders,
+            };
+            
+            const newProject = await api.createProject(projectForApi);
             if (newProject) {
                 set(state => ({
                     projects: [newProject, ...state.projects]
@@ -156,7 +164,7 @@ export const useDataStore = create<DataState>()((set, get) => ({
             useUIStore.getState().setNotification({ message: `שגיאה בעדכון המשימה: ${(error as Error).message}`, type: 'error' });
         }
     },
-    handleBulkUpdateTasks: async (updatedTasks, originalTasksMap) => {
+    handleBulkUpdateTasks: async (updatedTasks) => {
         try {
             const returnedTasks = await api.bulkUpdateTasks(updatedTasks);
             const updatedTaskMap = new Map(returnedTasks.map(t => [t.id, t]));

@@ -27,7 +27,7 @@ interface CreateProjectModalProps {
 const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose, onSubmit, potentialLeaders = [], projectToEdit }) => {
     const isEditing = !!projectToEdit;
     const d = (days: number) => new Date(Date.now() + days * 86400000).toISOString().split('T')[0];
-    
+
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [startDate, setStartDate] = useState(d(0));
@@ -44,7 +44,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose
             setEndDate(new Date(projectToEdit.endDate).toISOString().split('T')[0]);
             setBudget(String(projectToEdit.budget));
             // Set the initial team leaders from the project being edited
-            setTeamLeaderIds(projectToEdit.teamLeaders?.map(leader => leader.id) || []);
+            setTeamLeaderIds(projectToEdit.teamLeaders ? projectToEdit.teamLeaders.map(u => u.id) : []);
         } else {
             // Reset form for new project creation
             setName('');
@@ -55,11 +55,11 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose
             setTeamLeaderIds([]);
         }
     }, [projectToEdit, isEditing, isOpen]); // Rerun when the modal opens
-    
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!name.trim() || !startDate || !endDate) return;
-        
+
         onSubmit({
             name,
             description,
@@ -68,7 +68,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose
             budget: budget ? parseFloat(budget) : 0,
             teamLeaderIds, // Pass the array of leader IDs
         });
-        
+
         onClose();
     };
 
@@ -79,7 +79,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose
                 : [...prev, userId]
         );
     };
-    
+
     if (!isOpen) return null;
 
     const modalTitle = isEditing ? `ערוך פרויקט: ${projectToEdit.name}` : 'יצירת פרויקט חדש';
@@ -87,12 +87,12 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 p-4" onClick={onClose}>
-            <form 
+            <form
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="create-project-modal-title"
-                className="bg-medium rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col border border-dark" 
-                onClick={e => e.stopPropagation()} 
+                className="bg-medium rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col border border-dark"
+                onClick={e => e.stopPropagation()}
                 onSubmit={handleSubmit}
             >
                 <header className="p-4 border-b border-dark flex justify-between items-center">
@@ -125,7 +125,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose
                             rows={3}
                         />
                     </div>
-                    
+
                     {/* NEW: Multi-select for Team Leaders */}
                     <div>
                         <label className="font-semibold text-dimmed mb-1 block">שייך ראשי צוות</label>
@@ -173,7 +173,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose
                             />
                         </div>
                     </div>
-                    
+
                     <div>
                         <label htmlFor="project-budget" className="font-semibold text-dimmed mb-1 block">תקציב (אופציונלי)</label>
                         <input
