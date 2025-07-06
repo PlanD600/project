@@ -74,8 +74,12 @@ export const calculateProjectsForCurrentUser = (currentUser: User | null, projec
         return activeProjects.filter(p => (currentUser as any).projectId === p.id);
     }
 
+    // *** שכבת הגנה נוספת ***
     const userTaskProjectIds = new Set(
-        tasks.filter(t => (t.assigneeIds || []).includes(currentUser.id)).map(t => t.projectId)
+        tasks
+            .filter(t => t && Array.isArray(t.assigneeIds)) // בדיקה קפדנית שהמשימה והשדה קיימים ותקינים
+            .filter(t => t.assigneeIds.includes(currentUser.id))
+            .map(t => t.projectId)
     );
     return activeProjects.filter(p => userTaskProjectIds.has(p.id));
 };
@@ -114,8 +118,6 @@ export const useDataStore = create<DataState>()((set, get) => ({
     setOrganizationSettings: (settings) => {
         set({ organization: settings });
     },
-
-    // --- Handlers ---
     
     handleCreateProject: async (projectData) => {
         try {
@@ -263,7 +265,6 @@ export const useDataStore = create<DataState>()((set, get) => ({
         const lowerQuery = query.toLowerCase();
         const accessibleProjectIds = new Set(projectsForCurrentUser.map(p => p.id));
         
-        // *** התיקון כאן ***
         const foundProjects = projectsForCurrentUser.filter(p => 
             p.name.toLowerCase().includes(lowerQuery) || 
             (p.description || '').toLowerCase().includes(lowerQuery)
