@@ -78,12 +78,17 @@ export const updateTask: RequestHandler = asyncHandler(async (req, res, next) =>
     }
 
     // Extract assigneeIds and exclude relation fields that shouldn't be updated directly
-    const { assigneeIds, comments, assignees, ...updateData } = taskData;
+    const { assigneeIds, comments, assignees, startDate, endDate, baselineStartDate, baselineEndDate, ...updateData } = taskData;
 
     await prisma.task.update({
         where: { id: taskId },
         data: {
             ...updateData,
+            // Convert date strings to Date objects for Prisma
+            ...(startDate && { startDate: new Date(startDate) }),
+            ...(endDate && { endDate: new Date(endDate) }),
+            ...(baselineStartDate && { baselineStartDate: new Date(baselineStartDate) }),
+            ...(baselineEndDate && { baselineEndDate: new Date(baselineEndDate) }),
             ...(assigneeIds !== undefined && {
                 assignees: {
                     set: assigneeIds.map((id: string) => ({ id: id }))

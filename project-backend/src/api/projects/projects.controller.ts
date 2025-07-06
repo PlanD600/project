@@ -100,7 +100,7 @@ export const createProject: RequestHandler = asyncHandler(async (req, res) => {
     ENTERPRISE: 400
   };
 
-  const currentLimit = planLimits[organization.planType as keyof typeof planLimits];
+  const currentLimit = planLimits[(organization as any).planType as keyof typeof planLimits];
   const currentCount = organization._count.projects;
 
   if (currentCount >= currentLimit) {
@@ -109,7 +109,7 @@ export const createProject: RequestHandler = asyncHandler(async (req, res) => {
   }
 
   // Validate required fields
-  if (!name || !startDate || !endDate || !budget) {
+  if (!name || !startDate || !endDate || budget === undefined || budget === null) {
     res.status(400);
     throw new Error('Name, start date, end date, and budget are required');
   }
