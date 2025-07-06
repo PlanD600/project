@@ -5,14 +5,20 @@ import prisma from '../../db';
 import logger from '../../logger';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+// Initialize Stripe only if the secret key is available
+const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2025-06-30.basil',
-});
+}) : null;
 
 // @desc    Create Stripe checkout session
 // @route   POST /api/billing/create-checkout-session
 // @access  Private
 export const createCheckoutSession: RequestHandler = asyncHandler(async (req, res) => {
+  if (!stripe) {
+    res.status(503);
+    throw new Error('Billing service is not configured');
+  }
+
   const { planId, successUrl, cancelUrl } = req.body;
   const user = req.user;
 
@@ -96,6 +102,11 @@ export const createCheckoutSession: RequestHandler = asyncHandler(async (req, re
 // @route   POST /api/billing/create-portal-session
 // @access  Private
 export const createPortalSession: RequestHandler = asyncHandler(async (req, res) => {
+  if (!stripe) {
+    res.status(503);
+    throw new Error('Billing service is not configured');
+  }
+
   const { returnUrl } = req.body;
   const user = req.user;
 
@@ -175,7 +186,7 @@ export const getSubscriptionInfo: RequestHandler = asyncHandler(async (req, res)
 
   // Get next billing date if subscription exists
   let nextBillingDate;
-  if (organization.stripeSubscriptionId) {
+  if (organization.stripeSubscriptionId && stripe) {
     try {
       const subscription = await stripe.subscriptions.retrieve(organization.stripeSubscriptionId);
       nextBillingDate = new Date((subscription as any).current_period_end * 1000).toISOString();
@@ -203,6 +214,11 @@ export const getSubscriptionInfo: RequestHandler = asyncHandler(async (req, res)
 // @route   POST /api/webhooks/stripe
 // @access  Public
 export const handleStripeWebhook: RequestHandler = asyncHandler(async (req, res) => {
+  if (!stripe) {
+    res.status(503);
+    throw new Error('Billing service is not configured');
+  }
+
   const sig = req.headers['stripe-signature'];
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
