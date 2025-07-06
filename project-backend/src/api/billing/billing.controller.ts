@@ -6,7 +6,7 @@ import logger from '../../logger';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-12-18.acacia',
+  apiVersion: '2025-06-30.basil',
 });
 
 // @desc    Create Stripe checkout session
@@ -178,7 +178,7 @@ export const getSubscriptionInfo: RequestHandler = asyncHandler(async (req, res)
   if (organization.stripeSubscriptionId) {
     try {
       const subscription = await stripe.subscriptions.retrieve(organization.stripeSubscriptionId);
-      nextBillingDate = new Date(subscription.current_period_end * 1000).toISOString();
+      nextBillingDate = new Date((subscription as any).current_period_end * 1000).toISOString();
     } catch (error) {
       logger.error({ message: 'Failed to retrieve subscription', error });
     }
