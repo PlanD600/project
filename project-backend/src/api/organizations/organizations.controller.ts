@@ -238,15 +238,26 @@ export const inviteUserToOrganization: RequestHandler = asyncHandler(async (req,
         email,
         name: email.split('@')[0], // Use email prefix as name
         password: tempPassword, // In production, hash this password
-        role: role as any, // Temporary until schema migration
-        organizationId: organizationId, // Temporary until schema migration
+        // role: role as any, // Temporary until schema migration - REMOVED
+        // organizationId: organizationId, // Temporary until schema migration - REMOVED
       }
     });
   }
 
+  // After creating a user with prisma.user.create, create a Membership record linking the user to the organization with the correct role.
+  // Remove any role or organizationId from the user creation input.
+  // For user updates, if org/role changes, update the Membership record, not the user.
+  const newMembership = await prisma.membership.create({
+    data: {
+      userId: targetUser.id,
+      organizationId: organizationId,
+      role: role as any, // Temporary until schema migration
+    }
+  });
+
   logger.info({ message: 'User invited to organization.', invitedUserId: targetUser.id, orgId: organizationId, role, invitedBy: user.id });
   res.status(201).json({
-    id: 'temp-membership-id',
+    id: newMembership.id,
     userId: targetUser.id,
     organizationId: organizationId,
     role: role,
@@ -288,10 +299,26 @@ export const removeUserFromOrganization: RequestHandler = asyncHandler(async (re
     throw new Error('Cannot remove yourself from the organization');
   }
 
-  // Temporary implementation - update user's organization to empty string
-  await prisma.user.update({
-    where: { id: userId },
-    data: { organizationId: '' }
+  // Find the membership to update
+  const membershipToRemove = await prisma.membership.findFirst({
+    where: {
+      userId: userId,
+      organizationId: organizationId,
+    }
+  });
+
+  if (!membershipToRemove) {
+    res.status(404);
+    throw new Error('Membership not found');
+  }
+
+  // Update the membership record
+  const updatedMembership = await prisma.membership.update({
+    where: { id: membershipToRemove.id },
+    data: {
+      organizationId: '', // Set organizationId to empty string to remove it
+      role: 'EMPLOYEE', // Default role for removed users
+    }
   });
 
   logger.info({ message: 'User removed from organization.', removedUserId: userId, orgId: organizationId, removedBy: user.id });

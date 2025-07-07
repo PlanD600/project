@@ -9,7 +9,7 @@ export const createUser: RequestHandler = async (req, res, next) => {
     const { name, email, role, teamId, projectId } = req.body;
     const adminUser = req.user;
 
-    if (!adminUser || !adminUser.organizationId) {
+    if (!adminUser || !adminUser.activeOrganizationId) {
         return res.status(401).json({ message: 'Unauthorized' });
     }
 
@@ -25,8 +25,13 @@ export const createUser: RequestHandler = async (req, res, next) => {
     }
 
     try {
-        logger.info({ message: 'Attempting to create user by admin.', email, role, teamId, adminUserId: adminUser.id, orgId: adminUser.organizationId });
-        const userExists = await prisma.user.findFirst({ where: { email, organizationId: adminUser.organizationId } });
+        logger.info({ message: 'Attempting to create user by admin.', email, role, teamId, adminUserId: adminUser.id, orgId: adminUser.activeOrganizationId });
+        const userExists = await prisma.user.findFirst({
+            where: {
+                email,
+                memberships: { some: { organizationId: adminUser.activeOrganizationId } }
+            }
+        });
         if (userExists) {
             logger.warn({ message: 'User creation failed: User with this email already exists in this organization.', email, adminUserId: adminUser.id });
             return res.status(400).json({ message: 'User with this email already exists' });
@@ -35,7 +40,7 @@ export const createUser: RequestHandler = async (req, res, next) => {
         // כלל #1: אם משייכים לצוות, ודא שהצוות שייך לארגון
         if (teamId) {
             const teamExists = await prisma.team.findFirst({
-                where: { id: teamId, organizationId: adminUser.organizationId }
+                where: { id: teamId, organizationId: adminUser.activeOrganizationId }
             });
             if (!teamExists) {
                 logger.warn({ message: 'User creation failed: Team not found in organization.', teamId, adminUserId: adminUser.id });
@@ -52,15 +57,19 @@ export const createUser: RequestHandler = async (req, res, next) => {
                 name,
                 email,
                 password: hashedPassword,
-                role,
-                organizationId: adminUser.organizationId, // כלל #1: שייך את המשתמש החדש לארגון של המנהל
                 teamId: teamId || null,
                 avatarUrl: '',
+                memberships: {
+                    create: {
+                        organizationId: adminUser.activeOrganizationId,
+                        role: role,
+                    },
+                },
             },
-            select: { id: true, name: true, email: true, role: true, teamId: true, avatarUrl: true }
+            select: { id: true, name: true, email: true, teamId: true, avatarUrl: true }
         });
         
-        logger.info({ message: 'User created by admin successfully.', newUserId: newUser.id, email: newUser.email, orgId: adminUser.organizationId, adminUserId: adminUser.id });
+        logger.info({ message: 'User created by admin successfully.', newUserId: newUser.id, email: newUser.email, orgId: adminUser.activeOrganizationId, adminUserId: adminUser.id });
         res.status(201).json(newUser);
     } catch (error) {
         logger.error({ message: 'Failed to create user by admin.', context: { body: req.body, adminUserId: adminUser.id }, error });
@@ -70,16 +79,18 @@ export const createUser: RequestHandler = async (req, res, next) => {
 
 export const getAllUsers: RequestHandler = async (req, res, next) => {
     const user = req.user;
-    if (!user || !user.organizationId) {
+    if (!user || !user.activeOrganizationId) {
         return res.status(401).json({ message: 'Unauthorized' });
     }
 
     try {
-        logger.info({ message: 'Attempting to get all users.', userId: user.id, orgId: user.organizationId });
+        logger.info({ message: 'Attempting to get all users.', userId: user.id, orgId: user.activeOrganizationId });
         const users = await prisma.user.findMany({
             // כלל #1: הצג רק משתמשים מהארגון של המשתמש המחובר
-            where: { organizationId: user.organizationId },
-            select: { id: true, name: true, email: true, role: true, teamId: true, avatarUrl: true },
+            where: {
+                memberships: { some: { organizationId: user.activeOrganizationId } }
+            },
+            select: { id: true, name: true, email: true, teamId: true, avatarUrl: true },
             orderBy: { name: 'asc' }
         });
         logger.info({ message: 'All users fetched successfully.', usersCount: users.length, userId: user.id });
@@ -92,17 +103,15 @@ export const getAllUsers: RequestHandler = async (req, res, next) => {
 
 export const getUnassignedUsers: RequestHandler = async (req, res, next) => {
     const user = req.user;
-    if (!user || !user.organizationId) {
+    if (!user || !user.activeOrganizationId) {
         return res.status(401).json({ message: 'Unauthorized' });
     }
 
     try {
-        logger.info({ message: 'Attempting to get unassigned users.', userId: user.id, orgId: user.organizationId });
+        logger.info({ message: 'Attempting to get unassigned users.', userId: user.id, orgId: user.activeOrganizationId });
         const users = await prisma.user.findMany({
             where: {
-                organizationId: user.organizationId, // כלל #1
-                role: UserRole.EMPLOYEE, // כלל #2
-                teamId: null,
+                memberships: { some: { organizationId: user.activeOrganizationId, role: UserRole.EMPLOYEE } }
             },
             select: { id: true, name: true, email: true },
             orderBy: { name: 'asc' }
@@ -120,7 +129,7 @@ export const updateUser: RequestHandler = async (req, res, next) => {
     const { name, email, role, teamId } = req.body;
     const adminUser = req.user;
 
-    if (!adminUser || !adminUser.organizationId) {
+    if (!adminUser || !adminUser.activeOrganizationId) {
         return res.status(401).json({ message: 'Unauthorized' });
     }
 
@@ -133,8 +142,8 @@ export const updateUser: RequestHandler = async (req, res, next) => {
         logger.info({ message: 'Attempting to update user.', userId, adminUserId: adminUser.id });
         // "כלל הזהב": שימוש ב-updateMany עם where כפול מבטיח שאתה מעדכן רק משתמש בארגון שלך
         const updateResult = await prisma.user.updateMany({
-            where: { id: userId, organizationId: adminUser.organizationId },
-            data: { name, email, role, teamId: teamId || null },
+            where: { id: userId, memberships: { some: { organizationId: adminUser.activeOrganizationId } } },
+            data: { name, email, teamId: teamId || null },
         });
 
         if (updateResult.count === 0) {
@@ -144,7 +153,7 @@ export const updateUser: RequestHandler = async (req, res, next) => {
         
         const updatedUser = await prisma.user.findUnique({ 
             where: { id: userId },
-            select: { id: true, name: true, email: true, role: true, teamId: true, avatarUrl: true }
+            select: { id: true, name: true, email: true, teamId: true, avatarUrl: true }
         });
 
         logger.info({ message: 'User updated successfully.', updatedUserId: userId, adminUserId: adminUser.id });
@@ -159,7 +168,7 @@ export const deleteUser: RequestHandler = async (req, res, next) => {
     const { userId } = req.params;
     const adminUser = req.user;
     
-    if (!adminUser || !adminUser.organizationId) {
+    if (!adminUser || !adminUser.activeOrganizationId) {
         return res.status(401).json({ message: 'Unauthorized' });
     }
 
@@ -173,7 +182,7 @@ export const deleteUser: RequestHandler = async (req, res, next) => {
         
         // "כלל הזהב": שימוש ב-deleteMany עם where כפול מבטיח מחיקה רק בתוך הארגון
         const deleteResult = await prisma.user.deleteMany({
-            where: { id: userId, organizationId: adminUser.organizationId }
+            where: { id: userId, memberships: { some: { organizationId: adminUser.activeOrganizationId } } }
         });
 
         if (deleteResult.count === 0) {

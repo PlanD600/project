@@ -61,9 +61,8 @@ export const protect = asyncHandler(async (req: Request, res: Response, next: Ne
                     email: true,
                     name: true,
                     avatarUrl: true,
-                    role: true,
-                    organizationId: true,
                     teamId: true,
+                    memberships: true, // Select memberships to get role for the current org
                 }
             });
 
@@ -84,10 +83,10 @@ export const protect = asyncHandler(async (req: Request, res: Response, next: Ne
                 teamId: user.teamId,
                 activeOrganizationId: currentActiveOrgId,
                 activeRole: user.role as UserRole,
-                memberships: [{
-                    organizationId: user.organizationId,
-                    role: user.role as UserRole
-                }]
+                memberships: user.memberships.map(m => ({
+                    organizationId: m.organizationId,
+                    role: m.role as UserRole
+                }))
             };
             
             next();

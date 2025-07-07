@@ -8,7 +8,7 @@ export const addFinancialEntry: RequestHandler = async (req, res, next) => {
     const { type, amount, description, date, projectId, source } = req.body;
     const user = req.user;
 
-    if (!user || !user.organizationId) {
+    if (!user || !user.activeOrganizationId) {
         return res.status(401).json({ message: 'Unauthorized' });
     }
 
@@ -31,11 +31,11 @@ export const addFinancialEntry: RequestHandler = async (req, res, next) => {
     try {
         // כלל #1: ודא שהפרויקט שאליו אתה מוסיף רשומה שייך לארגון שלך
         const project = await prisma.project.findFirst({
-            where: { id: projectId, organizationId: user.organizationId }
+            where: { id: projectId, organizationId: user.activeOrganizationId }
         });
 
         if (!project) {
-            logger.warn({ message: 'Add financial entry failed: Project not found in organization.', projectId, userId: user.id, orgId: user.organizationId });
+            logger.warn({ message: 'Add financial entry failed: Project not found in organization.', projectId, userId: user.id, orgId: user.activeOrganizationId });
             return res.status(404).json({ message: 'Project not found.' });
         }
 
@@ -47,7 +47,7 @@ export const addFinancialEntry: RequestHandler = async (req, res, next) => {
                 date: new Date(date),
                 source,
                 projectId,
-                organizationId: user.organizationId // כלל #1: שייך את הרשומה החדשה לארגון
+                organizationId: user.activeOrganizationId // כלל #1: שייך את הרשומה החדשה לארגון
             }
         });
         
@@ -63,23 +63,24 @@ export const getFinancialSummary: RequestHandler = async (req, res, next) => {
     const user = req.user;
     const { team_id } = req.query as { team_id?: string };
 
-    if (!user || !user.organizationId) {
+    if (!user || !user.activeOrganizationId) {
         logger.warn({ message: 'Unauthorized attempt to get financial summary: No user or org in request.' });
         return res.status(401).json({ message: 'Not authorized' });
     }
 
     try {
-        logger.info({ message: 'Attempting to get financial summary.', userId: user.id, role: user.role, orgId: user.organizationId, team_id_filter: team_id });
+        logger.info({ message: 'Attempting to get financial summary.', userId: user.id, role: user.role, orgId: user.activeOrganizationId, team_id_filter: team_id });
         
         // כלל #2: שימוש ב-enum
-        if (user.role === UserRole.ADMIN) {
+        const membership = user.memberships.find(m => m.organizationId === user.activeOrganizationId);
+        if (membership?.role === UserRole.ORG_ADMIN) {
             // כלל #1: כל השאילתות מתייחסות רק לארגון של המשתמש
-            let whereClause: any = { organizationId: user.organizationId };
+            let whereClause: any = { memberships: { some: { organizationId: user.activeOrganizationId } } };
 
             if (team_id) {
                 // כלל #1: ודא שהצוות שייך לארגון שלך
                 const projectsInTeam = await prisma.project.findMany({
-                    where: { teamId: team_id, organizationId: user.organizationId },
+                    where: { teamId: team_id, organizationId: user.activeOrganizationId },
                     select: { id: true }
                 });
                 const projectIds = projectsInTeam.map((p: any) => p.id);
@@ -105,7 +106,7 @@ export const getFinancialSummary: RequestHandler = async (req, res, next) => {
         } else if (user.role === UserRole.TEAM_MANAGER && user.teamId) {
             const projectsInTeam = await prisma.project.findMany({
                 // כלל #1: הגבל את החיפוש לארגון שלך
-                where: { teamId: user.teamId, organizationId: user.organizationId },
+                where: { teamId: user.teamId, organizationId: user.activeOrganizationId },
                 select: { id: true }
             });
             const projectIds = projectsInTeam.map((p: any) => p.id);

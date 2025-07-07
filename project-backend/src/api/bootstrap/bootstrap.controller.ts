@@ -19,12 +19,11 @@ export const getInitialData: RequestHandler = async (req, res, next) => {
         // "כלל הזהב": כל השאילתות מסוננות לפי הארגון
         // Temporary implementation until schema migration
         const allUsersQuery = prisma.user.findMany({
-            where: { organizationId: orgId }, // Temporary until schema migration
+            where: { memberships: { some: { organizationId: orgId } } }, // Temporary until schema migration
             select: { 
                 id: true, 
                 name: true, 
                 email: true, 
-                role: true, // Temporary until schema migration
                 teamId: true, 
                 avatarUrl: true
             }
@@ -40,7 +39,8 @@ export const getInitialData: RequestHandler = async (req, res, next) => {
 
         let projectsQuery;
         // כלל #2: שימוש ב-enum - updated for multi-tenant roles (temporary)
-        if (user.activeRole === 'ADMIN' || user.activeRole === 'TEAM_MANAGER') {
+        const membership = user.memberships.find(m => m.organizationId === user.activeOrganizationId);
+        if (membership?.role === 'ORG_ADMIN' || membership?.role === 'TEAM_LEADER') {
             projectsQuery = prisma.project.findMany({
                 where: { organizationId: orgId, status: 'active' }, // כלל #1
                 orderBy: { startDate: 'desc' }

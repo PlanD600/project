@@ -55,8 +55,6 @@ export const registerUser = asyncHandler(async (req, res) => {
                 name,
                 email: email.toLowerCase(),
                 password: hashedPassword,
-                role: 'ADMIN',
-                organizationId: newOrganization.id,
             },
         });
 
@@ -73,8 +71,6 @@ export const registerUser = asyncHandler(async (req, res) => {
             email: user.email,
             name: user.name,
             avatarUrl: user.avatarUrl,
-            role: user.role,
-            organizationId: user.organizationId,
             teamId: user.teamId,
         };
         
@@ -116,8 +112,6 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
             email: user.email,
             name: user.name,
             avatarUrl: user.avatarUrl,
-            role: user.role,
-            organizationId: user.organizationId,
             teamId: user.teamId,
         };
 
@@ -174,8 +168,6 @@ export const uploadAvatar = asyncHandler(async (req, res) => {
             email: true,
             name: true,
             avatarUrl: true,
-            role: true,
-            organizationId: true,
             teamId: true,
         },
     });

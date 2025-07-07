@@ -22,13 +22,13 @@ export const createCheckoutSession: RequestHandler = asyncHandler(async (req, re
   const { planId, successUrl, cancelUrl } = req.body;
   const user = req.user;
 
-  if (!user || !user.organizationId) {
+  if (!user || !user.activeOrganizationId) {
     res.status(401);
     throw new Error('Not authorized');
   }
 
   const organization = await prisma.organization.findUnique({
-    where: { id: user.organizationId }
+    where: { id: user.activeOrganizationId }
   });
 
   if (!organization) {
@@ -110,13 +110,13 @@ export const createPortalSession: RequestHandler = asyncHandler(async (req, res)
   const { returnUrl } = req.body;
   const user = req.user;
 
-  if (!user || !user.organizationId) {
+  if (!user || !user.activeOrganizationId) {
     res.status(401);
     throw new Error('Not authorized');
   }
 
   const organization = await prisma.organization.findUnique({
-    where: { id: user.organizationId }
+    where: { id: user.activeOrganizationId }
   });
 
   if (!organization || !organization.stripeCustomerId) {
@@ -144,13 +144,13 @@ export const createPortalSession: RequestHandler = asyncHandler(async (req, res)
 export const getSubscriptionInfo: RequestHandler = asyncHandler(async (req, res) => {
   const user = req.user;
 
-  if (!user || !user.organizationId) {
+  if (!user || !user.activeOrganizationId) {
     res.status(401);
     throw new Error('Not authorized');
   }
 
   const organization = await prisma.organization.findUnique({
-    where: { id: user.organizationId },
+    where: { id: user.activeOrganizationId },
     include: {
       _count: {
         select: {

@@ -22,7 +22,9 @@ export const inviteGuest: RequestHandler = asyncHandler(async (req, res) => {
     }
 
     // Check if user can invite guests (Org Admin, Super Admin, or Team Leader of the project)
-    const canInviteGuests = ['ADMIN', 'TEAM_MANAGER'].includes(user.activeRole as any); // Temporary until schema migration
+    const canInviteGuests = user.memberships.some(
+        (membership) => ['ADMIN', 'TEAM_MANAGER'].includes(membership.role)
+    );
 
     if (!canInviteGuests) {
         res.status(403);
@@ -148,7 +150,9 @@ export const revokeGuest: RequestHandler = asyncHandler(async (req, res) => {
     }
 
     // Check if user can revoke guest access
-    const canRevokeGuests = ['ADMIN', 'TEAM_MANAGER'].includes(user.activeRole as any); // Temporary until schema migration
+    const canRevokeGuests = user.memberships.some(
+        (membership) => ['ADMIN', 'TEAM_MANAGER'].includes(membership.role)
+    );
 
     if (!canRevokeGuests) {
         res.status(403);
@@ -227,7 +231,9 @@ export const getProjectGuests: RequestHandler = asyncHandler(async (req, res) =>
     }
 
     // Check if user can view project guests
-    const canViewGuests = ['ADMIN', 'TEAM_MANAGER'].includes(user.activeRole as any); // Temporary until schema migration
+    const canViewGuests = user.memberships.some(
+        (membership) => ['ADMIN', 'TEAM_MANAGER'].includes(membership.role)
+    );
 
     if (!canViewGuests) {
         res.status(403);
