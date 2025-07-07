@@ -23,10 +23,13 @@ export const addFinancialEntry: RequestHandler = async (req, res, next) => {
     }
 
     // כלל #2: שימוש ב-enum במקום טקסט
-    if (type === 'Income' && user.role !== UserRole.ADMIN) {
-        logger.warn({ message: 'Unauthorized attempt to add income entry.', context: { userId: user.id, role: user.role } });
-        return res.status(403).json({ message: 'Not authorized to add income entries.' });
-    }
+    // Find membership for active org
+    const membership = user.memberships.find(m => m.organizationId === user.activeOrganizationId);
+    const role = membership?.role;
+    if (type === 'Income' && role !== 'ORG_ADMIN') {
+        logger.warn({ message: 'Unauthorized attempt to add income entry.', context: { userId: user.id, role } });
+        return res.status(403).json({ message: 'Not authorized to add income entries.' });
+    }
 
     try {
         // כלל #1: ודא שהפרויקט שאליו אתה מוסיף רשומה שייך לארגון שלך
@@ -69,11 +72,13 @@ export const getFinancialSummary: RequestHandler = async (req, res, next) => {
     }
 
     try {
-        logger.info({ message: 'Attempting to get financial summary.', userId: user.id, role: user.role, orgId: user.activeOrganizationId, team_id_filter: team_id });
+        // Find membership for active org
+        const membership = user.memberships.find(m => m.organizationId === user.activeOrganizationId);
+        const role = membership?.role;
+        logger.info({ message: 'Attempting to get financial summary.', userId: user.id, role, orgId: user.activeOrganizationId, team_id_filter: team_id });
         
         // כלל #2: שימוש ב-enum
-        const membership = user.memberships.find(m => m.organizationId === user.activeOrganizationId);
-        if (membership?.role === UserRole.ORG_ADMIN) {
+        if (role === 'ORG_ADMIN') {
             // כלל #1: כל השאילתות מתייחסות רק לארגון של המשתמש
             let whereClause: any = { memberships: { some: { organizationId: user.activeOrganizationId } } };
 
@@ -103,14 +108,14 @@ export const getFinancialSummary: RequestHandler = async (req, res, next) => {
                 totalExpense: totalExpenseResult._sum.amount || 0,
             });
 
-        } else if (user.role === UserRole.TEAM_MANAGER && user.teamId) {
+        } else if (role === 'TEAM_LEADER' && user.teamId) {
             const projectsInTeam = await prisma.project.findMany({
                 // כלל #1: הגבל את החיפוש לארגון שלך
                 where: { teamId: user.teamId, organizationId: user.activeOrganizationId },
                 select: { id: true }
             });
             const projectIds = projectsInTeam.map((p: any) => p.id);
-            logger.info({ message: 'Team manager getting financial summary for team projects.', userId: user.id, teamId: user.teamId, projectIdsCount: projectIds.length });
+            logger.info({ message: 'Team leader getting financial summary for team projects.', userId: user.id, teamId: user.teamId, projectIdsCount: projectIds.length });
 
             const result = await prisma.financialTransaction.aggregate({
                 _sum: { amount: true },
@@ -121,10 +126,10 @@ export const getFinancialSummary: RequestHandler = async (req, res, next) => {
                 }
             });
             
-            logger.info({ message: 'Team manager financial summary fetched successfully.', totalTeamExpenses: result._sum.amount });
+            logger.info({ message: 'Team leader financial summary fetched successfully.', totalTeamExpenses: result._sum.amount });
             res.json({ totalTeamExpenses: result._sum.amount || 0 });
         } else {
-            logger.warn({ message: 'User not authorized to view financial summary.', userId: user.id, role: user.role, teamId: user.teamId });
+            logger.warn({ message: 'User not authorized to view financial summary.', userId: user.id, role, teamId: user.teamId });
             res.status(403).json({ message: 'Not authorized to view financial summary' });
         }
     } catch (error) {

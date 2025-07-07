@@ -23,10 +23,10 @@ export const getProjects = asyncHandler(async (req, res) => {
     };
 
     // Role-based filtering (temporary until schema migration)
-    if (user.activeRole === 'TEAM_MANAGER') {
-        // Team managers see projects they are leading
+    if (user.activeRole === 'TEAM_LEADER') {
+        // Team leaders see projects they are leading
         where.teamLeaders = { some: { id: user.id } };
-        logger.info({ message: 'Filtering projects by team leadership for manager.', userId: user.id });
+        logger.info({ message: 'Filtering projects by team leadership for leader.', userId: user.id });
     } else if (user.activeRole === 'EMPLOYEE') {
         // Employees see projects where they have assigned tasks
         const tasks = await db.task.findMany({
@@ -68,8 +68,8 @@ export const createProject: RequestHandler = asyncHandler(async (req, res) => {
     throw new Error('Not authorized');
   }
 
-  // Check if user can create projects (Admin, Super Admin, or Org Admin)
-  const canCreateProjects = ['ADMIN', 'TEAM_MANAGER'].includes(user.activeRole as any); // Temporary until schema migration
+  // Check if user can create projects (Org Admin or Team Leader)
+  const canCreateProjects = ['ORG_ADMIN', 'TEAM_LEADER'].includes(user.activeRole);
 
   if (!canCreateProjects) {
     res.status(403);
@@ -219,7 +219,7 @@ export const updateProject = asyncHandler(async (req, res) => {
     }
 
     const isTeamLeader = project.teamLeaders.some(leader => leader.id === user.id);
-    const canUpdateProject = ['ADMIN', 'TEAM_MANAGER'].includes(user.activeRole as any) || isTeamLeader; // Temporary until schema migration
+    const canUpdateProject = ['ORG_ADMIN', 'TEAM_LEADER'].includes(user.activeRole) || isTeamLeader;
 
     if (!canUpdateProject) {
         res.status(403);
@@ -260,7 +260,7 @@ export const deleteProject = asyncHandler(async (req, res) => {
     }
 
     const isTeamLeader = project.teamLeaders.some(leader => leader.id === user.id);
-    const canDeleteProject = ['ADMIN', 'TEAM_MANAGER'].includes(user.activeRole as any) || isTeamLeader; // Temporary until schema migration
+    const canDeleteProject = ['ORG_ADMIN', 'TEAM_LEADER'].includes(user.activeRole) || isTeamLeader;
 
     if (!canDeleteProject) {
         res.status(403);

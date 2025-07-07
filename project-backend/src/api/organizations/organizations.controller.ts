@@ -3,6 +3,7 @@ import { RequestHandler } from 'express';
 import asyncHandler from 'express-async-handler';
 import prisma from '../../db';
 import logger from '../../logger';
+import { UserRole } from '@prisma/client';
 
 // @desc    Get all organizations for super admin users
 // @route   GET /api/organizations
@@ -17,7 +18,7 @@ export const getAllOrganizations: RequestHandler = asyncHandler(async (req, res)
 
   // Check if user has SUPER_ADMIN role in any organization
   const hasSuperAdminRole = user.memberships.some(
-    membership => membership.role === 'ADMIN' as any // Temporary until schema migration
+    membership => membership.role === 'SUPER_ADMIN'
   );
 
   if (!hasSuperAdminRole) {
@@ -58,7 +59,7 @@ export const createOrganization: RequestHandler = asyncHandler(async (req, res) 
 
   // Check if user has SUPER_ADMIN role in any organization
   const hasSuperAdminRole = user.memberships.some(
-    membership => membership.role === 'ADMIN' as any // Temporary until schema migration
+    membership => membership.role === 'SUPER_ADMIN'
   );
 
   if (!hasSuperAdminRole) {
@@ -95,7 +96,7 @@ export const updateOrganization: RequestHandler = asyncHandler(async (req, res) 
   }
 
   // Check if user can manage the active organization
-  const canManageOrg = ['ADMIN', 'TEAM_MANAGER'].includes(user.activeRole as any); // Temporary until schema migration
+  const canManageOrg = ['ORG_ADMIN', 'TEAM_LEADER'].includes(user.activeRole);
 
   if (!canManageOrg) {
     res.status(403);
@@ -206,7 +207,7 @@ export const inviteUserToOrganization: RequestHandler = asyncHandler(async (req,
   }
 
   // Check if user can manage the organization
-  const canManageOrg = ['ADMIN', 'TEAM_MANAGER'].includes(user.activeRole as any); // Temporary until schema migration
+  const canManageOrg = ['ORG_ADMIN', 'TEAM_LEADER'].includes(user.activeRole);
 
   if (!canManageOrg) {
     res.status(403);
@@ -286,7 +287,7 @@ export const removeUserFromOrganization: RequestHandler = asyncHandler(async (re
   }
 
   // Check if user can manage the organization
-  const canManageOrg = ['ADMIN', 'TEAM_MANAGER'].includes(user.activeRole as any); // Temporary until schema migration
+  const canManageOrg = ['ORG_ADMIN', 'TEAM_LEADER'].includes(user.activeRole);
 
   if (!canManageOrg) {
     res.status(403);
