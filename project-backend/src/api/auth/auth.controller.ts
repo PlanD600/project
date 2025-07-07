@@ -28,7 +28,6 @@ const generateToken = (userId: string): string => {
  * @access  Public
  */
 export const registerUser = asyncHandler(async (req, res) => {
-    // השתמשתי במיפוי שמות כדי להתאים לשמות שה-frontend שולח
     const { fullName: name, email, password, companyName: organizationName } = req.body;
 
     if (!name || !email || !password || !organizationName) {
@@ -45,33 +44,46 @@ export const registerUser = asyncHandler(async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const { user } = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
+        // 1. Create organization
         const newOrganization = await tx.organization.create({
             data: { name: organizationName }
         });
 
+        // 2. Create user
         const newUser = await tx.user.create({
             data: {
                 name,
                 email: email.toLowerCase(),
                 password: hashedPassword,
+                activeOrganizationId: newOrganization.id,
             },
         });
 
-        return { user: newUser };
+        // 3. Create membership
+        await tx.membership.create({
+            data: {
+                userId: newUser.id,
+                organizationId: newOrganization.id,
+                role: 'ORG_ADMIN',
+            },
+        });
+
+        return { user: newUser, organization: newOrganization };
     });
 
-    if (user) {
-        logger.info('משתמש וארגון נרשמו בהצלחה.', { userId: user.id, email: user.email });
+    if (result.user) {
+        logger.info('משתמש וארגון נרשמו בהצלחה.', { userId: result.user.id, email: result.user.email });
         
-        const token = generateToken(user.id);
+        const token = generateToken(result.user.id);
 
         const userResponse = {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            avatarUrl: user.avatarUrl,
-            teamId: user.teamId,
+            id: result.user.id,
+            email: result.user.email,
+            name: result.user.name,
+            avatarUrl: result.user.avatarUrl,
+            teamId: result.user.teamId,
+            activeOrganizationId: result.user.activeOrganizationId,
         };
         
         res.status(201).json({
