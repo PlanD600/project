@@ -44,13 +44,14 @@ export const registerUser = asyncHandler(async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // Use a transaction to ensure all steps succeed or fail together
     const result = await prisma.$transaction(async (tx) => {
         // 1. Create organization
         const newOrganization = await tx.organization.create({
             data: { name: organizationName }
         });
 
-        // 2. Create user
+        // 2. Create user with activeOrganizationId set
         const newUser = await tx.user.create({
             data: {
                 name,
@@ -69,6 +70,7 @@ export const registerUser = asyncHandler(async (req, res) => {
             },
         });
 
+        // 4. Return the user and org
         return { user: newUser, organization: newOrganization };
     });
 
