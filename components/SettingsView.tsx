@@ -16,17 +16,25 @@ interface SettingsViewProps {
     initialSection: ActiveSection | null;
 }
 
+// Helper to get user role for active org
+function getUserRoleForActiveOrg(user: User | null, activeOrganizationId: string | null): UserRole | undefined {
+  if (!user || !activeOrganizationId) return undefined;
+  return user.memberships.find(m => m.organizationId === activeOrganizationId)?.role;
+}
+
 const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDashboard, initialSection }) => {
     const { currentUser } = useAuthStore();
+    const { activeOrganizationId } = useDataStore();
     
-    const getDefaultSection = (role: User['role']): ActiveSection => {
+    const getDefaultSection = (role: string | undefined): ActiveSection => {
         if (role === 'ADMIN') return 'general';
         if (role === 'TEAM_MANAGER') return 'my-team';
         return 'my-profile';
     };
     
+    const userRole = getUserRoleForActiveOrg(currentUser, activeOrganizationId);
     const [activeSection, setActiveSection] = useState<ActiveSection>(
-        initialSection || (currentUser ? getDefaultSection(currentUser.role) : 'my-profile')
+        initialSection || (currentUser ? getDefaultSection(userRole) : 'my-profile')
     );
 
     useEffect(() => {
@@ -37,28 +45,31 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDashboard, initialS
 
     const menuItems = useMemo(() => {
         if (!currentUser) return [];
+        const userRole = getUserRoleForActiveOrg(currentUser, activeOrganizationId);
+        const roleStr = String(userRole);
         const items: { id: ActiveSection, label: string, icon: any }[] = [
-            { id: 'my-profile', label: 'הפרופיל שלי', icon: 'user' },
+            { id: 'my-profile', label: '\u05d4\u05e8\u05d5\u05e4\u05d9\u05dc \u05e9\u05dc\u05d9', icon: 'user' },
         ];
 
-        if (currentUser.role === 'TEAM_MANAGER') {
-            items.push({ id: 'my-team', label: 'הצוות שלי', icon: 'team' });
+        if (roleStr === 'TEAM_MANAGER') {
+            items.push({ id: 'my-team', label: '\u05d4\u05e6\u05d5\u05d5\u05ea \u05e9\u05dc\u05d9', icon: 'team' });
         }
 
-        if (currentUser.role === 'ADMIN') {
+        if (roleStr === 'ADMIN') {
             items.unshift(
-                { id: 'general', label: 'כללי', icon: 'settings' },
-                { id: 'user-management', label: 'ניהול משתמשים', icon: 'users' },
-                { id: 'team-management', label: 'ניהול צוותים', icon: 'team' },
-                { id: 'guest-management', label: 'ניהול אורחים', icon: 'users' },
-                { id: 'billing', label: 'חיובים', icon: 'billing' }
+                { id: 'general', label: '\u05db\u05dc\u05dc\u05d9', icon: 'settings' },
+                { id: 'user-management', label: '\u05e0\u05d9\u05d4\u05d5\u05dc \u05de\u05e9\u05ea\u05de\u05e9\u05d9\u05dd', icon: 'users' },
+                { id: 'team-management', label: '\u05e0\u05d9\u05d4\u05d5\u05dc \u05e6\u05d5\u05d5\u05ea\u05d9\u05dd', icon: 'team' },
+                { id: 'guest-management', label: '\u05e0\u05d9\u05d4\u05d5\u05dc \u05d0\u05d5\u05e8\u05d7\u05d9\u05dd', icon: 'users' },
+                { id: 'billing', label: '\u05d7\u05d9\u05d5\u05d1\u05d9\u05dd', icon: 'billing' }
             );
         }
         return items;
-    }, [currentUser]);
+    }, [currentUser, activeOrganizationId]);
     
     if (!currentUser) return null;
 
+    const userRoleForSections = String(getUserRoleForActiveOrg(currentUser, activeOrganizationId));
     return (
         <div className="bg-medium p-6 rounded-lg shadow-sm border border-dark">
             <button onClick={onBackToDashboard} className="flex items-center text-sm text-accent hover:underline mb-6">
@@ -86,12 +97,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDashboard, initialS
                 </aside>
                 <main className="flex-1 min-w-0">
                     {activeSection === 'my-profile' && <MyProfileSection />}
-                    {currentUser.role === 'ADMIN' && activeSection === 'general' && <GeneralSettingsSection />}
-                    {currentUser.role === 'ADMIN' && activeSection === 'user-management' && <UserManagementSection />}
-                    {currentUser.role === 'ADMIN' && activeSection === 'team-management' && <SuperAdminTeamManagementSection />}
-                    {currentUser.role === 'ADMIN' && activeSection === 'guest-management' && <GuestManagementView />}
-                    {currentUser.role === 'ADMIN' && activeSection === 'billing' && <BillingSection />}
-                    {currentUser.role === 'TEAM_MANAGER' && activeSection === 'my-team' && <TeamLeaderTeamSection />}
+                    {userRoleForSections === 'ADMIN' && activeSection === 'general' && <GeneralSettingsSection />}
+                    {userRoleForSections === 'ADMIN' && activeSection === 'user-management' && <UserManagementSection />}
+                    {userRoleForSections === 'ADMIN' && activeSection === 'team-management' && <SuperAdminTeamManagementSection />}
+                    {userRoleForSections === 'ADMIN' && activeSection === 'guest-management' && <GuestManagementView />}
+                    {userRoleForSections === 'ADMIN' && activeSection === 'billing' && <BillingSection />}
+                    {userRoleForSections === 'TEAM_MANAGER' && activeSection === 'my-team' && <TeamLeaderTeamSection />}
                 </main>
             </div>
         </div>
@@ -109,6 +120,7 @@ const MyProfileSection: React.FC = () => {
     const { currentUser, handleUploadAvatar } = useAuthStore();
     const { handleUpdateUser } = useDataStore();
     const { setNotification } = useUIStore();
+    const { activeOrganizationId } = useDataStore();
     
     const [user, setUser] = useState(currentUser);
     const [passwordData, setPasswordData] = useState({ current: '', new: '', confirm: '' });
@@ -215,7 +227,7 @@ const MyProfileSection: React.FC = () => {
                 </div>
                  <button onClick={handleUpdatePassword} className="mt-4 px-4 py-2 bg-primary hover:bg-primary/90 text-light rounded-md text-sm">עדכן סיסמה</button>
             </div>
-            {currentUser?.role !== 'GUEST' && user.notificationPreferences && (
+            {String(getUserRoleForActiveOrg(currentUser, activeOrganizationId)) !== 'GUEST' && user.notificationPreferences && (
              <div className="bg-light p-6 rounded-lg border border-dark">
                 <h4 className="text-lg font-semibold text-primary mb-4">העדפות התראות</h4>
                 <div className="space-y-2">
@@ -266,6 +278,7 @@ const UserManagementSection: React.FC = () => {
     const [isUserModalOpen, setUserModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [resettingUser, setResettingUser] = useState<User | null>(null);
+    const { activeOrganizationId } = useDataStore();
 
     const handleOpenCreate = () => {
         setEditingUser(null);
@@ -304,7 +317,7 @@ const UserManagementSection: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {users.filter(u => u.role !== 'GUEST').map(user => (
+                            {users.filter(u => String(getUserRoleForActiveOrg(u, activeOrganizationId)) !== 'GUEST').map(user => (
                                 <tr key={user.id} className="border-b border-dark hover:bg-medium">
                                     <td className="px-4 py-3 font-semibold text-primary flex items-center gap-3">
                                         <Avatar user={user} className="w-8 h-8 rounded-full" />
@@ -313,7 +326,7 @@ const UserManagementSection: React.FC = () => {
                                             <div className="text-xs text-dimmed">{user.email}</div>
                                         </div>
                                     </td>
-                                    <td className="px-4 py-3">{user.role}</td>
+                                    <td className="px-4 py-3">{String(getUserRoleForActiveOrg(user, activeOrganizationId))}</td>
                                     <td className="px-4 py-3 text-dimmed">{teams.find(t => t.id === user.teamId)?.name || 'ללא שיוך'}</td>
                                     <td className="px-4 py-3">
                                         <span className={`px-2 py-1 text-xs rounded-full ${user.disabled ? 'bg-danger/20 text-danger' : 'bg-success/20 text-success'}`}>
@@ -340,7 +353,7 @@ const UserManagementSection: React.FC = () => {
 };
 
 const SuperAdminTeamManagementSection: React.FC = () => {
-    const { teams, users, handleDeleteTeam } = useDataStore();
+    const { teams, users, handleDeleteTeam, activeOrganizationId } = useDataStore();
     const [isTeamModalOpen, setTeamModalOpen] = useState(false);
     const [editingTeam, setEditingTeam] = useState<Team | null>(null);
 
@@ -366,7 +379,7 @@ const SuperAdminTeamManagementSection: React.FC = () => {
                         </thead>
                          <tbody>
                             {teams.map(team => {
-                                const leader = users.find(l => l.teamId === team.id && l.role === 'TEAM_MANAGER');
+                                const leader = users.find(l => l.teamId === team.id && String(getUserRoleForActiveOrg(l, activeOrganizationId)) === 'TEAM_MANAGER');
                                 const members = users.filter(u => u.teamId === team.id);
                                 return (
                                     <tr key={team.id} className="border-b border-dark hover:bg-medium">
@@ -393,7 +406,7 @@ const SuperAdminTeamManagementSection: React.FC = () => {
 
 const TeamLeaderTeamSection: React.FC = () => {
     const { currentUser } = useAuthStore();
-    const { teams, users, handleUpdateTeam, handleAddUsersToTeam, handleRemoveUserFromTeam } = useDataStore();
+    const { teams, users, handleUpdateTeam, handleAddUsersToTeam, handleRemoveUserFromTeam, activeOrganizationId } = useDataStore();
     const [teamName, setTeamName] = useState('');
     const [isAddMemberOpen, setAddMemberOpen] = useState(false);
     
@@ -406,7 +419,7 @@ const TeamLeaderTeamSection: React.FC = () => {
 
     if (!myTeam || !currentUser) return <SectionWrapper title="הצוות שלי">אינך משויך לצוות.</SectionWrapper>;
     
-    const unassignedUsers = users.filter(u => !u.teamId && u.role === 'EMPLOYEE');
+    const unassignedUsers = users.filter(u => !u.teamId && String(getUserRoleForActiveOrg(u, activeOrganizationId)) === 'EMPLOYEE');
 
     const handleUpdateTeamName = () => {
         handleUpdateTeam({ ...myTeam, name: teamName }, currentUser.id, myTeamMembers.map(m => m.id));
@@ -468,7 +481,6 @@ const UserModal: React.FC<{ isOpen: boolean; onClose: () => void; userToEdit: Us
     const [formData, setFormData] = useState({
         name: userToEdit?.name || '',
         email: userToEdit?.email || '',
-        role: userToEdit?.role || 'EMPLOYEE',
         teamId: userToEdit?.teamId || '',
     });
 
@@ -479,7 +491,8 @@ const UserModal: React.FC<{ isOpen: boolean; onClose: () => void; userToEdit: Us
         } else {
             handleCreateUser({
                 ...formData,
-                teamLeaders: [], // Add empty teamLeaders array
+                memberships: [],
+                ledProjects: [],
             } as Omit<User, 'id' | 'avatarUrl'>);
         }
         onClose();
@@ -512,14 +525,6 @@ const UserModal: React.FC<{ isOpen: boolean; onClose: () => void; userToEdit: Us
             </div>
              <div className="grid grid-cols-2 gap-4">
                  <div>
-                    <label className="text-sm text-dimmed block mb-1">תפקיד</label>
-                    <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as UserRole})} className="w-full bg-light p-2 rounded-md text-primary border border-dark">
-                        <option value="EMPLOYEE">עובד</option>
-                        <option value="TEAM_MANAGER">ראש צוות</option>
-                        <option value="ADMIN">מנהל מערכת</option>
-                    </select>
-                </div>
-                 <div>
                     <label className="text-sm text-dimmed block mb-1">צוות</label>
                      <select value={formData.teamId} onChange={e => setFormData({...formData, teamId: e.target.value})} className="w-full bg-light p-2 rounded-md text-primary border border-dark">
                         <option value="">ללא שיוך</option>
@@ -539,12 +544,12 @@ const UserModal: React.FC<{ isOpen: boolean; onClose: () => void; userToEdit: Us
 
 
 const TeamModal: React.FC<{ isOpen: boolean; onClose: () => void; teamToEdit: Team | null }> = ({ isOpen, onClose, teamToEdit }) => {
-    const { users, handleCreateTeam, handleUpdateTeam } = useDataStore();
-    const leaderAndAdmins = useMemo(() => users.filter(u => u.role === 'TEAM_MANAGER' || u.role === 'ADMIN'), [users]);
-    const employees = useMemo(() => users.filter(u => u.role === 'EMPLOYEE'), [users]);
+    const { users, handleCreateTeam, handleUpdateTeam, activeOrganizationId } = useDataStore();
+    const leaderAndAdmins = useMemo(() => users.filter(u => String(getUserRoleForActiveOrg(u, activeOrganizationId)) === 'TEAM_MANAGER' || String(getUserRoleForActiveOrg(u, activeOrganizationId)) === 'ADMIN'), [users]);
+    const employees = useMemo(() => users.filter(u => String(getUserRoleForActiveOrg(u, activeOrganizationId)) === 'EMPLOYEE'), [users]);
 
-    const getInitialMembers = () => teamToEdit ? users.filter(u => u.teamId === teamToEdit.id && u.role === 'EMPLOYEE').map(u => u.id) : [];
-    const getInitialLeader = () => teamToEdit ? users.find(u => u.teamId === teamToEdit.id && (u.role === 'TEAM_MANAGER' || u.role === 'ADMIN'))?.id || null : null;
+    const getInitialMembers = () => teamToEdit ? users.filter(u => u.teamId === teamToEdit.id && String(getUserRoleForActiveOrg(u, activeOrganizationId)) === 'EMPLOYEE').map(u => u.id) : [];
+    const getInitialLeader = () => teamToEdit ? users.find(u => u.teamId === teamToEdit.id && (String(getUserRoleForActiveOrg(u, activeOrganizationId)) === 'TEAM_MANAGER' || String(getUserRoleForActiveOrg(u, activeOrganizationId)) === 'ADMIN'))?.id || null : null;
 
     const [name, setName] = useState(teamToEdit?.name || '');
     const [leaderId, setLeaderId] = useState<string | null>(getInitialLeader());
@@ -562,7 +567,8 @@ const TeamModal: React.FC<{ isOpen: boolean; onClose: () => void; teamToEdit: Te
         if (teamToEdit) {
             handleUpdateTeam({ ...teamToEdit, name }, leaderId, memberIds);
         } else {
-            handleCreateTeam({ name }, leaderId, memberIds);
+            if (!activeOrganizationId) return;
+            handleCreateTeam({ name, organizationId: activeOrganizationId }, leaderId, memberIds);
         }
         onClose();
     };
