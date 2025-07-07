@@ -167,7 +167,9 @@ export const getSubscriptionInfo: RequestHandler = asyncHandler(async (req, res)
 
   // Get company count for admin users
   let companyCount = 1;
-  if (user.role === 'ADMIN') {
+  const membership = user.memberships.find(m => m.organizationId === user.activeOrganizationId);
+  const role = membership?.role;
+  if (role === 'ORG_ADMIN') {
     companyCount = await prisma.organization.count();
   }
 

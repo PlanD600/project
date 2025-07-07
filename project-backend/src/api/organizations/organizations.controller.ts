@@ -30,7 +30,6 @@ export const getAllOrganizations: RequestHandler = asyncHandler(async (req, res)
     include: {
       _count: {
         select: {
-          users: true, // Temporary until schema migration
           projects: true,
           teams: true
         }

@@ -23,7 +23,7 @@ export const inviteGuest: RequestHandler = asyncHandler(async (req, res) => {
 
     // Check if user can invite guests (Org Admin, Super Admin, or Team Leader of the project)
     const canInviteGuests = user.memberships.some(
-        (membership) => ['ADMIN', 'TEAM_MANAGER'].includes(membership.role)
+        (membership) => ['ORG_ADMIN', 'TEAM_LEADER'].includes(membership.role)
     );
 
     if (!canInviteGuests) {
@@ -48,7 +48,7 @@ export const inviteGuest: RequestHandler = asyncHandler(async (req, res) => {
     }
 
     // Additional check for Team Leaders - they can only invite to their own projects
-    if (user.activeRole === 'TEAM_MANAGER' && !project.teamLeaders.some(leader => leader.id === user.id)) {
+    if (user.activeRole === 'TEAM_LEADER' && !project.teamLeaders.some(leader => leader.id === user.id)) {
         res.status(403);
         throw new Error('Team leaders can only invite guests to their own projects');
     }
@@ -66,8 +66,6 @@ export const inviteGuest: RequestHandler = asyncHandler(async (req, res) => {
                 email,
                 name: email.split('@')[0], // Use email prefix as name
                 password: tempPassword, // In production, hash this password
-                role: 'GUEST' as any, // Temporary until schema migration
-                organizationId: user.activeOrganizationId, // Temporary until schema migration
             }
         });
     } else {
@@ -109,7 +107,6 @@ export const inviteGuest: RequestHandler = asyncHandler(async (req, res) => {
                     id: true,
                     name: true,
                     email: true,
-                    role: true,
                     avatarUrl: true
                 }
             }
@@ -130,7 +127,6 @@ export const inviteGuest: RequestHandler = asyncHandler(async (req, res) => {
         id: guestUser.id,
         name: guestUser.name,
         email: guestUser.email,
-        role: guestUser.role,
         avatarUrl: guestUser.avatarUrl,
         projectId: projectId,
         message: 'Guest invitation created successfully. SMS invitation will be sent.'
@@ -151,7 +147,7 @@ export const revokeGuest: RequestHandler = asyncHandler(async (req, res) => {
 
     // Check if user can revoke guest access
     const canRevokeGuests = user.memberships.some(
-        (membership) => ['ADMIN', 'TEAM_MANAGER'].includes(membership.role)
+        (membership) => ['ORG_ADMIN', 'TEAM_LEADER'].includes(membership.role)
     );
 
     if (!canRevokeGuests) {
@@ -176,7 +172,7 @@ export const revokeGuest: RequestHandler = asyncHandler(async (req, res) => {
     }
 
     // Additional check for Team Leaders - they can only revoke from their own projects
-    if (user.activeRole === 'TEAM_MANAGER' && !project.teamLeaders.some(leader => leader.id === user.id)) {
+    if (user.activeRole === 'TEAM_LEADER' && !project.teamLeaders.some(leader => leader.id === user.id)) {
         res.status(403);
         throw new Error('Team leaders can only revoke guests from their own projects');
     }
@@ -232,7 +228,7 @@ export const getProjectGuests: RequestHandler = asyncHandler(async (req, res) =>
 
     // Check if user can view project guests
     const canViewGuests = user.memberships.some(
-        (membership) => ['ADMIN', 'TEAM_MANAGER'].includes(membership.role)
+        (membership) => ['ORG_ADMIN', 'TEAM_LEADER'].includes(membership.role)
     );
 
     if (!canViewGuests) {
@@ -257,7 +253,7 @@ export const getProjectGuests: RequestHandler = asyncHandler(async (req, res) =>
     }
 
     // Additional check for Team Leaders - they can only view guests of their own projects
-    if (user.activeRole === 'TEAM_MANAGER' && !project.teamLeaders.some(leader => leader.id === user.id)) {
+    if (user.activeRole === 'TEAM_LEADER' && !project.teamLeaders.some(leader => leader.id === user.id)) {
         res.status(403);
         throw new Error('Team leaders can only view guests of their own projects');
     }
@@ -276,7 +272,6 @@ export const getProjectGuests: RequestHandler = asyncHandler(async (req, res) =>
                     id: true,
                     name: true,
                     email: true,
-                    role: true,
                     avatarUrl: true
                 }
             }

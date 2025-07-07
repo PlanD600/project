@@ -72,9 +72,11 @@ export const protect = asyncHandler(async (req: Request, res: Response, next: Ne
             }
 
             // 6. For now, use the user's organizationId as active organization
-            const currentActiveOrgId = activeOrganizationId || user.organizationId;
+            const currentActiveOrgId = activeOrganizationId || (user.memberships[0]?.organizationId ?? null);
             
             // 7. Attach user with active organization context to request
+            // Find membership for active org
+            const membership = user.memberships.find(m => m.organizationId === currentActiveOrgId);
             req.user = {
                 id: user.id,
                 email: user.email,
@@ -82,7 +84,7 @@ export const protect = asyncHandler(async (req: Request, res: Response, next: Ne
                 avatarUrl: user.avatarUrl,
                 teamId: user.teamId,
                 activeOrganizationId: currentActiveOrgId,
-                activeRole: user.role as UserRole,
+                activeRole: membership?.role ?? null,
                 memberships: user.memberships.map(m => ({
                     organizationId: m.organizationId,
                     role: m.role as UserRole
