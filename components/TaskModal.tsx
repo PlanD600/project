@@ -23,6 +23,9 @@ interface TaskModalProps {
 type CommentWithChildren = Comment & { children: CommentWithChildren[] };
 
 const TaskModal: React.FC<TaskModalProps> = ({ task, onClose, onUpdateTask, onAddComment, currentUser, users, allProjects }) => {
+  if (!task || !currentUser || !Array.isArray(users) || !Array.isArray(allProjects)) {
+    return <div>Loading...</div>;
+  }
   const [newComment, setNewComment] = useState('');
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');

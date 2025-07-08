@@ -32,90 +32,98 @@ export const UserRoleEnum = {
 } as const;
 
 const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDashboard, initialSection }) => {
+    const { organizations } = useDataStore();
     const { currentUser } = useAuthStore();
     const { activeOrganizationId } = useDataStore();
     
-    const getDefaultSection = (role: string | undefined): ActiveSection => {
-        if (role === UserRoleEnum.ORG_ADMIN) return 'general';
-        if (role === UserRoleEnum.TEAM_LEADER) return 'my-team';
-        return 'my-profile';
-    };
-    
-    const userRole = getUserRoleForActiveOrg(currentUser, activeOrganizationId);
-    const [activeSection, setActiveSection] = useState<ActiveSection>(
-        initialSection || (currentUser ? getDefaultSection(userRole) : 'my-profile')
-    );
-
-    useEffect(() => {
-        if (initialSection) {
-            setActiveSection(initialSection);
-        }
-    }, [initialSection]);
-
-    const menuItems = useMemo(() => {
-        if (!currentUser) return [];
+    if (!Array.isArray(organizations) || !currentUser) {
+        return <div>Loading...</div>;
+    }
+    try {
+        const getDefaultSection = (role: string | undefined): ActiveSection => {
+            if (role === UserRoleEnum.ORG_ADMIN) return 'general';
+            if (role === UserRoleEnum.TEAM_LEADER) return 'my-team';
+            return 'my-profile';
+        };
+        
         const userRole = getUserRoleForActiveOrg(currentUser, activeOrganizationId);
-        const roleStr = String(userRole);
-        const items: { id: ActiveSection, label: string, icon: any }[] = [
-            { id: 'my-profile', label: '\u05d4\u05e8\u05d5\u05e4\u05d9\u05dc \u05e9\u05dc\u05d9', icon: 'user' },
-        ];
+        const [activeSection, setActiveSection] = useState<ActiveSection>(
+            initialSection || (currentUser ? getDefaultSection(userRole) : 'my-profile')
+        );
 
-        if (userRole === UserRoleEnum.TEAM_LEADER) {
-            items.push({ id: 'my-team', label: '\u05d4\u05e6\u05d5\u05d5\u05ea \u05e9\u05dc\u05d9', icon: 'team' });
-        }
+        useEffect(() => {
+            if (initialSection) {
+                setActiveSection(initialSection);
+            }
+        }, [initialSection]);
 
-        if (userRole === UserRoleEnum.ORG_ADMIN) {
-            items.unshift(
-                { id: 'general', label: '\u05db\u05dc\u05dc\u05d9', icon: 'settings' },
-                { id: 'user-management', label: '\u05e0\u05d9\u05d4\u05d5\u05dc \u05de\u05e9\u05ea\u05de\u05e9\u05d9\u05dd', icon: 'users' },
-                { id: 'team-management', label: '\u05e0\u05d9\u05d4\u05d5\u05dc \u05e6\u05d5\u05d5\u05ea\u05d9\u05dd', icon: 'team' },
-                { id: 'guest-management', label: '\u05e0\u05d9\u05d4\u05d5\u05dc \u05d0\u05d5\u05e8\u05d7\u05d9\u05dd', icon: 'users' },
-                { id: 'billing', label: '\u05d7\u05d9\u05d5\u05d1\u05d9\u05dd', icon: 'billing' }
-            );
-        }
-        return items;
-    }, [currentUser, activeOrganizationId]);
-    
-    if (!currentUser) return null;
+        const menuItems = useMemo(() => {
+            if (!currentUser) return [];
+            const userRole = getUserRoleForActiveOrg(currentUser, activeOrganizationId);
+            const roleStr = String(userRole);
+            const items: { id: ActiveSection, label: string, icon: any }[] = [
+                { id: 'my-profile', label: '\u05d4\u05e8\u05d5\u05e4\u05d9\u05dc \u05e9\u05dc\u05d9', icon: 'user' },
+            ];
 
-    const userRoleForSections = String(getUserRoleForActiveOrg(currentUser, activeOrganizationId));
-    return (
-        <div className="bg-medium p-6 rounded-lg shadow-sm border border-dark">
-            <button onClick={onBackToDashboard} className="flex items-center text-sm text-accent hover:underline mb-6">
-                &rarr; חזרה ללוח המחוונים
-            </button>
-            <div className="flex flex-col md:flex-row-reverse gap-8">
-                <aside className="md:w-1/4">
-                    <h2 className="text-xl font-bold text-primary mb-4">הגדרות</h2>
-                    <nav className="space-y-2">
-                        {menuItems.map(item => (
-                            <button
-                                key={item.id}
-                                onClick={() => setActiveSection(item.id)}
-                                className={`w-full flex items-center space-x-3 space-x-reverse px-3 py-2 rounded-lg text-right transition-colors ${
-                                    activeSection === item.id 
-                                    ? 'bg-primary text-light font-semibold' 
-                                    : 'text-dimmed hover:bg-dark/50 hover:text-primary'
-                                }`}
-                            >
-                                <Icon name={item.icon} className="w-5 h-5" />
-                                <span>{item.label}</span>
-                            </button>
-                        ))}
-                    </nav>
-                </aside>
-                <main className="flex-1 min-w-0">
-                    {activeSection === 'my-profile' && <MyProfileSection />}
-                    {userRoleForSections === UserRoleEnum.ORG_ADMIN && activeSection === 'general' && <GeneralSettingsSection />}
-                    {userRoleForSections === UserRoleEnum.ORG_ADMIN && activeSection === 'user-management' && <UserManagementSection />}
-                    {userRoleForSections === UserRoleEnum.ORG_ADMIN && activeSection === 'team-management' && <SuperAdminTeamManagementSection />}
-                    {userRoleForSections === UserRoleEnum.ORG_ADMIN && activeSection === 'guest-management' && <GuestManagementView />}
-                    {userRoleForSections === UserRoleEnum.ORG_ADMIN && activeSection === 'billing' && <BillingSection />}
-                    {userRoleForSections === UserRoleEnum.TEAM_LEADER && activeSection === 'my-team' && <TeamLeaderTeamSection />}
-                </main>
+            if (userRole === UserRoleEnum.TEAM_LEADER) {
+                items.push({ id: 'my-team', label: '\u05d4\u05e6\u05d5\u05d5\u05ea \u05e9\u05dc\u05d9', icon: 'team' });
+            }
+
+            if (userRole === UserRoleEnum.ORG_ADMIN) {
+                items.unshift(
+                    { id: 'general', label: '\u05db\u05dc\u05dc\u05d9', icon: 'settings' },
+                    { id: 'user-management', label: '\u05e0\u05d9\u05d4\u05d5\u05dc \u05de\u05e9\u05ea\u05de\u05e9\u05d9\u05dd', icon: 'users' },
+                    { id: 'team-management', label: '\u05e0\u05d9\u05d4\u05d5\u05dc \u05e6\u05d5\u05d5\u05ea\u05d9\u05dd', icon: 'team' },
+                    { id: 'guest-management', label: '\u05e0\u05d9\u05d4\u05d5\u05dc \u05d0\u05d5\u05e8\u05d7\u05d9\u05dd', icon: 'users' },
+                    { id: 'billing', label: '\u05d7\u05d9\u05d5\u05d1\u05d9\u05dd', icon: 'billing' }
+                );
+            }
+            return items;
+        }, [currentUser, activeOrganizationId]);
+        
+        if (!currentUser) return null;
+
+        const userRoleForSections = String(getUserRoleForActiveOrg(currentUser, activeOrganizationId));
+        return (
+            <div className="bg-medium p-6 rounded-lg shadow-sm border border-dark">
+                <button onClick={onBackToDashboard} className="flex items-center text-sm text-accent hover:underline mb-6">
+                    &rarr; חזרה ללוח המחוונים
+                </button>
+                <div className="flex flex-col md:flex-row-reverse gap-8">
+                    <aside className="md:w-1/4">
+                        <h2 className="text-xl font-bold text-primary mb-4">הגדרות</h2>
+                        <nav className="space-y-2">
+                            {menuItems.map(item => (
+                                <button
+                                    key={item.id}
+                                    onClick={() => setActiveSection(item.id)}
+                                    className={`w-full flex items-center space-x-3 space-x-reverse px-3 py-2 rounded-lg text-right transition-colors ${
+                                        activeSection === item.id 
+                                        ? 'bg-primary text-light font-semibold' 
+                                        : 'text-dimmed hover:bg-dark/50 hover:text-primary'
+                                    }`}
+                                >
+                                    <Icon name={item.icon} className="w-5 h-5" />
+                                    <span>{item.label}</span>
+                                </button>
+                            ))}
+                        </nav>
+                    </aside>
+                    <main className="flex-1 min-w-0">
+                        {activeSection === 'my-profile' && <MyProfileSection />}
+                        {userRoleForSections === UserRoleEnum.ORG_ADMIN && activeSection === 'general' && <GeneralSettingsSection />}
+                        {userRoleForSections === UserRoleEnum.ORG_ADMIN && activeSection === 'user-management' && <UserManagementSection />}
+                        {userRoleForSections === UserRoleEnum.ORG_ADMIN && activeSection === 'team-management' && <SuperAdminTeamManagementSection />}
+                        {userRoleForSections === UserRoleEnum.ORG_ADMIN && activeSection === 'guest-management' && <GuestManagementView />}
+                        {userRoleForSections === UserRoleEnum.ORG_ADMIN && activeSection === 'billing' && <BillingSection />}
+                        {userRoleForSections === UserRoleEnum.TEAM_LEADER && activeSection === 'my-team' && <TeamLeaderTeamSection />}
+                    </main>
+                </div>
             </div>
-        </div>
-    );
+        );
+    } catch (error) {
+        return <div className="text-danger">שגיאה בטעינת הגדרות: {String(error)}</div>;
+    }
 };
 
 const SectionWrapper: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (

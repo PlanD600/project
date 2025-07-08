@@ -3,16 +3,39 @@ import { Request, Response, NextFunction, RequestHandler } from 'express';
 import prisma from '../../db';
 import logger from '../../logger';
 import { UserRole } from '@prisma/client';
+import { z } from 'zod';
 
+
+const createTeamSchema = z.object({
+  teamName: z.string().min(1, 'Team name is required'),
+  team_leader_id: z.string().min(1, 'Team leader ID is required'),
+  member_user_ids: z.array(z.string()).optional(),
+});
+
+const addMembersSchema = z.object({
+  user_ids: z.array(z.string()).min(1, 'At least one user ID is required'),
+});
+
+const updateTeamSchema = z.object({
+  teamName: z.string().min(1, 'Team name is required').optional(),
+  leaderId: z.string().min(1, 'Leader ID is required').optional(),
+  memberIds: z.array(z.string()).optional(),
+});
 
 // Create a new team and assign members
 export const createTeam: RequestHandler = async (req, res, next) => {
-    const { teamName, team_leader_id, member_user_ids } = req.body;
     const user = req.user;
 
     if (!user || !user.activeOrganizationId) {
         return res.status(401).json({ message: 'Unauthorized' });
     }
+
+    const parsed = createTeamSchema.safeParse(req.body);
+    if (!parsed.success) {
+        res.status(400).json({ error: 'Invalid input', details: parsed.error.errors });
+        return;
+    }
+    const { teamName, team_leader_id, member_user_ids } = parsed.data;
 
     if (!teamName || !team_leader_id) {
         logger.warn({ message: 'Team creation failed: Missing team name or leader ID.', context: { userId: user.id, body: req.body } });
@@ -74,12 +97,18 @@ export const createTeam: RequestHandler = async (req, res, next) => {
 // Add members to an existing team
 export const addMembersToTeam: RequestHandler = async (req, res, next) => {
     const { teamId } = req.params;
-    const { user_ids } = req.body;
     const requestingUser = req.user;
 
     if (!requestingUser || !requestingUser.activeOrganizationId) {
         return res.status(401).json({ message: 'Unauthorized' });
     }
+
+    const parsedAdd = addMembersSchema.safeParse(req.body);
+    if (!parsedAdd.success) {
+        res.status(400).json({ error: 'Invalid input', details: parsedAdd.error.errors });
+        return;
+    }
+    const { user_ids } = parsedAdd.data;
 
     if (!user_ids || !Array.isArray(user_ids) || user_ids.length === 0) {
         logger.warn({ message: 'Add members to team failed: User IDs array is required.', context: { teamId, requestingUserId: requestingUser.id, body: req.body } });
@@ -140,15 +169,21 @@ export const addMembersToTeam: RequestHandler = async (req, res, next) => {
 // Update a team's name and members
 export const updateTeam: RequestHandler = async (req, res, next) => {
     const { teamId } = req.params;
-    const { teamName, leaderId, memberIds } = req.body;
     const user = req.user;
 
     if (!user || !user.activeOrganizationId) {
         return res.status(401).json({ message: 'Unauthorized' });
     }
     
+    const parsedUpdate = updateTeamSchema.safeParse(req.body);
+    if (!parsedUpdate.success) {
+        res.status(400).json({ error: 'Invalid input', details: parsedUpdate.error.errors });
+        return;
+    }
+    const { teamName: updateTeamName, leaderId: updateLeaderId, memberIds: updateMemberIds } = parsedUpdate.data;
+
     try {
-        logger.info({ message: 'Attempting to update team.', teamId, teamName, adminUserId: user.id, orgId: user.activeOrganizationId });
+        logger.info({ message: 'Attempting to update team.', teamId, teamName: updateTeamName, adminUserId: user.id, orgId: user.activeOrganizationId });
         // כלל #1: ודא שהצוות שייך לארגון שלך
         const team = await prisma.team.findFirst({ where: { id: teamId, organizationId: user.activeOrganizationId }});
         if (!team) {
@@ -156,7 +191,7 @@ export const updateTeam: RequestHandler = async (req, res, next) => {
             return res.status(404).json({ message: 'Team not found.' });
         }
         
-        const newMemberAndLeaderIds = [...new Set([...(memberIds || []), ...(leaderId ? [leaderId] : [])])];
+        const newMemberAndLeaderIds = [...new Set([...(updateMemberIds || []), ...(updateLeaderId ? [updateLeaderId] : [])])];
         if (newMemberAndLeaderIds.length > 0) {
             // כלל #1: ודא שכל החברים החדשים שייכים לארגון שלך
             const membersInOrg = await prisma.user.count({
@@ -178,7 +213,7 @@ export const updateTeam: RequestHandler = async (req, res, next) => {
         const updatedTeam = await prisma.team.update({
             where: { id: teamId }, // מאובטח בזכות הבדיקה שעשינו קודם
             data: {
-                name: teamName,
+                name: updateTeamName || undefined, // Only update if provided
                 members: { set: newMemberAndLeaderIds.map((id: string) => ({ id })) }
             },
         });

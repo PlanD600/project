@@ -5,11 +5,22 @@ import prisma from '../../db';
 import logger from '../../logger';
 import Stripe from 'stripe';
 import { UserRole } from '@prisma/client';
+import { z } from 'zod';
 
 // Initialize Stripe only if the secret key is available
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2025-06-30.basil',
 }) : null;
+
+const createCheckoutSessionSchema = z.object({
+  planId: z.string().min(1, 'Plan ID is required'),
+  successUrl: z.string().url('Success URL must be a valid URL'),
+  cancelUrl: z.string().url('Cancel URL must be a valid URL'),
+});
+
+const portalSessionSchema = z.object({
+  returnUrl: z.string().url('Return URL must be a valid URL'),
+});
 
 // @desc    Create Stripe checkout session
 // @route   POST /api/billing/create-checkout-session
@@ -20,7 +31,13 @@ export const createCheckoutSession: RequestHandler = asyncHandler(async (req, re
     throw new Error('Billing service is not configured');
   }
 
-  const { planId, successUrl, cancelUrl } = req.body;
+  const parsed = createCheckoutSessionSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Invalid input', details: parsed.error.errors });
+    return;
+  }
+  const { planId, successUrl, cancelUrl } = parsed.data;
+
   const user = req.user;
 
   if (!user || !user.activeOrganizationId) {
@@ -108,7 +125,13 @@ export const createPortalSession: RequestHandler = asyncHandler(async (req, res)
     throw new Error('Billing service is not configured');
   }
 
-  const { returnUrl } = req.body;
+  const parsedPortal = portalSessionSchema.safeParse(req.body);
+  if (!parsedPortal.success) {
+    res.status(400).json({ error: 'Invalid input', details: parsedPortal.error.errors });
+    return;
+  }
+  const { returnUrl } = parsedPortal.data;
+
   const user = req.user;
 
   if (!user || !user.activeOrganizationId) {

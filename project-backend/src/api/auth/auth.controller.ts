@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import prisma from '../../db';
 import logger from '../../logger';
 import { sendEmail } from '../../services/emailService'; // ודא שקובץ זה קיים ותקין
+import { z } from 'zod';
 
 /**
  * פונקציית עזר ליצירת טוקן (JWT) עבור ID של משתמש.
@@ -22,6 +23,14 @@ const generateToken = (userId: string): string => {
     });
 };
 
+// Registration input schema
+const registrationSchema = z.object({
+  fullName: z.string().min(1, 'Full name is required'),
+  email: z.string().email('Invalid email'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  companyName: z.string().min(1, 'Company name is required'),
+});
+
 /**
  * @desc    הרשמת משתמש וארגון חדשים
  * @route   POST /api/auth/register
@@ -30,7 +39,14 @@ const generateToken = (userId: string): string => {
 export const registerUser = asyncHandler(async (req, res) => {
     // [DEBUG] 1. Registration process started. Request body:
     console.log('[DEBUG] 1. Registration process started. Request body:', req.body);
-    const { fullName: name, email, password, companyName: organizationName } = req.body;
+
+    // Validate input
+    const parsed = registrationSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Invalid input', details: parsed.error.errors });
+      return;
+    }
+    const { fullName: name, email, password, companyName: organizationName } = parsed.data;
 
     logger.info('Registration request received', { name, email, organizationName });
 
@@ -142,6 +158,10 @@ export const registerUser = asyncHandler(async (req, res) => {
     }
 });
 
+const loginSchema = z.object({
+  email: z.string().email('Invalid email'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+});
 
 /**
  * @desc    אימות משתמש וקבלת טוקן
@@ -149,7 +169,12 @@ export const registerUser = asyncHandler(async (req, res) => {
  * @access  Public
  */
 export const loginUser = asyncHandler(async (req: Request, res: Response) => {
-    const { email, password } = req.body;
+  const parsed = loginSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Invalid input', details: parsed.error.errors });
+    return;
+  }
+  const { email, password } = parsed.data;
 
     if (!email || !password) {
         res.status(400);

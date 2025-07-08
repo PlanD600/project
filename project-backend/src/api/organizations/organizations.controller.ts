@@ -4,6 +4,19 @@ import asyncHandler from 'express-async-handler';
 import prisma from '../../db';
 import logger from '../../logger';
 import { UserRole } from '@prisma/client';
+import { z } from 'zod';
+
+const createOrganizationSchema = z.object({
+  name: z.string().min(1, 'Organization name is required'),
+});
+
+const updateOrganizationSchema = z.object({
+  name: z.string().min(1, 'Organization name is required'),
+});
+
+const switchOrganizationSchema = z.object({
+  organizationId: z.string().min(1, 'Organization ID is required'),
+});
 
 // @desc    Get all organizations for super admin users
 // @route   GET /api/organizations
@@ -48,7 +61,6 @@ export const getAllOrganizations: RequestHandler = asyncHandler(async (req, res)
 // @route   POST /api/organizations
 // @access  Private (Super Admin only)
 export const createOrganization: RequestHandler = asyncHandler(async (req, res) => {
-  const { name } = req.body;
   const user = req.user;
 
   if (!user) {
@@ -65,6 +77,13 @@ export const createOrganization: RequestHandler = asyncHandler(async (req, res) 
     res.status(403);
     throw new Error('Only super administrators can create organizations');
   }
+
+  const parsed = createOrganizationSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Invalid input', details: parsed.error.errors });
+    return;
+  }
+  const { name } = parsed.data;
 
   if (!name) {
     res.status(400);
@@ -86,7 +105,6 @@ export const createOrganization: RequestHandler = asyncHandler(async (req, res) 
 // @route   PUT /api/organizations/me
 // @access  Private (Org Admin or Super Admin)
 export const updateOrganization: RequestHandler = asyncHandler(async (req, res) => {
-  const { name } = req.body;
   const user = req.user;
 
   if (!user || !user.activeOrganizationId) {
@@ -103,19 +121,26 @@ export const updateOrganization: RequestHandler = asyncHandler(async (req, res) 
     throw new Error('User is not authorized to change organization settings');
   }
 
-  if (!name) {
+  const parsedUpdate = updateOrganizationSchema.safeParse(req.body);
+  if (!parsedUpdate.success) {
+    res.status(400).json({ error: 'Invalid input', details: parsedUpdate.error.errors });
+    return;
+  }
+  const { name: updateName } = parsedUpdate.data;
+
+  if (!updateName) {
     res.status(400);
     throw new Error('Organization name is required');
   }
 
-  logger.info({ message: 'Attempting to update organization name.', orgId: user.activeOrganizationId, newName: name, userId: user.id });
+  logger.info({ message: 'Attempting to update organization name.', orgId: user.activeOrganizationId, newName: updateName, userId: user.id });
 
   const updatedOrganization = await prisma.organization.update({
     where: {
       id: user.activeOrganizationId,
     },
     data: {
-      name,
+      name: updateName,
     },
   });
 
@@ -127,13 +152,19 @@ export const updateOrganization: RequestHandler = asyncHandler(async (req, res) 
 // @route   POST /api/organizations/switch
 // @access  Private (User must be member of target organization)
 export const switchOrganization: RequestHandler = asyncHandler(async (req, res) => {
-  const { organizationId } = req.body;
   const user = req.user;
 
   if (!user) {
     res.status(401);
     throw new Error('Not authorized');
   }
+
+  const parsedSwitch = switchOrganizationSchema.safeParse(req.body);
+  if (!parsedSwitch.success) {
+    res.status(400).json({ error: 'Invalid input', details: parsedSwitch.error.errors });
+    return;
+  }
+  const { organizationId } = parsedSwitch.data;
 
   if (!organizationId) {
     res.status(400);

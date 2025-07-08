@@ -14,8 +14,14 @@ interface HeaderProps {
   projectsForCurrentUser: Project[];
 }
 
-export const Header: React.FC<HeaderProps> = ({ onGoToSettings, projectsForCurrentUser }) => {
-  const { currentUser, handleLogout } = useAuthStore();
+export const Header: React.FC<HeaderProps> = (props) => {
+  const { currentUser, projectsForCurrentUser } = props;
+  if (!currentUser) {
+    return <div>Loading...</div>;
+  }
+  if (!Array.isArray(projectsForCurrentUser)) {
+    return <div>Loading...</div>;
+  }
   const {
     organization,
     organizations,

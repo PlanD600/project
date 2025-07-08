@@ -3,6 +3,7 @@ import asyncHandler from 'express-async-handler';
 import prisma from '../../db'; // תיקון 1: ייבוא נכון
 import logger from '../../logger'; // תיקון 2: ייבוא נכון
 import { UserRole } from '@prisma/client'; // תיקון 3: ייבוא נכון
+import { z } from 'zod';
 
 // פונקציית עזר חדשה שמבטיחה שהמידע החוזר יהיה תמיד מלא ועקבי
 const getFullTaskViewModel = async (taskId: string, organizationId: string) => {
@@ -40,6 +41,25 @@ const getFullTaskViewModel = async (taskId: string, organizationId: string) => {
     return taskViewModel;
 };
 
+const createTaskSchema = z.object({
+  title: z.string().min(1, 'Title is required'),
+  description: z.string().optional(),
+  startDate: z.string().min(1, 'Start date is required'),
+  endDate: z.string().min(1, 'End date is required'),
+  assigneeIds: z.array(z.string()).optional(),
+  columnId: z.string().min(1, 'Column ID is required'),
+  projectId: z.string().min(1, 'Project ID is required').optional(),
+});
+
+const updateTaskSchema = z.object({
+  title: z.string().optional(),
+  description: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  assigneeIds: z.array(z.string()).optional(),
+  columnId: z.string().optional(),
+});
+
 export const getTask: RequestHandler = asyncHandler(async (req, res, next) => {
     const user = req.user;
     if (!user || !user.activeOrganizationId) {
@@ -57,6 +77,45 @@ export const getTask: RequestHandler = asyncHandler(async (req, res, next) => {
     
     logger.info({ message: 'Single task fetched successfully.', taskId: task.id, userId: user.id });
     res.json(task);
+});
+
+export const createTask: RequestHandler = asyncHandler(async (req, res, next) => {
+    const user = req.user;
+    if (!user || !user.activeOrganizationId) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+    }
+
+    const parsed = createTaskSchema.safeParse(req.body);
+    if (!parsed.success) {
+        res.status(400).json({ error: 'Invalid input', details: parsed.error.errors });
+        return;
+    }
+    const { title, description, startDate, endDate, assigneeIds, columnId, projectId } = parsed.data;
+
+    const task = await prisma.task.create({
+        data: {
+            title,
+            description,
+            startDate: new Date(startDate),
+            endDate: new Date(endDate),
+            columnId,
+            projectId: projectId || null,
+            organizationId: user.activeOrganizationId,
+            assignees: {
+                connect: assigneeIds?.map((id: string) => ({ id: id })) || []
+            }
+        },
+        include: {
+            assignees: {
+                select: { id: true, name: true, avatarUrl: true }
+            }
+        }
+    });
+
+    const createdTask = await getFullTaskViewModel(task.id, user.activeOrganizationId);
+    logger.info({ message: 'Task created successfully.', taskId: createdTask?.id, userId: user.id });
+    res.status(201).json(createdTask);
 });
 
 export const updateTask: RequestHandler = asyncHandler(async (req, res, next) => {
@@ -77,6 +136,13 @@ export const updateTask: RequestHandler = asyncHandler(async (req, res, next) =>
         res.status(404).json({ message: 'Task not found' });
         return;
     }
+
+    const parsedUpdate = updateTaskSchema.safeParse(req.body);
+    if (!parsedUpdate.success) {
+        res.status(400).json({ error: 'Invalid input', details: parsedUpdate.error.errors });
+        return;
+    }
+    const { title: updateTitle, description: updateDescription, startDate: updateStartDate, endDate: updateEndDate, assigneeIds: updateAssigneeIds, columnId: updateColumnId } = parsedUpdate.data;
 
     // Extract assigneeIds and exclude relation fields that shouldn't be updated directly
     const { assigneeIds, comments, assignees, startDate, endDate, baselineStartDate, baselineEndDate, ...updateData } = taskData;

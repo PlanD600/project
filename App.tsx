@@ -125,6 +125,22 @@ const App: React.FC = () => {
             </div>
         );
     }
+    if (!currentUser) {
+        return (
+            <div className="flex items-center justify-center h-screen bg-light">
+                <Spinner className="w-12 h-12 text-primary"/>
+                <p className="text-primary ml-4">טוען משתמש...</p>
+            </div>
+        );
+    }
+    if (!currentUser.memberships) {
+        return (
+            <div className="flex items-center justify-center h-screen bg-light">
+                <Spinner className="w-12 h-12 text-primary"/>
+                <p className="text-primary ml-4">טוען שיוכים...</p>
+            </div>
+        );
+    }
     
     const renderMainContent = () => {
         if (view === 'settings') {

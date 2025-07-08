@@ -3,9 +3,24 @@ import { Request, Response, NextFunction, RequestHandler } from 'express';
 import prisma from '../../db';
 import logger from '../../logger';
 import { UserRole } from '@prisma/client';
+import { z } from 'zod';
+
+const createFinanceSchema = z.object({
+  type: z.enum(['Income', 'Expense']),
+  amount: z.preprocess(val => typeof val === 'string' ? parseFloat(val) : val, z.number().min(0, 'Amount must be non-negative')),
+  description: z.string().optional(),
+  date: z.string().min(1, 'Date is required'),
+  projectId: z.string().min(1, 'Project ID is required'),
+  source: z.string().min(1, 'Source is required'),
+});
 
 export const addFinancialEntry: RequestHandler = async (req, res, next) => {
-    const { type, amount, description, date, projectId, source } = req.body;
+    const parsed = createFinanceSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Invalid input', details: parsed.error.errors });
+      return;
+    }
+    const { type, amount, description, date, projectId, source } = parsed.data;
     const user = req.user;
 
     if (!user || !user.activeOrganizationId) {
@@ -15,11 +30,6 @@ export const addFinancialEntry: RequestHandler = async (req, res, next) => {
     if (!type || !amount || !date || !projectId || !source) {
         logger.warn({ message: 'Attempt to add financial entry failed: Missing required data.', context: { userId: user.id, body: req.body } });
         return res.status(400).json({ message: 'Missing required financial data.' });
-    }
-    const parsedAmount = parseFloat(amount);
-    if (isNaN(parsedAmount) || !isFinite(parsedAmount)) {
-        logger.warn({ message: 'Attempt to add financial entry failed: Invalid amount.', context: { userId: user.id, amount } });
-        return res.status(400).json({ message: 'Amount must be a valid number.' });
     }
 
     // כלל #2: שימוש ב-enum במקום טקסט
@@ -45,7 +55,7 @@ export const addFinancialEntry: RequestHandler = async (req, res, next) => {
         const newEntry = await prisma.financialTransaction.create({
             data: {
                 type,
-                amount: parsedAmount,
+                amount, // already a number from zod
                 description,
                 date: new Date(date),
                 source,

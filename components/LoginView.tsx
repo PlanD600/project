@@ -15,7 +15,10 @@ import ForgotPasswordModal from './ForgotPasswordModal'; // ייבוא הפופ-
 // }
 
 // const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRegister, onRegistrationSuccess }) => {
-const LoginView: React.FC = () => { // ללא props כעת
+const LoginView: React.FC = (props) => { // ללא props כעת
+    // If you use currentUser or similar, add:
+    // const { currentUser } = useAuthStore();
+    // if (currentUser === undefined) return <div>Loading...</div>;
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false); // שינוי השם מ-isLoading ל-isSubmitting להבהרה
@@ -30,7 +33,7 @@ const LoginView: React.FC = () => { // ללא props כעת
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        // אין צורך בבדיקת null/empty כאן כי handleLogin ב-store כבר מטפל בזה
+        // אין צורך בבדיקת null/empty כאן כי handleLogin ב-store כרגע מטפל בזה
         // וגם ה-API validation יעשה זאת
         
         setIsSubmitting(true);

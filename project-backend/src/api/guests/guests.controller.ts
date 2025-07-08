@@ -4,12 +4,23 @@ import asyncHandler from 'express-async-handler';
 import prisma from '../../db';
 import logger from '../../logger';
 import { UserRole } from '@prisma/client';
+import { z } from 'zod';
+
+const inviteGuestSchema = z.object({
+  email: z.string().email('Invalid email'),
+  projectId: z.string().min(1, 'Project ID is required'),
+});
 
 // @desc    Invite guest to specific project
 // @route   POST /api/guests/invite
 // @access  Private (Org Admin, Super Admin, or Team Leader of the project)
 export const inviteGuest: RequestHandler = asyncHandler(async (req, res) => {
-    const { email, projectId } = req.body;
+    const parsed = inviteGuestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Invalid input', details: parsed.error.errors });
+      return;
+    }
+    const { email, projectId } = parsed.data;
     const user = req.user;
 
     if (!user || !user.activeOrganizationId) {

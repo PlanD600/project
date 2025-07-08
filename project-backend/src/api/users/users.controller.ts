@@ -4,6 +4,22 @@ import prisma from '../../db';
 import bcrypt from 'bcrypt';
 import logger from '../../logger';
 import { UserRole } from '@prisma/client';
+import { z } from 'zod';
+
+const createUserSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  email: z.string().email('Invalid email'),
+  role: z.string().min(1, 'Role is required'),
+  teamId: z.string().optional(),
+  projectId: z.string().optional(),
+});
+
+const updateUserSchema = z.object({
+  name: z.string().min(1, 'Name is required').optional(),
+  email: z.string().email('Invalid email').optional(),
+  role: z.string().min(1, 'Role is required').optional(),
+  teamId: z.string().optional(),
+});
 
 export const createUser: RequestHandler = async (req, res, next) => {
     const { name, email, role, teamId, projectId } = req.body;
@@ -13,13 +29,20 @@ export const createUser: RequestHandler = async (req, res, next) => {
         return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    if (!name || !email || !role) {
+    const parsed = createUserSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Invalid input', details: parsed.error.errors });
+      return;
+    }
+    const { name: parsedName, email: parsedEmail, role: parsedRole, teamId: parsedTeamId, projectId: parsedProjectId } = parsed.data;
+
+    if (!parsedName || !parsedEmail || !parsedRole) {
         logger.warn({ message: 'User creation failed: Missing required fields.', context: { adminUserId: adminUser.id, body: req.body } });
         return res.status(400).json({ message: 'Please provide name, email, and role' });
     }
     
     // כלל #2: שימוש ב-enum
-    if (role === UserRole.GUEST && !projectId) {
+    if (parsedRole === UserRole.GUEST && !parsedProjectId) {
         logger.warn({ message: 'Guest user creation failed: Missing projectId for guest.', context: { adminUserId: adminUser.id, email } });
         return res.status(400).json({ message: 'Guests must be associated with a project.' });
     }
@@ -38,9 +61,9 @@ export const createUser: RequestHandler = async (req, res, next) => {
         }
 
         // כלל #1: אם משייכים לצוות, ודא שהצוות שייך לארגון
-        if (teamId) {
+        if (parsedTeamId) {
             const teamExists = await prisma.team.findFirst({
-                where: { id: teamId, organizationId: adminUser.activeOrganizationId }
+                where: { id: parsedTeamId, organizationId: adminUser.activeOrganizationId }
             });
             if (!teamExists) {
                 logger.warn({ message: 'User creation failed: Team not found in organization.', teamId, adminUserId: adminUser.id });
@@ -133,7 +156,14 @@ export const updateUser: RequestHandler = async (req, res, next) => {
         return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    if (!name || !email || !role) {
+    const parsedUpdate = updateUserSchema.safeParse(req.body);
+    if (!parsedUpdate.success) {
+      res.status(400).json({ error: 'Invalid input', details: parsedUpdate.error.errors });
+      return;
+    }
+    const { name: updateName, email: updateEmail, role: updateRole, teamId: updateTeamId } = parsedUpdate.data;
+
+    if (!updateName || !updateEmail || !updateRole) {
         logger.warn({ message: 'User update failed: Missing required fields.', context: { userId, adminUserId: adminUser.id, body: req.body } });
         return res.status(400).json({ message: 'Name, email, and role are required' });
     }

@@ -230,7 +230,12 @@ const TransactionTable: React.FC<{
 
 
 const FinancesView: React.FC = () => {
-    const { currentUser } = useAuthStore();
+  const { financials } = useDataStore();
+  const { currentUser } = useAuthStore();
+  if (!Array.isArray(financials) || !currentUser) {
+    return <div>Loading...</div>;
+  }
+  try {
     const { projects, users, tasks, selectedProjectId } = useDataStore();
 
     if (!currentUser) return null;
@@ -258,6 +263,9 @@ const FinancesView: React.FC = () => {
     }
 
     return null;
+  } catch (error) {
+    return <div className="text-danger">שגיאה בטעינת דוח כספים: {String(error)}</div>;
+  }
 };
 
 export default FinancesView;

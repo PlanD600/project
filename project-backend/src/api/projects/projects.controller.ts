@@ -3,6 +3,7 @@ import asyncHandler from 'express-async-handler';
 import db from '../../db'; // שימוש ב-Prisma client
 import { Prisma, UserRole } from '@prisma/client';
 import logger from '../../logger'; // ייבוא הלוגר
+import { z } from 'zod';
 
 /**
  * @desc    Fetch all projects based on user role and permissions
@@ -56,13 +57,28 @@ export const getProjects = asyncHandler(async (req, res) => {
     res.json(projects);
 });
 
+const createProjectSchema = z.object({
+  name: z.string().min(1, 'Project name is required'),
+  description: z.string().min(1, 'Description is required'),
+  startDate: z.string().min(1, 'Start date is required'),
+  endDate: z.string().min(1, 'End date is required'),
+  budget: z.preprocess(val => typeof val === 'string' ? parseFloat(val) : val, z.number().min(0, 'Budget must be non-negative')),
+  teamId: z.string().optional(),
+  teamLeaderIds: z.array(z.string()).optional(),
+});
+
 /**
  * @desc    Create a new project with multiple team leaders
  * @route   POST /api/projects
  * @access  Private (Admin or Org Admin)
  */
 export const createProject: RequestHandler = asyncHandler(async (req, res) => {
-  const { name, description, startDate, endDate, budget, teamId, teamLeaderIds } = req.body;
+  const parsed = createProjectSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Invalid input', details: parsed.error.errors });
+    return;
+  }
+  const { name, description, startDate, endDate, budget, teamId, teamLeaderIds } = parsed.data;
   const user = req.user;
 
   if (!user || !user.activeOrganizationId) {
@@ -142,9 +158,9 @@ export const createProject: RequestHandler = asyncHandler(async (req, res) => {
     data: {
       name,
       description,
-      startDate: start,
-      endDate: end,
-      budget: parseFloat(budget),
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
+      budget, // already a number from zod
       organizationId: user.activeOrganizationId,
       teamId: teamId || null,
       teamLeaders: {
