@@ -226,3 +226,6 @@ export const api = {
     createCheckoutSession: (planId: string): Promise<{ sessionId: string; url: string }> => requests.post('/billing/create-checkout-session', { planId }),
     createPortalSession: (): Promise<{ url: string }> => requests.post('/billing/create-portal-session', {}),
 };
+
+// SECURITY NOTE: Consider using sessionStorage for tokens if you want them cleared on tab close, or HttpOnly cookies for even better security (requires backend support).
+// TODO: Add unit tests/mocks for API methods, especially for error scenarios.

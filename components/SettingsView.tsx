@@ -60,7 +60,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDashboard, initialS
         const menuItems = useMemo(() => {
             if (!currentUser) return [];
             const userRole = getUserRoleForActiveOrg(currentUser, activeOrganizationId);
-            const roleStr = String(userRole);
             const items: { id: ActiveSection, label: string, icon: any }[] = [
                 { id: 'my-profile', label: '\u05d4\u05e8\u05d5\u05e4\u05d9\u05dc \u05e9\u05dc\u05d9', icon: 'user' },
             ];
@@ -568,8 +567,9 @@ const TeamModal: React.FC<{ isOpen: boolean; onClose: () => void; teamToEdit: Te
     const getInitialMembers = () => teamToEdit ? users.filter(u => u.teamId === teamToEdit.id && getUserRoleForActiveOrg(u, activeOrganizationId) === UserRoleEnum.EMPLOYEE).map(u => u.id) : [];
     const getInitialLeader = () => teamToEdit ? (Array.isArray(users) ? users.find(u => u.teamId === teamToEdit.id && (getUserRoleForActiveOrg(u, activeOrganizationId) === UserRoleEnum.TEAM_LEADER || getUserRoleForActiveOrg(u, activeOrganizationId) === UserRoleEnum.ORG_ADMIN)) : undefined) : undefined;
 
+    const initialLeader = getInitialLeader();
     const [name, setName] = useState(teamToEdit?.name || '');
-    const [leaderId, setLeaderId] = useState<string | null>(getInitialLeader());
+    const [leaderId, setLeaderId] = useState<string | null>(initialLeader ? initialLeader.id : null);
     const [memberIds, setMemberIds] = useState<string[]>(getInitialMembers());
 
     const availableMembers = employees.filter(e => !e.teamId || (memberIds && memberIds.includes(e.id)));

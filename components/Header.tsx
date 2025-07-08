@@ -15,7 +15,9 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = (props) => {
-  const { currentUser, projectsForCurrentUser } = props;
+  // Fix: Get currentUser and handleLogout from useAuthStore
+  const { currentUser, handleLogout } = useAuthStore();
+  const { projectsForCurrentUser, onGoToSettings } = props;
   if (!currentUser) {
     return <div>Loading...</div>;
   }
@@ -97,11 +99,11 @@ export const Header: React.FC<HeaderProps> = (props) => {
           {/* Left side: User Profile & Actions */}
           <div className="flex items-center space-x-2 sm:space-x-4">
             <div className="relative z-50" ref={dropdownRef}>
-              <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="flex items-center space-x-3 cursor-pointer p-1 rounded-full">
+              <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="flex items-center space-x-3 cursor-pointer p-1 rounded-full" aria-haspopup="true" aria-expanded={isDropdownOpen} aria-controls="user-menu-dropdown" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setIsDropdownOpen(v => !v); }}>
                 <Avatar user={currentUser} className="w-12 h-12 rounded-full border-2 border-light/50" />
               </button>
               {isDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-light rounded-2xl shadow-neumorphic-convex py-2 text-right">
+                <div id="user-menu-dropdown" role="menu" aria-label="User menu" className="absolute right-0 mt-2 w-56 bg-light rounded-2xl shadow-neumorphic-convex py-2 text-right">
                   <div className="px-4 py-3 border-b border-shadow-dark">
                     <p className="font-semibold text-primary truncate">{currentUser.name}</p>
                     <p className="text-sm text-secondary truncate">{currentUser.email}</p>
@@ -124,6 +126,11 @@ export const Header: React.FC<HeaderProps> = (props) => {
               <button
                 onClick={() => canManageOrgs && setIsWorkspaceDropdownOpen(!isWorkspaceDropdownOpen)}
                 className={`text-right ${canManageOrgs ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                aria-haspopup="true"
+                aria-expanded={isWorkspaceDropdownOpen}
+                aria-controls="workspace-switcher-dropdown"
+                tabIndex={0}
+                onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && canManageOrgs) setIsWorkspaceDropdownOpen(v => !v); }}
               >
                 {/* Organization Name - Large and Prominent */}
                 <h2 className='text-2xl font-bold text-light leading-tight'>
@@ -141,7 +148,7 @@ export const Header: React.FC<HeaderProps> = (props) => {
               
               {/* Workspace Switcher Dropdown for Super Admin Users */}
               {canManageOrgs && isWorkspaceDropdownOpen && (
-                <div className="absolute top-full right-0 mt-2 w-64 bg-light rounded-2xl shadow-neumorphic-convex py-2 text-right z-50">
+                <div id="workspace-switcher-dropdown" role="menu" aria-label="Workspace switcher" className="absolute top-full right-0 mt-2 w-64 bg-light rounded-2xl shadow-neumorphic-convex py-2 text-right z-50">
                   <div className="px-4 py-2 border-b border-dark">
                     <p className="text-sm font-semibold text-primary">בחר חברה</p>
                   </div>
@@ -227,12 +234,7 @@ export const Header: React.FC<HeaderProps> = (props) => {
             <GlobalSearch onSearch={handleGlobalSearch} onSelectProject={setSelectedProjectId} />
           </div>
           <div className="w-full md:w-auto md:max-w-sm">
-            <ProjectSelector
-              projects={projectsForCurrentUser}
-              selectedProjectId={selectedProjectId}
-              onSelectProject={setSelectedProjectId}
-              currentUser={currentUser}
-            />
+            <ProjectSelector />
           </div>
         </div>
       </div>
