@@ -19,6 +19,10 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, selectedPro
         return null; // EMPLOYEE do not get a project selector
     }
 
+    if (!Array.isArray(projects)) {
+        return <div>Loading...</div>;
+    }
+
     const canSelect = projects.length > 0;
 
     return (

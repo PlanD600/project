@@ -174,6 +174,10 @@ const PortfolioView: React.FC = () => {
         allUsers.filter(u => getUserRoleInActiveOrg() === UserRoleEnum.ORG_ADMIN || getUserRoleInActiveOrg() === UserRoleEnum.TEAM_LEADER), 
     [allUsers]);
 
+    if (!Array.isArray(allProjects) || !Array.isArray(allUsers)) {
+        return <div>Loading...</div>;
+    }
+
     return (
         <div className="space-y-8 p-4">
             <div className="bg-medium rounded-lg shadow-sm p-6 space-y-6 border border-dark">

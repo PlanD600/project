@@ -231,9 +231,13 @@ const TransactionTable: React.FC<{
 
 const FinancesView: React.FC = () => {
     const { currentUser } = useAuthStore();
-    const { selectedProjectId } = useDataStore();
+    const { projects, users, tasks, selectedProjectId } = useDataStore();
 
     if (!currentUser) return null;
+
+    if (!Array.isArray(projects) || !Array.isArray(users) || !Array.isArray(tasks)) {
+        return <div>Loading...</div>;
+    }
 
     const { getUserRoleInActiveOrg } = useDataStore();
     const userRole = getUserRoleInActiveOrg();

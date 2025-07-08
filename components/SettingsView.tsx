@@ -336,7 +336,7 @@ const UserManagementSection: React.FC = () => {
                                         </div>
                                     </td>
                                     <td className="px-4 py-3">{String(getUserRoleForActiveOrg(user, activeOrganizationId))}</td>
-                                    <td className="px-4 py-3 text-dimmed">{teams.find(t => t.id === user.teamId)?.name || 'ללא שיוך'}</td>
+                                    <td className="px-4 py-3 text-dimmed">{Array.isArray(teams) ? teams.find(t => t.id === user.teamId)?.name || 'ללא שיוך' : 'ללא שיוך'}</td>
                                     <td className="px-4 py-3">
                                         <span className={`px-2 py-1 text-xs rounded-full ${user.disabled ? 'bg-danger/20 text-danger' : 'bg-success/20 text-success'}`}>
                                             {user.disabled ? 'מושבת' : 'פעיל'}
@@ -388,7 +388,7 @@ const SuperAdminTeamManagementSection: React.FC = () => {
                         </thead>
                          <tbody>
                             {teams.map(team => {
-                                const leader = users.find(l => l.teamId === team.id && getUserRoleForActiveOrg(l, activeOrganizationId) === UserRoleEnum.TEAM_LEADER);
+                                const leader = Array.isArray(users) ? users.find(l => l.teamId === team.id && getUserRoleForActiveOrg(l, activeOrganizationId) === UserRoleEnum.TEAM_LEADER) : undefined;
                                 const members = users.filter(u => u.teamId === team.id);
                                 return (
                                     <tr key={team.id} className="border-b border-dark hover:bg-medium">
@@ -419,7 +419,7 @@ const TeamLeaderTeamSection: React.FC = () => {
     const [teamName, setTeamName] = useState('');
     const [isAddMemberOpen, setAddMemberOpen] = useState(false);
     
-    const myTeam = useMemo(() => teams.find(t => t.id === currentUser?.teamId), [teams, currentUser]);
+    const myTeam = useMemo(() => Array.isArray(teams) ? teams.find(t => t.id === currentUser?.teamId) : undefined, [teams, currentUser]);
     const myTeamMembers = useMemo(() => users.filter(u => u.teamId === currentUser?.teamId && u.id !== currentUser?.id), [users, currentUser]);
 
     useEffect(() => {
@@ -558,7 +558,7 @@ const TeamModal: React.FC<{ isOpen: boolean; onClose: () => void; teamToEdit: Te
     const employees = useMemo(() => users.filter(u => getUserRoleForActiveOrg(u, activeOrganizationId) === UserRoleEnum.EMPLOYEE), [users]);
 
     const getInitialMembers = () => teamToEdit ? users.filter(u => u.teamId === teamToEdit.id && getUserRoleForActiveOrg(u, activeOrganizationId) === UserRoleEnum.EMPLOYEE).map(u => u.id) : [];
-    const getInitialLeader = () => teamToEdit ? users.find(u => u.teamId === teamToEdit.id && (getUserRoleForActiveOrg(u, activeOrganizationId) === UserRoleEnum.TEAM_LEADER || getUserRoleForActiveOrg(u, activeOrganizationId) === UserRoleEnum.ORG_ADMIN))?.id || null : null;
+    const getInitialLeader = () => teamToEdit ? (Array.isArray(users) ? users.find(u => u.teamId === teamToEdit.id && (getUserRoleForActiveOrg(u, activeOrganizationId) === UserRoleEnum.TEAM_LEADER || getUserRoleForActiveOrg(u, activeOrganizationId) === UserRoleEnum.ORG_ADMIN)) : undefined) : undefined;
 
     const [name, setName] = useState(teamToEdit?.name || '');
     const [leaderId, setLeaderId] = useState<string | null>(getInitialLeader());
