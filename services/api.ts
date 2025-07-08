@@ -126,16 +126,17 @@ export const api = {
         }
     },
     // --- התיקון כאן: שינוי טיפוס החזרה והוספת שמירת טוקן בהרשמה ---
-    register: async (registrationData: {}): Promise<{ user: User, organizationSettings: { name: string, logoUrl: string }, token: string }> => {
+    register: async (registrationData: {}): Promise<{ user: User, organization: Organization, token: string }> => {
         const response = await requests.post('/auth/register', registrationData);
         if (response && response.user && response.token) {
             localStorage.setItem('token', response.token);
-            // Set the first organization as active after registration
-            if (response.organizationId) {
-                localStorage.setItem('activeOrganizationId', response.organizationId);
+            // Set the organization as active after registration
+            if (response.organization && response.organization.id) {
+                localStorage.setItem('activeOrganizationId', response.organization.id);
+                api.setActiveOrganization(response.organization.id);
             }
-            api.setAuthToken(response.token); // הגדר את הטוקן באופן מפורש גם כאן
-            return response; // response כבר מכיל את user, organizationSettings ו-token
+            api.setAuthToken(response.token);
+            return response;
         }
         throw new Error('Registration failed: Missing user or token in response.');
     },
