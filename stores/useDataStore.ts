@@ -102,7 +102,7 @@ export const calculateProjectsForCurrentUser = (currentUser: User | null, projec
     const activeProjects = projects.filter(p => p.status === 'active' && p.organizationId === activeOrganizationId);
 
     // Get user's role in the active organization
-    const userMembership = currentUser.memberships?.find(m => m.organizationId === activeOrganizationId);
+    const userMembership = currentUser?.memberships?.find(m => m.organizationId === activeOrganizationId);
     const userRole = userMembership?.role;
 
     if (userRole === 'SUPER_ADMIN' || userRole === 'ORG_ADMIN') return activeProjects;
@@ -154,12 +154,21 @@ export const useDataStore = create<DataState>()((set, get) => ({
     
     bootstrapApp: async () => {
         try {
-            const { activeOrganizationId } = get();
+            // Always sync from localStorage
+            let activeOrganizationId = localStorage.getItem('activeOrganizationId');
             if (!activeOrganizationId) {
-                console.error("No active organization selected");
-                return;
+                // Try to get organizations from API and set the first as active
+                const organizations = await api.getOrganizations();
+                if (organizations && organizations.length > 0) {
+                    activeOrganizationId = organizations[0].id;
+                    localStorage.setItem('activeOrganizationId', activeOrganizationId);
+                } else {
+                    console.error("No organizations found for user");
+                    return;
+                }
             }
-            
+            set({ activeOrganizationId });
+
             const data = await api.getInitialData();
             set(produce((state: DataState) => {
                 state.users = data.users || [];
