@@ -18,7 +18,7 @@ export const getAllOrganizations: RequestHandler = asyncHandler(async (req, res)
 
   // Check if user has SUPER_ADMIN role in any organization
   const hasSuperAdminRole = user.memberships.some(
-    membership => membership.role === 'SUPER_ADMIN'
+    membership => membership.role === UserRole.SUPER_ADMIN
   );
 
   if (!hasSuperAdminRole) {
@@ -58,7 +58,7 @@ export const createOrganization: RequestHandler = asyncHandler(async (req, res) 
 
   // Check if user has SUPER_ADMIN role in any organization
   const hasSuperAdminRole = user.memberships.some(
-    membership => membership.role === 'SUPER_ADMIN'
+    membership => membership.role === UserRole.SUPER_ADMIN
   );
 
   if (!hasSuperAdminRole) {
@@ -95,7 +95,8 @@ export const updateOrganization: RequestHandler = asyncHandler(async (req, res) 
   }
 
   // Check if user can manage the active organization
-  const canManageOrg = ['ORG_ADMIN', 'TEAM_LEADER'].includes(user.activeRole);
+  const membership = user.memberships.find(m => m.organizationId === user.activeOrganizationId);
+  const canManageOrg = membership && (membership.role === UserRole.ORG_ADMIN || membership.role === UserRole.TEAM_LEADER);
 
   if (!canManageOrg) {
     res.status(403);
@@ -174,11 +175,12 @@ export const getUserMemberships: RequestHandler = asyncHandler(async (req, res) 
 
   // Temporary implementation until schema migration
   // For now, return the user's current organization as a membership
+  const membership = user.memberships.find(m => m.organizationId === user.activeOrganizationId);
   const memberships = [{
     id: 'temp-membership-id',
     userId: user.id,
     organizationId: user.activeOrganizationId,
-    role: user.activeRole,
+    role: membership?.role,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     organization: {
@@ -206,7 +208,8 @@ export const inviteUserToOrganization: RequestHandler = asyncHandler(async (req,
   }
 
   // Check if user can manage the organization
-  const canManageOrg = ['ORG_ADMIN', 'TEAM_LEADER'].includes(user.activeRole);
+  const membership = user.memberships.find(m => m.organizationId === organizationId);
+  const canManageOrg = membership && (membership.role === UserRole.ORG_ADMIN || membership.role === UserRole.TEAM_LEADER);
 
   if (!canManageOrg) {
     res.status(403);
@@ -286,7 +289,8 @@ export const removeUserFromOrganization: RequestHandler = asyncHandler(async (re
   }
 
   // Check if user can manage the organization
-  const canManageOrg = ['ORG_ADMIN', 'TEAM_LEADER'].includes(user.activeRole);
+  const membership = user.memberships.find(m => m.organizationId === organizationId);
+  const canManageOrg = membership && (membership.role === UserRole.ORG_ADMIN || membership.role === UserRole.TEAM_LEADER);
 
   if (!canManageOrg) {
     res.status(403);

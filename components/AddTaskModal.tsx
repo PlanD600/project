@@ -3,6 +3,7 @@ import { User, Task } from '../types';
 import Icon from './Icon';
 import Avatar from './Avatar';
 import { useDataStore } from '../stores/useDataStore';
+import { UserRoleEnum } from './SettingsView';
 
 interface AddTaskModalProps {
   isOpen: boolean;
@@ -24,13 +25,13 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSubmit, 
   const [endDate, setEndDate] = useState(d(7));
 
   const userRole = getUserRoleInActiveOrg();
-  const canManageAssignees = userRole === 'SUPER_ADMIN' || userRole === 'ORG_ADMIN' || userRole === 'TEAM_LEADER';
+  const canManageAssignees = userRole === UserRoleEnum.SUPER_ADMIN || userRole === UserRoleEnum.ORG_ADMIN || userRole === UserRoleEnum.TEAM_LEADER;
 
   const assignableUsers = useMemo(() => {
-      if (userRole === 'SUPER_ADMIN' || userRole === 'ORG_ADMIN') {
-          return users.filter(u => (u as any).role === 'EMPLOYEE' || (u as any).role === 'TEAM_LEADER');
+      if (userRole === UserRoleEnum.SUPER_ADMIN || userRole === UserRoleEnum.ORG_ADMIN) {
+          return users.filter(u => (u as any).role === UserRoleEnum.EMPLOYEE || (u as any).role === UserRoleEnum.TEAM_LEADER);
       }
-      if (userRole === 'TEAM_LEADER') {
+      if (userRole === UserRoleEnum.TEAM_LEADER) {
           return users.filter(u => u.teamId === currentUser.teamId);
       }
       return [];

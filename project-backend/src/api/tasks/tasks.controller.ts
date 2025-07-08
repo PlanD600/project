@@ -2,6 +2,7 @@ import { Request, Response, NextFunction, RequestHandler } from 'express';
 import asyncHandler from 'express-async-handler';
 import prisma from '../../db'; // תיקון 1: ייבוא נכון
 import logger from '../../logger'; // תיקון 2: ייבוא נכון
+import { UserRole } from '@prisma/client'; // תיקון 3: ייבוא נכון
 
 // פונקציית עזר חדשה שמבטיחה שהמידע החוזר יהיה תמיד מלא ועקבי
 const getFullTaskViewModel = async (taskId: string, organizationId: string) => {
@@ -236,9 +237,11 @@ export const deleteTask: RequestHandler = asyncHandler(async (req, res, next) =>
     }
 
     // Check if user has permission to delete the task (temporary until schema migration)
-    const canDeleteTask = ['ADMIN', 'TEAM_MANAGER'].includes(user.activeRole as any);
+    const membership = user.memberships.find(m => m.organizationId === user.activeOrganizationId);
+    const role = membership?.role;
+    const canDeleteTask = role && ([UserRole.ORG_ADMIN, UserRole.TEAM_LEADER] as UserRole[]).includes(role);
     if (!canDeleteTask) {
-        logger.warn({ message: 'Delete task failed: Insufficient permissions.', taskId, userId: user.id, userRole: user.activeRole });
+        logger.warn({ message: 'Delete task failed: Insufficient permissions.', taskId, userId: user.id, userRole: role });
         res.status(403).json({ message: 'Insufficient permissions to delete task' });
         return;
     }

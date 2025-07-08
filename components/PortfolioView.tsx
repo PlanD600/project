@@ -6,6 +6,7 @@ import CreateProjectModal from './CreateProjectModal';
 import { exportPortfolioToPdf } from '../services/exportService';
 import { useDataStore } from '../stores/useDataStore';
 import { useAuthStore } from '../stores/useAuthStore';
+import { UserRoleEnum } from './SettingsView';
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('he-IL', {
@@ -56,6 +57,9 @@ const PortfolioView: React.FC = () => {
         handleDeleteProject,
         handleRevokeGuest,
     } = useDataStore();
+
+    const { getUserRoleInActiveOrg } = useDataStore();
+    const userRole = getUserRoleInActiveOrg();
 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     // FIX: The editing project state now uses the base Project type, as portfolio data is calculated.
@@ -164,10 +168,10 @@ const PortfolioView: React.FC = () => {
         };
         return <span className={`px-3 py-1 text-xs font-semibold rounded-full ${styles[status]}`}>{status}</span>;
     };
-    const guests = useMemo(() => allUsers.filter(u => u.role === 'GUEST'), [allUsers]);
+    const guests = useMemo(() => allUsers.filter(u => getUserRoleInActiveOrg() === UserRoleEnum.GUEST), [allUsers]);
     const statuses: ProgressStatus[] = ['במסלול', 'בסיכון', 'בסיכון גבוה', 'הושלם'];
     const potentialLeaders = useMemo(() => 
-        allUsers.filter(u => u.role === 'ADMIN' || u.role === 'TEAM_MANAGER'), 
+        allUsers.filter(u => getUserRoleInActiveOrg() === UserRoleEnum.ORG_ADMIN || getUserRoleInActiveOrg() === UserRoleEnum.TEAM_LEADER), 
     [allUsers]);
 
     return (
@@ -213,7 +217,7 @@ const PortfolioView: React.FC = () => {
                                 <th className="px-4 py-3">התקדמות</th>
                                 <th className="px-4 py-3">תאריך יעד</th>
                                 <th className="px-4 py-3">תקציב מול ביצוע</th>
-                                {currentUser?.role === 'ADMIN' && <th className="px-4 py-3">פעולות</th>}
+                                {userRole === UserRoleEnum.ORG_ADMIN && <th className="px-4 py-3">פעולות</th>}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-dark">
@@ -240,7 +244,7 @@ const PortfolioView: React.FC = () => {
                                         <span className="font-semibold text-primary">{formatCurrency(p.actualCost)}</span>
                                         <span className="text-dimmed"> / {formatCurrency(p.budget)}</span>
                                     </td>
-                                    {currentUser?.role === 'ADMIN' && (
+                                    {userRole === UserRoleEnum.ORG_ADMIN && (
                                         <td className="px-4 py-4">
                                             <div className="relative" ref={activeMenuProjectId === p.id ? menuRef : null}>
                                                 <button onClick={() => setActiveMenuProjectId(p.id)} className="p-1 rounded-full hover:bg-dark/50">

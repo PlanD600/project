@@ -9,6 +9,7 @@ import { useAuthStore } from '../stores/useAuthStore';
 import { useDataStore } from '../stores/useDataStore';
 import { useUIStore } from '../stores/useUIStore';
 import AddTaskModal from './AddTaskModal';
+import { UserRoleEnum } from './SettingsView';
 
 interface TimesViewProps {
   tasks: Task[];
@@ -66,7 +67,8 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
     handleUpdateTask, 
     handleAddComment, 
     handleInviteGuest, 
-    handleAddTask 
+    handleAddTask, 
+    getUserRoleInActiveOrg 
   } = useDataStore();
   
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -167,8 +169,8 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
   }, [hierarchicalTasks, dateToPosition]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>, type: InteractionType, task: HierarchicalTask) => {
-    const isInteractive = (currentUser as any)?.role === 'ADMIN' || (currentUser as any)?.role === 'TEAM_MANAGER';
-    if (!isInteractive) return;
+    const userRole = getUserRoleInActiveOrg();
+    if (userRole !== UserRoleEnum.ORG_ADMIN && userRole !== UserRoleEnum.TEAM_LEADER) return;
     
     e.stopPropagation();
     const taskPos = taskPositions[task.id];
@@ -191,7 +193,7 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
     } else {
       setGhostPosition({ x: taskPos.startX, width: taskPos.width, y: taskPos.y });
     }
-  }, [currentUser, taskPositions, hierarchicalTasks]);
+  }, [getUserRoleInActiveOrg]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!interaction || !ganttRef.current) return;
@@ -313,8 +315,8 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
     setIsAddTaskModalOpen(false);
   }, [handleAddTask, allProjects, selectedProjectId]);
 
-  const project = allProjects.find(p => p.id === selectedProjectId);
-  const canInvite = selectedProjectId && ((currentUser as any)?.role === 'ADMIN' || (currentUser as any)?.role === 'TEAM_MANAGER');
+  const userRole = getUserRoleInActiveOrg();
+  const canInvite = selectedProjectId && (userRole === UserRoleEnum.ORG_ADMIN || userRole === UserRoleEnum.TEAM_LEADER);
 
   const GhostTask = () => ghostPosition && (
     <div
@@ -355,7 +357,7 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
           </button>
           
           {/* Central Add Task Button */}
-          {((currentUser as any)?.role === 'ADMIN' || (currentUser as any)?.role === 'TEAM_MANAGER') && selectedProjectId && (
+          {(userRole === UserRoleEnum.ORG_ADMIN || userRole === UserRoleEnum.TEAM_LEADER) && selectedProjectId && (
             <button 
               onClick={() => setIsAddTaskModalOpen(true)} 
               className="flex items-center space-x-2 space-x-reverse bg-primary hover:bg-primary/90 text-light font-semibold py-2 px-4 rounded-lg transition-colors"
@@ -426,7 +428,7 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
               if (!position) return null;
 
               const assignees = allUsers.filter(u => task.assigneeIds && task.assigneeIds.includes(u.id));
-              const isInteractive = (currentUser as any)?.role === 'ADMIN' || (currentUser as any)?.role === 'TEAM_MANAGER';
+              const isInteractive = userRole === UserRoleEnum.ORG_ADMIN || userRole === UserRoleEnum.TEAM_LEADER;
 
               return (
                 <div key={task.id} className="flex border-b border-dark/30" style={{ height: GANTT_ROW_HEIGHT }}>
@@ -542,7 +544,7 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
         <div className="flex items-center gap-3">
             
             {/* Quick Add Task */}
-            {!isAddTaskModalOpen && ((currentUser as any)?.role === 'ADMIN' || (currentUser as any)?.role === 'TEAM_MANAGER') && (
+            {!isAddTaskModalOpen && (userRole === UserRoleEnum.ORG_ADMIN || userRole === UserRoleEnum.TEAM_LEADER) && (
               <button
                 onClick={() => setIsAddTaskModalOpen(true)}
                 className="flex items-center space-x-2 space-x-reverse bg-accent hover:bg-accent/80 text-light p-2 rounded-lg transition-colors"
@@ -571,7 +573,7 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
             </div>
             
         </div>
-        <h2 className="text-2xl font-bold text-primary">{project?.name || "לוח זמנים"}</h2>
+        <h2 className="text-2xl font-bold text-primary">{allProjects.find(p => p.id === selectedProjectId)?.name || "לוח זמנים"}</h2>
       </div>
 
       {viewMode === 'gantt' ? <GanttView /> : <ListView />}

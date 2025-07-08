@@ -6,6 +6,8 @@ import Avatar from './Avatar';
 import ColorPicker from './ColorPicker';
 import { summarizeText } from '../services/geminiService';
 import Spinner from './Spinner';
+import { useDataStore } from '../stores/useDataStore';
+import { UserRoleEnum } from './SettingsView';
 
 
 interface TaskModalProps {
@@ -30,11 +32,13 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, onClose, onUpdateTask, onAd
   const { canEditDetails, canChangeStatus, canComment, assignableUsers } = useMemo(() => {
     const project = allProjects.find(p => p.id === task.projectId);
 
-    // Temporary role checks until schema migration
-    const isSuperAdmin = (currentUser as any).role === 'ADMIN';
-    const isTeamLeaderOfProject = (currentUser as any).role === 'TEAM_MANAGER' && currentUser.teamId === project?.teamId;
+    const { getUserRoleInActiveOrg } = useDataStore();
+    const userRole = getUserRoleInActiveOrg();
+
+    const isSuperAdmin = userRole === UserRoleEnum.SUPER_ADMIN;
+    const isTeamLeaderOfProject = userRole === UserRoleEnum.TEAM_LEADER && currentUser.teamId === project?.teamId;
     const isAssignee = task.assigneeIds && task.assigneeIds.includes(currentUser.id);
-    const isGuest = (currentUser as any).role === 'GUEST';
+    const isGuest = userRole === UserRoleEnum.GUEST;
 
     const canEditDetails = isSuperAdmin || isTeamLeaderOfProject;
     const canChangeStatus = isSuperAdmin || isTeamLeaderOfProject || isAssignee;
@@ -42,7 +46,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, onClose, onUpdateTask, onAd
 
     let assignableUsersList: User[] = [];
     if (isSuperAdmin) {
-      assignableUsersList = users.filter(u => (u as any).role === 'EMPLOYEE' || (u as any).role === 'TEAM_MANAGER');
+      assignableUsersList = users.filter(u => getUserRoleInActiveOrg() === UserRoleEnum.EMPLOYEE || getUserRoleInActiveOrg() === UserRoleEnum.TEAM_LEADER);
     } else if (isTeamLeaderOfProject) {
       assignableUsersList = users.filter(u => u.teamId === currentUser.teamId);
     }

@@ -4,6 +4,7 @@ import { useDataStore } from '../stores/useDataStore';
 import { useUIStore } from '../stores/useUIStore';
 import { SUBSCRIPTION_PLANS } from '../constants';
 import Icon from './Icon';
+import { UserRoleEnum } from './SettingsView';
 
 const SubscriptionView: React.FC = () => {
   const { currentUser } = useAuthStore();
@@ -84,6 +85,9 @@ const SubscriptionView: React.FC = () => {
     return SUBSCRIPTION_PLANS.find(plan => plan.id === subscriptionInfo?.currentPlan?.toLowerCase());
   };
 
+  const { getUserRoleInActiveOrg } = useDataStore();
+  const userRole = getUserRoleInActiveOrg();
+
   if (!currentUser) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -116,7 +120,7 @@ const SubscriptionView: React.FC = () => {
               <div className="text-xs text-dimmed">מתוך {subscriptionInfo.projectLimit || 0}</div>
             </div>
             
-            {currentUser.role === 'ADMIN' && (
+            {userRole === UserRoleEnum.ORG_ADMIN && (
               <div className="text-center">
                 <div className="text-2xl font-bold text-primary">{subscriptionInfo.companyCount || 0}</div>
                 <div className="text-sm text-secondary">חברות נוכחיות</div>

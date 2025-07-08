@@ -4,6 +4,7 @@ import asyncHandler from 'express-async-handler';
 import prisma from '../../db';
 import logger from '../../logger';
 import Stripe from 'stripe';
+import { UserRole } from '@prisma/client';
 
 // Initialize Stripe only if the secret key is available
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY, {
@@ -166,10 +167,10 @@ export const getSubscriptionInfo: RequestHandler = asyncHandler(async (req, res)
   }
 
   // Get company count for admin users
-  let companyCount = 1;
   const membership = user.memberships.find(m => m.organizationId === user.activeOrganizationId);
   const role = membership?.role;
-  if (role === 'ORG_ADMIN') {
+  let companyCount = 1;
+  if (role === UserRole.ORG_ADMIN) {
     companyCount = await prisma.organization.count();
   }
 

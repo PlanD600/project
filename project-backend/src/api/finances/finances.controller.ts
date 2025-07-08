@@ -26,7 +26,7 @@ export const addFinancialEntry: RequestHandler = async (req, res, next) => {
     // Find membership for active org
     const membership = user.memberships.find(m => m.organizationId === user.activeOrganizationId);
     const role = membership?.role;
-    if (type === 'Income' && role !== 'ORG_ADMIN') {
+    if (type === 'Income' && role !== UserRole.ORG_ADMIN) {
         logger.warn({ message: 'Unauthorized attempt to add income entry.', context: { userId: user.id, role } });
         return res.status(403).json({ message: 'Not authorized to add income entries.' });
     }
@@ -78,7 +78,7 @@ export const getFinancialSummary: RequestHandler = async (req, res, next) => {
         logger.info({ message: 'Attempting to get financial summary.', userId: user.id, role, orgId: user.activeOrganizationId, team_id_filter: team_id });
         
         // כלל #2: שימוש ב-enum
-        if (role === 'ORG_ADMIN') {
+        if (role === UserRole.ORG_ADMIN) {
             // כלל #1: כל השאילתות מתייחסות רק לארגון של המשתמש
             let whereClause: any = { memberships: { some: { organizationId: user.activeOrganizationId } } };
 
@@ -108,28 +108,12 @@ export const getFinancialSummary: RequestHandler = async (req, res, next) => {
                 totalExpense: totalExpenseResult._sum.amount || 0,
             });
 
-        } else if (role === 'TEAM_LEADER' && user.teamId) {
-            const projectsInTeam = await prisma.project.findMany({
-                // כלל #1: הגבל את החיפוש לארגון שלך
-                where: { teamId: user.teamId, organizationId: user.activeOrganizationId },
-                select: { id: true }
-            });
-            const projectIds = projectsInTeam.map((p: any) => p.id);
-            logger.info({ message: 'Team leader getting financial summary for team projects.', userId: user.id, teamId: user.teamId, projectIdsCount: projectIds.length });
-
-            const result = await prisma.financialTransaction.aggregate({
-                _sum: { amount: true },
-                where: {
-                    projectId: { in: projectIds },
-                        // אין צורך להוסיף כאן organizationId, כי סיננו כבר לפי פרויקטים מהארגון
-                    type: 'Expense'
-                }
-            });
-            
-            logger.info({ message: 'Team leader financial summary fetched successfully.', totalTeamExpenses: result._sum.amount });
-            res.json({ totalTeamExpenses: result._sum.amount || 0 });
-        } else {
-            logger.warn({ message: 'User not authorized to view financial summary.', userId: user.id, role, teamId: user.teamId });
+        } else if (role === UserRole.TEAM_LEADER) {
+            // TODO: Implement logic to fetch projects for teams this user leads in this org
+            // Currently, user.teamId is not available. Implement team lookup via memberships or another method if needed.
+            res.status(403).json({ message: 'Not authorized to view financial summary (team context not implemented)' });
+        } else {
+            logger.warn({ message: 'User not authorized to view financial summary.', userId: user.id, role });
             res.status(403).json({ message: 'Not authorized to view financial summary' });
         }
     } catch (error) {

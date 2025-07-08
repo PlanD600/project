@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Project, Task, Comment } from '../types';
 import Icon from './Icon';
+import { useDataStore } from '../stores/useDataStore';
+import { UserRoleEnum } from './SettingsView';
 
 type SearchResults = {
     projects: Project[];
@@ -33,6 +35,9 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ onSearch, onSelectProject }
     const [isOpen, setIsOpen] = useState(false);
     const debouncedQuery = useDebounce(query, 300);
     const searchRef = useRef<HTMLDivElement>(null);
+
+    const { getUserRoleInActiveOrg } = useDataStore();
+    const userRole = getUserRoleInActiveOrg();
 
     useEffect(() => {
         if (debouncedQuery.length >= 3) {

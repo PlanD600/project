@@ -5,6 +5,7 @@ import Icon from './Icon';
 import Avatar from './Avatar';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useDataStore } from '../stores/useDataStore';
+import { UserRoleEnum } from './SettingsView';
 
 interface KanbanCardProps {
   task: Task;
@@ -26,12 +27,9 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ task, users, onTaskClick, onEdi
   
   // Check if user can modify the task (temporary until schema migration)
   const userRole = getUserRoleInActiveOrg();
-  const canModifyTask = userRole === 'ADMIN' || 
-    userRole === 'TEAM_MANAGER' || 
-    (task.assigneeIds && task.assigneeIds.includes(currentUser?.id || ''));
+  const canModifyTask = userRole === UserRoleEnum.ORG_ADMIN || userRole === UserRoleEnum.TEAM_LEADER;
   
-  const canDeleteTask = userRole === 'ADMIN' || 
-    userRole === 'TEAM_MANAGER';
+  const canDeleteTask = userRole === UserRoleEnum.ORG_ADMIN || userRole === UserRoleEnum.TEAM_LEADER;
   
   const formatDate = (dateString: string) => {
       if (!dateString) return '';

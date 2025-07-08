@@ -3,6 +3,7 @@ import { RequestHandler } from 'express';
 import asyncHandler from 'express-async-handler';
 import prisma from '../../db';
 import logger from '../../logger';
+import { UserRole } from '@prisma/client';
 
 // @desc    Invite guest to specific project
 // @route   POST /api/guests/invite
@@ -22,10 +23,9 @@ export const inviteGuest: RequestHandler = asyncHandler(async (req, res) => {
     }
 
     // Check if user can invite guests (Org Admin, Super Admin, or Team Leader of the project)
-    const canInviteGuests = user.memberships.some(
-        (membership) => ['ORG_ADMIN', 'TEAM_LEADER'].includes(membership.role)
-    );
-
+    const membership = user.memberships.find(m => m.organizationId === user.activeOrganizationId);
+    const role = membership?.role;
+    const canInviteGuests = role && ([UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN, UserRole.TEAM_LEADER] as UserRole[]).includes(role);
     if (!canInviteGuests) {
         res.status(403);
         throw new Error('User is not authorized to invite guests');
@@ -48,7 +48,7 @@ export const inviteGuest: RequestHandler = asyncHandler(async (req, res) => {
     }
 
     // Additional check for Team Leaders - they can only invite to their own projects
-    if (user.activeRole === 'TEAM_LEADER' && !project.teamLeaders.some(leader => leader.id === user.id)) {
+    if (role === UserRole.TEAM_LEADER && !project.teamLeaders.some(leader => leader.id === user.id)) {
         res.status(403);
         throw new Error('Team leaders can only invite guests to their own projects');
     }
@@ -146,10 +146,9 @@ export const revokeGuest: RequestHandler = asyncHandler(async (req, res) => {
     }
 
     // Check if user can revoke guest access
-    const canRevokeGuests = user.memberships.some(
-        (membership) => ['ORG_ADMIN', 'TEAM_LEADER'].includes(membership.role)
-    );
-
+    const membership = user.memberships.find(m => m.organizationId === user.activeOrganizationId);
+    const role = membership?.role;
+    const canRevokeGuests = role && ([UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN, UserRole.TEAM_LEADER] as UserRole[]).includes(role);
     if (!canRevokeGuests) {
         res.status(403);
         throw new Error('User is not authorized to revoke guest access');
@@ -172,7 +171,7 @@ export const revokeGuest: RequestHandler = asyncHandler(async (req, res) => {
     }
 
     // Additional check for Team Leaders - they can only revoke from their own projects
-    if (user.activeRole === 'TEAM_LEADER' && !project.teamLeaders.some(leader => leader.id === user.id)) {
+    if (role === UserRole.TEAM_LEADER && !project.teamLeaders.some(leader => leader.id === user.id)) {
         res.status(403);
         throw new Error('Team leaders can only revoke guests from their own projects');
     }
@@ -227,10 +226,9 @@ export const getProjectGuests: RequestHandler = asyncHandler(async (req, res) =>
     }
 
     // Check if user can view project guests
-    const canViewGuests = user.memberships.some(
-        (membership) => ['ORG_ADMIN', 'TEAM_LEADER'].includes(membership.role)
-    );
-
+    const membership = user.memberships.find(m => m.organizationId === user.activeOrganizationId);
+    const role = membership?.role;
+    const canViewGuests = role && ([UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN, UserRole.TEAM_LEADER] as UserRole[]).includes(role);
     if (!canViewGuests) {
         res.status(403);
         throw new Error('User is not authorized to view project guests');
@@ -253,7 +251,7 @@ export const getProjectGuests: RequestHandler = asyncHandler(async (req, res) =>
     }
 
     // Additional check for Team Leaders - they can only view guests of their own projects
-    if (user.activeRole === 'TEAM_LEADER' && !project.teamLeaders.some(leader => leader.id === user.id)) {
+    if (role === UserRole.TEAM_LEADER && !project.teamLeaders.some(leader => leader.id === user.id)) {
         res.status(403);
         throw new Error('Team leaders can only view guests of their own projects');
     }

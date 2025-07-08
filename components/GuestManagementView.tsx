@@ -5,6 +5,7 @@ import { api } from '../services/api';
 import Icon from './Icon';
 import Spinner from './Spinner';
 import Toast from './Toast';
+import { UserRoleEnum } from './SettingsView';
 
 interface Guest {
   id: string;
@@ -22,7 +23,7 @@ interface Guest {
 
 export const GuestManagementView: React.FC = () => {
   const { currentUser } = useAuthStore();
-  const { activeOrganizationId, getActiveOrganization } = useDataStore();
+  const { activeOrganizationId, getActiveOrganization, getUserRoleInActiveOrg } = useDataStore();
   const [guests, setGuests] = useState<Guest[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviting, setInviting] = useState(false);
@@ -33,6 +34,7 @@ export const GuestManagementView: React.FC = () => {
 
   const projects = useDataStore(state => state.projects);
   const activeOrganization = getActiveOrganization();
+  const userRole = getUserRoleInActiveOrg();
 
   useEffect(() => {
     if (activeOrganization) {

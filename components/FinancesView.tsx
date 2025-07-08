@@ -6,6 +6,7 @@ import InviteGuestModal from './InviteGuestModal';
 import { exportFinancesToCsv } from '../services/exportService';
 import { useDataStore } from '../stores/useDataStore';
 import { useAuthStore } from '../stores/useAuthStore';
+import { UserRoleEnum } from './SettingsView';
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('he-IL', {
@@ -110,9 +111,11 @@ const TeamLeaderView: React.FC = () => {
 
     if (!currentUser) return null;
 
+    const { getUserRoleInActiveOrg } = useDataStore();
+    const userRole = getUserRoleInActiveOrg();
     const teamProjects = useMemo(() => projects.filter(p => p.teamId === currentUser.teamId), [projects, currentUser.teamId]);
     const project = projects.find(p => p.id === selectedProjectId);
-    const canInvite = selectedProjectId && (currentUser.role === 'ADMIN' || currentUser.role === 'TEAM_MANAGER');
+    const canInvite = selectedProjectId && (userRole === UserRoleEnum.ORG_ADMIN || userRole === UserRoleEnum.TEAM_LEADER);
 
     const { totalBudget, totalTeamExpenses, remainingBudget } = useMemo(() => {
         if (!project) return { totalBudget: 0, totalTeamExpenses: 0, remainingBudget: 0 };
@@ -232,7 +235,9 @@ const FinancesView: React.FC = () => {
 
     if (!currentUser) return null;
 
-    if (currentUser.role === 'TEAM_MANAGER' && !selectedProjectId) {
+    const { getUserRoleInActiveOrg } = useDataStore();
+    const userRole = getUserRoleInActiveOrg();
+    if (userRole === UserRoleEnum.TEAM_LEADER && !selectedProjectId) {
         return (
             <div className="flex items-center justify-center h-full bg-medium p-8 rounded-lg">
                 <p className="text-lg text-dimmed">אנא בחר פרויקט כדי להציג את הנתונים הפיננסיים שלו.</p>
@@ -240,11 +245,11 @@ const FinancesView: React.FC = () => {
         );
     }
     
-    if (currentUser.role === 'ADMIN') {
+    if (userRole === UserRoleEnum.ORG_ADMIN) {
         return <SuperAdminView />;
     }
     
-    if (currentUser.role === 'TEAM_MANAGER') {
+    if (userRole === UserRoleEnum.TEAM_LEADER) {
         return <TeamLeaderView />;
     }
 

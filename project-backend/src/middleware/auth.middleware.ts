@@ -15,10 +15,7 @@ declare global {
                 name: string;
                 email: string;
                 avatarUrl: string | null;
-                teamId: string | null;
-                // Multi-tenant properties (temporary until schema migration)
                 activeOrganizationId: string;
-                activeRole: UserRole;
                 memberships: Array<{
                     organizationId: string;
                     role: UserRole;
@@ -31,7 +28,6 @@ declare global {
 /**
  * Middleware to protect routes.
  * It checks for a valid JWT in the Authorization header and validates organization membership.
- * TEMPORARY: This version works with the current schema until we migrate to multi-tenant.
  */
 export const protect = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     let token;
@@ -61,7 +57,6 @@ export const protect = asyncHandler(async (req: Request, res: Response, next: Ne
                     email: true,
                     name: true,
                     avatarUrl: true,
-                    teamId: true,
                     memberships: true, // Select memberships to get role for the current org
                 }
             });
@@ -82,9 +77,7 @@ export const protect = asyncHandler(async (req: Request, res: Response, next: Ne
                 email: user.email,
                 name: user.name,
                 avatarUrl: user.avatarUrl,
-                teamId: user.teamId,
                 activeOrganizationId: currentActiveOrgId,
-                activeRole: membership?.role ?? null,
                 memberships: user.memberships.map(m => ({
                     organizationId: m.organizationId,
                     role: m.role as UserRole
@@ -115,17 +108,17 @@ export const protect = asyncHandler(async (req: Request, res: Response, next: Ne
  */
 export const authorize = (...roles: UserRole[]): RequestHandler => {
     return (req, res, next) => {
-        if (!req.user || !roles.includes(req.user.activeRole)) {
+        if (!req.user || !roles.includes(req.user.memberships.find(m => m.organizationId === req.user.activeOrganizationId)?.role)) {
             logger.warn({
                 message: 'Forbidden: User does not have the right role for this resource.',
                 userId: req.user?.id,
-                userRole: req.user?.activeRole,
+                userRole: req.user?.memberships.find(m => m.organizationId === req.user.activeOrganizationId)?.role,
                 activeOrganizationId: req.user?.activeOrganizationId,
                 requiredRoles: roles,
                 path: req.originalUrl
             });
             res.status(403);
-            throw new Error(`User role '${req.user?.activeRole}' is not authorized to access this route`);
+            throw new Error(`User role '${req.user?.memberships.find(m => m.organizationId === req.user.activeOrganizationId)?.role}' is not authorized to access this route`);
         }
         next();
     };
@@ -170,13 +163,13 @@ export const requireOrgManagement = (req: Request, res: Response, next: NextFunc
     }
 
     // Check if user has admin role in the active organization
-    const canManageOrg = ['ADMIN', 'TEAM_MANAGER'].includes(req.user.activeRole as any);
+    const canManageOrg = ['ADMIN', 'TEAM_MANAGER'].includes(req.user.memberships.find(m => m.organizationId === req.user.activeOrganizationId)?.role as any);
 
     if (!canManageOrg) {
         logger.warn({
             message: 'Forbidden: User cannot manage this organization.',
             userId: req.user.id,
-            userRole: req.user.activeRole,
+            userRole: req.user.memberships.find(m => m.organizationId === req.user.activeOrganizationId)?.role,
             activeOrganizationId: req.user.activeOrganizationId,
             path: req.originalUrl
         });

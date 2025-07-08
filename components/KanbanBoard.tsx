@@ -8,6 +8,7 @@ import Icon from './Icon';
 import InviteGuestModal from './InviteGuestModal';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useDataStore } from '../stores/useDataStore';
+import { UserRoleEnum } from './SettingsView';
 
 // תיקון: הקומפוננטה כבר לא צריכה לקבל props, היא לוקחת את כל המידע שלה מה-store
 const KanbanBoard: React.FC = () => {
@@ -20,7 +21,9 @@ const KanbanBoard: React.FC = () => {
         handleUpdateTask,
         handleAddTask,
         handleAddComment,
-        handleInviteGuest
+        handleInviteGuest,
+        getUserRoleInActiveOrg,
+        activeOrganizationId
     } = useDataStore();
 
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -50,16 +53,18 @@ const KanbanBoard: React.FC = () => {
     }, []);
 
     const handleCreateTask = useCallback((taskData: Pick<Task, 'title' | 'description' | 'assigneeIds' | 'startDate' | 'endDate' | 'projectId'>) => {
-        handleAddTask(taskData);
+        if (!activeOrganizationId) return;
+        handleAddTask({ ...taskData, organizationId: activeOrganizationId });
         setAddTaskModalOpen(false);
-    }, [handleAddTask]);
+    }, [handleAddTask, activeOrganizationId]);
     
     const handleUpdateAndCloseModal = useCallback((updatedTask: Task) => {
         handleUpdateTask(updatedTask);
     }, [handleUpdateTask]);
 
     const project = allProjects.find(p => p.id === selectedProjectId);
-    const canInvite = selectedProjectId && (currentUser?.role === 'ADMIN' || currentUser?.role === 'TEAM_MANAGER');
+    const userRole = getUserRoleInActiveOrg();
+    const canInvite = selectedProjectId && (userRole === UserRoleEnum.ORG_ADMIN || userRole === UserRoleEnum.TEAM_LEADER);
 
     if (!currentUser) return null;
 
@@ -72,7 +77,7 @@ const KanbanBoard: React.FC = () => {
                 <h2 className="text-2xl font-bold text-primary">{project?.name || "משימות"}</h2>
                 <div className="flex items-center space-x-3 space-x-reverse">
                     {/* Central Add Full Task Button */}
-                    {(currentUser.role === 'ADMIN' || currentUser.role === 'TEAM_MANAGER') && selectedProjectId && (
+                    {(userRole === UserRoleEnum.ORG_ADMIN || userRole === UserRoleEnum.TEAM_LEADER) && selectedProjectId && (
                         <button 
                             onClick={handleOpenAddTaskModal} 
                             className="flex items-center space-x-2 space-x-reverse bg-primary hover:bg-primary/90 text-light font-semibold py-2 px-4 rounded-lg transition-colors"
@@ -96,7 +101,7 @@ const KanbanBoard: React.FC = () => {
                         column={column}
                         tasks={tasksInProject.filter(task => task.columnId === column.id)}
                         onTaskClick={handleTaskClick}
-                        canAddTask={currentUser.role === 'ADMIN' || currentUser.role === 'TEAM_MANAGER'}
+                        canAddTask={userRole === UserRoleEnum.ORG_ADMIN || userRole === UserRoleEnum.TEAM_LEADER}
                         canAddProject={!!selectedProjectId}
                         users={users}
                         selectedProjectId={selectedProjectId}

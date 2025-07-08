@@ -1,7 +1,8 @@
 import React, { useEffect, Suspense, lazy, useState, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/useAuthStore';
-import { useDataStore, calculateProjectsForCurrentUser } from './stores/useDataStore';
+import { useDataStore } from './stores/useDataStore';
+import { UserRole } from './types';
 import { useUIStore } from './stores/useUIStore';
 
 // Components & Types
@@ -33,7 +34,7 @@ const App: React.FC = () => {
         checkAuthStatus 
     } = useAuthStore();
 
-    const { projects, tasks, selectedProjectId, setSelectedProjectId, activeOrganizationId, getUserRoleInActiveOrg } = useDataStore();
+    const { projects, tasks, selectedProjectId, setSelectedProjectId, getUserRoleInActiveOrg } = useDataStore();
     const { notification, setNotification } = useUIStore();
 
     const [activeTab, setActiveTab] = useState<Tab>('Portfolio');
@@ -41,21 +42,27 @@ const App: React.FC = () => {
     const [settingsInitialSection, setSettingsInitialSection] = useState<ActiveSection | null>(null);
     const [showOnboardingModal, setShowOnboardingModal] = useState(false);
 
-    const projectsForCurrentUser = useMemo(() => calculateProjectsForCurrentUser(currentUser, projects, tasks, activeOrganizationId), [currentUser, projects, tasks, activeOrganizationId]);
-
-    const tasksForView = useMemo(() => {
+    const projectsForCurrentUser = useMemo(() => {
         if (!currentUser) return [];
         const userRole = getUserRoleInActiveOrg();
         if (!selectedProjectId) {
-            if (userRole === 'EMPLOYEE') return tasks.filter(task => task.assigneeIds && task.assigneeIds.includes(currentUser.id));
+            if (userRole === 'EMPLOYEE') return projects.filter(project => 
+                tasks.some(task => task.projectId === project.id && task.assigneeIds && task.assigneeIds.includes(currentUser.id))
+            );
             return [];
         }
-        const projectTasks = tasks.filter(task => task.projectId === selectedProjectId);
+        const project = projects.find(p => p.id === selectedProjectId);
+        if (!project) return [];
+        
         if (['GUEST', 'SUPER_ADMIN', 'ORG_ADMIN', 'TEAM_LEADER'].includes(userRole || '')) {
-            return projectTasks;
+            return [project];
         }
-        return projectTasks.filter(task => task.assigneeIds && task.assigneeIds.includes(currentUser.id));
-    }, [currentUser, tasks, selectedProjectId, getUserRoleInActiveOrg]);
+        // For EMPLOYEE, only return project if they have tasks in it
+        const hasTasksInProject = tasks.some(task => 
+            task.projectId === project.id && task.assigneeIds && task.assigneeIds.includes(currentUser.id)
+        );
+        return hasTasksInProject ? [project] : [];
+    }, [currentUser, projects, tasks, selectedProjectId, getUserRoleInActiveOrg]);
 
     useEffect(() => {
         checkAuthStatus();
@@ -133,7 +140,9 @@ const App: React.FC = () => {
                 const userRole = getUserRoleInActiveOrg();
                 return (userRole === 'SUPER_ADMIN' || userRole === 'ORG_ADMIN') ? <PortfolioView /> : null;
             case 'זמנים':
-                return <TimesView tasks={tasksForView} />;
+                return <TimesView tasks={tasks.filter(task => 
+                    projectsForCurrentUser.some(project => project.id === task.projectId)
+                )} />;
             case 'כספים':
                 const financeUserRole = getUserRoleInActiveOrg();
                 return ['SUPER_ADMIN', 'ORG_ADMIN', 'TEAM_LEADER'].includes(financeUserRole || '') ? <FinancesView /> : null;

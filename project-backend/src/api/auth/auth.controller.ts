@@ -30,13 +30,17 @@ const generateToken = (userId: string): string => {
 export const registerUser = asyncHandler(async (req, res) => {
     const { fullName: name, email, password, companyName: organizationName } = req.body;
 
+    logger.info('Registration request received', { name, email, organizationName });
+
     if (!name || !email || !password || !organizationName) {
+        logger.warn('Missing required registration fields', { name, email, organizationName });
         res.status(400);
         throw new Error('נא למלא את כל השדות הנדרשים להרשמה.');
     }
 
     const userExists = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
     if (userExists) {
+        logger.warn('User already exists', { email });
         res.status(400);
         throw new Error('משתמש עם כתובת אימייל זו כבר קיים.');
     }
@@ -44,57 +48,82 @@ export const registerUser = asyncHandler(async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Use a transaction to ensure all steps succeed or fail together
-    const result = await prisma.$transaction(async (tx) => {
-        // 1. Create organization
-        const newOrganization = await tx.organization.create({
-            data: { name: organizationName }
+    try {
+        const result = await prisma.$transaction(async (tx) => {
+            // 1. Create organization
+            const newOrganization = await tx.organization.create({
+                data: { name: organizationName }
+            });
+            logger.info('Organization created', { orgId: newOrganization.id });
+
+            // 2. Create user (without activeOrganizationId)
+            const newUser = await tx.user.create({
+                data: {
+                    name,
+                    email: email.toLowerCase(),
+                    password: hashedPassword,
+                },
+            });
+
+            // 2b. Update user to set activeOrganizationId via relation
+            const updatedUser = await tx.user.update({
+                where: { id: newUser.id },
+                data: { activeOrganizationId: newOrganization.id },
+                select: {
+                    id: true,
+                    email: true,
+                    name: true,
+                    avatarUrl: true,
+                    teamId: true,
+                    activeOrganization: { select: { id: true } },
+                },
+            });
+            logger.info('User created', { userId: updatedUser.id, activeOrganizationId: updatedUser.activeOrganization?.id });
+
+            // 3. Create membership
+            const membership = await tx.membership.create({
+                data: {
+                    userId: updatedUser.id,
+                    organizationId: newOrganization.id,
+                    role: 'ORG_ADMIN',
+                },
+            });
+            logger.info('Membership created', { membershipId: membership.id });
+
+            return { user: updatedUser, organization: newOrganization, membership };
         });
 
-        // 2. Create user with activeOrganizationId set
-        const newUser = await tx.user.create({
-            data: {
-                name,
-                email: email.toLowerCase(),
-                password: hashedPassword,
-                activeOrganizationId: newOrganization.id,
-            },
-        });
+        if (result.user && result.organization && result.membership) {
+            logger.info('Registration transaction successful', {
+                userId: result.user.id,
+                orgId: result.organization.id,
+                membershipId: result.membership.id,
+            });
 
-        // 3. Create membership
-        await tx.membership.create({
-            data: {
-                userId: newUser.id,
-                organizationId: newOrganization.id,
-                role: 'ORG_ADMIN',
-            },
-        });
+            const token = generateToken(result.user.id);
 
-        // 4. Return the user and org
-        return { user: newUser, organization: newOrganization };
-    });
+            const userResponse = {
+                id: result.user.id,
+                email: result.user.email,
+                name: result.user.name,
+                avatarUrl: result.user.avatarUrl,
+                teamId: result.user.teamId,
+                activeOrganizationId: result.user.activeOrganization?.id,
+            };
 
-    if (result.user) {
-        logger.info('משתמש וארגון נרשמו בהצלחה.', { userId: result.user.id, email: result.user.email });
-        
-        const token = generateToken(result.user.id);
-
-        const userResponse = {
-            id: result.user.id,
-            email: result.user.email,
-            name: result.user.name,
-            avatarUrl: result.user.avatarUrl,
-            teamId: result.user.teamId,
-            activeOrganizationId: result.user.activeOrganizationId,
-        };
-        
-        res.status(201).json({
-            user: userResponse,
-            token: token
-        });
-    } else {
+            res.status(201).json({
+                user: userResponse,
+                token: token
+            });
+        } else {
+            logger.error('Registration transaction did not return all expected entities');
+            res.status(500);
+            throw new Error('יצירת המשתמש נכשלה.');
+        }
+    } catch (error) {
+        logger.error('Registration transaction failed', { error });
         res.status(500);
-        throw new Error('יצירת המשתמש נכשלה.');
+        throw new Error('שגיאה ביצירת משתמש וארגון: ' + error.message);
     }
 });
 

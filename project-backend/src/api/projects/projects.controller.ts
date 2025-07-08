@@ -23,11 +23,13 @@ export const getProjects = asyncHandler(async (req, res) => {
     };
 
     // Role-based filtering (temporary until schema migration)
-    if (user.activeRole === 'TEAM_LEADER') {
+    const membership = user.memberships.find(m => m.organizationId === user.activeOrganizationId);
+    const role = membership?.role;
+    if (role === UserRole.TEAM_LEADER) {
         // Team leaders see projects they are leading
         where.teamLeaders = { some: { id: user.id } };
         logger.info({ message: 'Filtering projects by team leadership for leader.', userId: user.id });
-    } else if (user.activeRole === 'EMPLOYEE') {
+    } else if (role === UserRole.EMPLOYEE) {
         // Employees see projects where they have assigned tasks
         const tasks = await db.task.findMany({
             where: {
@@ -37,7 +39,7 @@ export const getProjects = asyncHandler(async (req, res) => {
             select: { projectId: true }
         });
         const projectIds = [...new Set(tasks.map(t => t.projectId))];
-        where.id = { in: projectIds.length > 0 ? projectIds : [] }; // Return empty if no projects
+        where.id = { in: projectIds.length > 0 ? projectIds : [] };
         logger.info({ message: 'Filtering projects by assigned tasks for EMPLOYEE.', userId: user.id, projectIdsCount: projectIds.length });
     }
     // Admins see all projects in the organization (default behavior)
@@ -69,7 +71,8 @@ export const createProject: RequestHandler = asyncHandler(async (req, res) => {
   }
 
   // Check if user can create projects (Org Admin or Team Leader)
-  const canCreateProjects = ['ORG_ADMIN', 'TEAM_LEADER'].includes(user.activeRole);
+  const membership = user.memberships.find(m => m.organizationId === user.activeOrganizationId);
+  const canCreateProjects = membership && (membership.role === UserRole.ORG_ADMIN || membership.role === UserRole.TEAM_LEADER);
 
   if (!canCreateProjects) {
     res.status(403);
@@ -219,7 +222,8 @@ export const updateProject = asyncHandler(async (req, res) => {
     }
 
     const isTeamLeader = project.teamLeaders.some(leader => leader.id === user.id);
-    const canUpdateProject = ['ORG_ADMIN', 'TEAM_LEADER'].includes(user.activeRole) || isTeamLeader;
+    const membership = user.memberships.find(m => m.organizationId === user.activeOrganizationId);
+    const canUpdateProject = (membership && (membership.role === UserRole.ORG_ADMIN || membership.role === UserRole.TEAM_LEADER)) || isTeamLeader;
 
     if (!canUpdateProject) {
         res.status(403);
@@ -260,7 +264,8 @@ export const deleteProject = asyncHandler(async (req, res) => {
     }
 
     const isTeamLeader = project.teamLeaders.some(leader => leader.id === user.id);
-    const canDeleteProject = ['ORG_ADMIN', 'TEAM_LEADER'].includes(user.activeRole) || isTeamLeader;
+    const membership = user.memberships.find(m => m.organizationId === user.activeOrganizationId);
+    const canDeleteProject = (membership && (membership.role === UserRole.ORG_ADMIN || membership.role === UserRole.TEAM_LEADER)) || isTeamLeader;
 
     if (!canDeleteProject) {
         res.status(403);

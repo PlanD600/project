@@ -1,5 +1,7 @@
 import React from 'react';
 import { Project, User } from '../types';
+import { useDataStore } from '../stores/useDataStore';
+import { UserRoleEnum } from './SettingsView';
 
 interface ProjectSelectorProps {
     projects: Project[];
@@ -10,7 +12,10 @@ interface ProjectSelectorProps {
 
 const ProjectSelector: React.FC<ProjectSelectorProps> = ({ projects, selectedProjectId, onSelectProject, currentUser }) => {
     
-    if (currentUser.role === 'EMPLOYEE') {
+    const { getUserRoleInActiveOrg } = useDataStore();
+    const userRole = getUserRoleInActiveOrg();
+
+    if (userRole === UserRoleEnum.EMPLOYEE) {
         return null; // EMPLOYEE do not get a project selector
     }
 

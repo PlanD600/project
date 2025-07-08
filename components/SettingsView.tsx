@@ -22,13 +22,22 @@ function getUserRoleForActiveOrg(user: User | null, activeOrganizationId: string
   return user.memberships.find(m => m.organizationId === activeOrganizationId)?.role;
 }
 
+// If UserRole is a type alias, define a UserRoleEnum for value comparisons
+export const UserRoleEnum = {
+  SUPER_ADMIN: 'SUPER_ADMIN',
+  ORG_ADMIN: 'ORG_ADMIN',
+  TEAM_LEADER: 'TEAM_LEADER',
+  EMPLOYEE: 'EMPLOYEE',
+  GUEST: 'GUEST',
+} as const;
+
 const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDashboard, initialSection }) => {
     const { currentUser } = useAuthStore();
     const { activeOrganizationId } = useDataStore();
     
     const getDefaultSection = (role: string | undefined): ActiveSection => {
-        if (role === 'ADMIN') return 'general';
-        if (role === 'TEAM_MANAGER') return 'my-team';
+        if (role === UserRoleEnum.ORG_ADMIN) return 'general';
+        if (role === UserRoleEnum.TEAM_LEADER) return 'my-team';
         return 'my-profile';
     };
     
@@ -51,11 +60,11 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDashboard, initialS
             { id: 'my-profile', label: '\u05d4\u05e8\u05d5\u05e4\u05d9\u05dc \u05e9\u05dc\u05d9', icon: 'user' },
         ];
 
-        if (roleStr === 'TEAM_MANAGER') {
+        if (userRole === UserRoleEnum.TEAM_LEADER) {
             items.push({ id: 'my-team', label: '\u05d4\u05e6\u05d5\u05d5\u05ea \u05e9\u05dc\u05d9', icon: 'team' });
         }
 
-        if (roleStr === 'ADMIN') {
+        if (userRole === UserRoleEnum.ORG_ADMIN) {
             items.unshift(
                 { id: 'general', label: '\u05db\u05dc\u05dc\u05d9', icon: 'settings' },
                 { id: 'user-management', label: '\u05e0\u05d9\u05d4\u05d5\u05dc \u05de\u05e9\u05ea\u05de\u05e9\u05d9\u05dd', icon: 'users' },
@@ -97,12 +106,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onBackToDashboard, initialS
                 </aside>
                 <main className="flex-1 min-w-0">
                     {activeSection === 'my-profile' && <MyProfileSection />}
-                    {userRoleForSections === 'ADMIN' && activeSection === 'general' && <GeneralSettingsSection />}
-                    {userRoleForSections === 'ADMIN' && activeSection === 'user-management' && <UserManagementSection />}
-                    {userRoleForSections === 'ADMIN' && activeSection === 'team-management' && <SuperAdminTeamManagementSection />}
-                    {userRoleForSections === 'ADMIN' && activeSection === 'guest-management' && <GuestManagementView />}
-                    {userRoleForSections === 'ADMIN' && activeSection === 'billing' && <BillingSection />}
-                    {userRoleForSections === 'TEAM_MANAGER' && activeSection === 'my-team' && <TeamLeaderTeamSection />}
+                    {userRoleForSections === UserRoleEnum.ORG_ADMIN && activeSection === 'general' && <GeneralSettingsSection />}
+                    {userRoleForSections === UserRoleEnum.ORG_ADMIN && activeSection === 'user-management' && <UserManagementSection />}
+                    {userRoleForSections === UserRoleEnum.ORG_ADMIN && activeSection === 'team-management' && <SuperAdminTeamManagementSection />}
+                    {userRoleForSections === UserRoleEnum.ORG_ADMIN && activeSection === 'guest-management' && <GuestManagementView />}
+                    {userRoleForSections === UserRoleEnum.ORG_ADMIN && activeSection === 'billing' && <BillingSection />}
+                    {userRoleForSections === UserRoleEnum.TEAM_LEADER && activeSection === 'my-team' && <TeamLeaderTeamSection />}
                 </main>
             </div>
         </div>
@@ -227,7 +236,7 @@ const MyProfileSection: React.FC = () => {
                 </div>
                  <button onClick={handleUpdatePassword} className="mt-4 px-4 py-2 bg-primary hover:bg-primary/90 text-light rounded-md text-sm">עדכן סיסמה</button>
             </div>
-            {String(getUserRoleForActiveOrg(currentUser, activeOrganizationId)) !== 'GUEST' && user.notificationPreferences && (
+            {user.notificationPreferences && (
              <div className="bg-light p-6 rounded-lg border border-dark">
                 <h4 className="text-lg font-semibold text-primary mb-4">העדפות התראות</h4>
                 <div className="space-y-2">
@@ -317,7 +326,7 @@ const UserManagementSection: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {users.filter(u => String(getUserRoleForActiveOrg(u, activeOrganizationId)) !== 'GUEST').map(user => (
+                            {users.filter(u => getUserRoleForActiveOrg(u, activeOrganizationId) !== UserRoleEnum.GUEST).map(user => (
                                 <tr key={user.id} className="border-b border-dark hover:bg-medium">
                                     <td className="px-4 py-3 font-semibold text-primary flex items-center gap-3">
                                         <Avatar user={user} className="w-8 h-8 rounded-full" />
@@ -379,7 +388,7 @@ const SuperAdminTeamManagementSection: React.FC = () => {
                         </thead>
                          <tbody>
                             {teams.map(team => {
-                                const leader = users.find(l => l.teamId === team.id && String(getUserRoleForActiveOrg(l, activeOrganizationId)) === 'TEAM_MANAGER');
+                                const leader = users.find(l => l.teamId === team.id && getUserRoleForActiveOrg(l, activeOrganizationId) === UserRoleEnum.TEAM_LEADER);
                                 const members = users.filter(u => u.teamId === team.id);
                                 return (
                                     <tr key={team.id} className="border-b border-dark hover:bg-medium">
@@ -419,7 +428,7 @@ const TeamLeaderTeamSection: React.FC = () => {
 
     if (!myTeam || !currentUser) return <SectionWrapper title="הצוות שלי">אינך משויך לצוות.</SectionWrapper>;
     
-    const unassignedUsers = users.filter(u => !u.teamId && String(getUserRoleForActiveOrg(u, activeOrganizationId)) === 'EMPLOYEE');
+    const unassignedUsers = users.filter(u => !u.teamId && getUserRoleForActiveOrg(u, activeOrganizationId) === UserRoleEnum.EMPLOYEE);
 
     const handleUpdateTeamName = () => {
         handleUpdateTeam({ ...myTeam, name: teamName }, currentUser.id, myTeamMembers.map(m => m.id));
@@ -545,11 +554,11 @@ const UserModal: React.FC<{ isOpen: boolean; onClose: () => void; userToEdit: Us
 
 const TeamModal: React.FC<{ isOpen: boolean; onClose: () => void; teamToEdit: Team | null }> = ({ isOpen, onClose, teamToEdit }) => {
     const { users, handleCreateTeam, handleUpdateTeam, activeOrganizationId } = useDataStore();
-    const leaderAndAdmins = useMemo(() => users.filter(u => String(getUserRoleForActiveOrg(u, activeOrganizationId)) === 'TEAM_MANAGER' || String(getUserRoleForActiveOrg(u, activeOrganizationId)) === 'ADMIN'), [users]);
-    const employees = useMemo(() => users.filter(u => String(getUserRoleForActiveOrg(u, activeOrganizationId)) === 'EMPLOYEE'), [users]);
+    const leaderAndAdmins = useMemo(() => users.filter(u => getUserRoleForActiveOrg(u, activeOrganizationId) === UserRoleEnum.TEAM_LEADER || getUserRoleForActiveOrg(u, activeOrganizationId) === UserRoleEnum.ORG_ADMIN), [users]);
+    const employees = useMemo(() => users.filter(u => getUserRoleForActiveOrg(u, activeOrganizationId) === UserRoleEnum.EMPLOYEE), [users]);
 
-    const getInitialMembers = () => teamToEdit ? users.filter(u => u.teamId === teamToEdit.id && String(getUserRoleForActiveOrg(u, activeOrganizationId)) === 'EMPLOYEE').map(u => u.id) : [];
-    const getInitialLeader = () => teamToEdit ? users.find(u => u.teamId === teamToEdit.id && (String(getUserRoleForActiveOrg(u, activeOrganizationId)) === 'TEAM_MANAGER' || String(getUserRoleForActiveOrg(u, activeOrganizationId)) === 'ADMIN'))?.id || null : null;
+    const getInitialMembers = () => teamToEdit ? users.filter(u => u.teamId === teamToEdit.id && getUserRoleForActiveOrg(u, activeOrganizationId) === UserRoleEnum.EMPLOYEE).map(u => u.id) : [];
+    const getInitialLeader = () => teamToEdit ? users.find(u => u.teamId === teamToEdit.id && (getUserRoleForActiveOrg(u, activeOrganizationId) === UserRoleEnum.TEAM_LEADER || getUserRoleForActiveOrg(u, activeOrganizationId) === UserRoleEnum.ORG_ADMIN))?.id || null : null;
 
     const [name, setName] = useState(teamToEdit?.name || '');
     const [leaderId, setLeaderId] = useState<string | null>(getInitialLeader());
