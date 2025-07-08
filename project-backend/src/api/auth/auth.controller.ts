@@ -113,6 +113,7 @@ export const registerUser = asyncHandler(async (req, res) => {
 
             res.status(201).json({
                 user: userResponse,
+                organization: result.organization, // <-- add this
                 token: token
             });
         } else {
