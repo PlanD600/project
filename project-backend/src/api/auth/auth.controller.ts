@@ -65,7 +65,17 @@ export const registerUser = asyncHandler(async (req, res) => {
                 },
             });
 
-            // 2b. Update user to set activeOrganizationId via relation
+            // 3. Create membership
+            const membership = await tx.membership.create({
+                data: {
+                    userId: newUser.id,
+                    organizationId: newOrganization.id,
+                    role: 'ORG_ADMIN',
+                },
+            });
+            logger.info('Membership created', { membershipId: membership.id });
+
+            // 4. Update user to set activeOrganizationId
             const updatedUser = await tx.user.update({
                 where: { id: newUser.id },
                 data: { activeOrganizationId: newOrganization.id },
@@ -78,17 +88,7 @@ export const registerUser = asyncHandler(async (req, res) => {
                     activeOrganization: { select: { id: true } },
                 },
             });
-            logger.info('User created', { userId: updatedUser.id, activeOrganizationId: updatedUser.activeOrganization?.id });
-
-            // 3. Create membership
-            const membership = await tx.membership.create({
-                data: {
-                    userId: updatedUser.id,
-                    organizationId: newOrganization.id,
-                    role: 'ORG_ADMIN',
-                },
-            });
-            logger.info('Membership created', { membershipId: membership.id });
+            logger.info('User updated with activeOrganizationId', { userId: updatedUser.id, activeOrganizationId: updatedUser.activeOrganization?.id });
 
             return { user: updatedUser, organization: newOrganization, membership };
         });
