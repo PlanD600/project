@@ -37,7 +37,7 @@
     "stripe": "^18.3.0"
   },
   "devDependencies": {
-    "prisma": "^5.22.0",
+    "prisma": "^6.11.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.2"
   }

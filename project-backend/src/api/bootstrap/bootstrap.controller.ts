@@ -12,7 +12,8 @@ export const getInitialData: RequestHandler = async (req, res, next) => {
     }
 
     try {
-        logger.info({ message: 'Attempting to fetch initial data for user.', userId: user.id, orgId: user.activeOrganizationId, role: user.activeRole });
+        const membership = user.memberships.find(m => m.organizationId === user.activeOrganizationId);
+        logger.info({ message: 'Attempting to fetch initial data for user.', userId: user.id, orgId: user.activeOrganizationId, role: membership?.role });
         
         const orgId = user.activeOrganizationId;
 
@@ -39,7 +40,6 @@ export const getInitialData: RequestHandler = async (req, res, next) => {
 
         let projectsQuery;
         // כלל #2: שימוש ב-enum - updated for multi-tenant roles (temporary)
-        const membership = user.memberships.find(m => m.organizationId === user.activeOrganizationId);
         if (membership?.role === 'ORG_ADMIN' || membership?.role === 'TEAM_LEADER') {
             projectsQuery = prisma.project.findMany({
                 where: { organizationId: orgId, status: 'active' }, // כלל #1
@@ -112,7 +112,8 @@ export const getInitialData: RequestHandler = async (req, res, next) => {
         });
 
     } catch (error) {
-        logger.error({ message: 'Failed to bootstrap initial data.', context: { userId: user.id, role: user.activeRole }, error });
+        const membership = user.memberships.find(m => m.organizationId === user.activeOrganizationId);
+        logger.error({ message: 'Failed to bootstrap initial data.', context: { userId: user.id, role: membership?.role }, error });
         next(error);
     }
 };
