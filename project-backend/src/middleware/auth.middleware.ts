@@ -77,11 +77,11 @@ export const protect = asyncHandler(async (req: Request, res: Response, next: Ne
                 email: user.email,
                 name: user.name,
                 avatarUrl: user.avatarUrl,
-                activeOrganizationId: currentActiveOrgId,
-                memberships: user.memberships.map(m => ({
+                activeOrganizationId: currentActiveOrgId || null,
+                memberships: Array.isArray(user.memberships) ? user.memberships.map(m => ({
                     organizationId: m.organizationId,
                     role: m.role as UserRole
-                }))
+                })) : []
             };
             
             next();
