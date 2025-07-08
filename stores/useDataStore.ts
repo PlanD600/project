@@ -25,7 +25,7 @@ interface DataState {
     // Multi-tenant functions
     setActiveOrganizationId: (id: string | null) => void;
     getActiveOrganization: () => Organization | null;
-    getUserRoleInActiveOrg: () => string | null;
+    getUserRoleInActiveOrg: () => string;
     canManageOrganizations: () => boolean;
     
     // Standard functions
@@ -141,7 +141,7 @@ export const useDataStore = create<DataState>()((set, get) => ({
     getUserRoleInActiveOrg: () => {
         const { userMemberships, activeOrganizationId } = get();
         const membership = userMemberships.find(m => m.organizationId === activeOrganizationId);
-        return membership?.role || null;
+        return membership?.role || 'GUEST';
     },
     
     canManageOrganizations: () => {
