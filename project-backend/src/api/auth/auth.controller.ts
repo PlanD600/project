@@ -28,6 +28,8 @@ const generateToken = (userId: string): string => {
  * @access  Public
  */
 export const registerUser = asyncHandler(async (req, res) => {
+    // [DEBUG] 1. Registration process started. Request body:
+    console.log('[DEBUG] 1. Registration process started. Request body:', req.body);
     const { fullName: name, email, password, companyName: organizationName } = req.body;
 
     logger.info('Registration request received', { name, email, organizationName });
@@ -50,20 +52,30 @@ export const registerUser = asyncHandler(async (req, res) => {
 
     try {
         const result = await prisma.$transaction(async (tx) => {
+            // [DEBUG] 4. Data for creating organization:
+            const organizationDataObject = { name: organizationName };
+            console.log('[DEBUG] 4. Data for creating organization:', organizationDataObject);
             // 1. Create organization
             const newOrganization = await tx.organization.create({
-                data: { name: organizationName }
+                data: organizationDataObject
             });
+            // [DEBUG] 5. New organization created:
+            console.log('[DEBUG] 5. New organization created:', newOrganization);
             logger.info('Organization created', { orgId: newOrganization.id });
 
+            // [DEBUG] 2. Data for creating user:
+            const userDataObject = {
+                name,
+                email: email.toLowerCase(),
+                password: hashedPassword,
+            };
+            console.log('[DEBUG] 2. Data for creating user:', userDataObject);
             // 2. Create user (without activeOrganizationId)
             const newUser = await tx.user.create({
-                data: {
-                    name,
-                    email: email.toLowerCase(),
-                    password: hashedPassword,
-                },
+                data: userDataObject
             });
+            // [DEBUG] 3. New user created:
+            console.log('[DEBUG] 3. New user created:', newUser);
 
             // 3. Create membership
             const membership = await tx.membership.create({
@@ -75,6 +87,8 @@ export const registerUser = asyncHandler(async (req, res) => {
             });
             logger.info('Membership created', { membershipId: membership.id });
 
+            // [DEBUG] 6. Data for updating user with active org:
+            console.log('[DEBUG] 6. Data for updating user with active org:', { where: { id: newUser.id }, data: { activeOrganizationId: newOrganization.id } });
             // 4. Update user to set activeOrganizationId
             const updatedUser = await tx.user.update({
                 where: { id: newUser.id },
