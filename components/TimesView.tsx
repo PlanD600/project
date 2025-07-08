@@ -235,6 +235,8 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
       return;
     }
 
+    // Defensive check for tasksRef.current
+    if (!Array.isArray(tasksRef.current)) return;
     const task = tasksRef.current.find(t => t.id === interaction.taskId);
     if (!task) {
       setInteraction(null);
@@ -305,6 +307,8 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
   };
 
   const handleCreateTask = useCallback((taskData: Pick<Task, 'title' | 'description' | 'assigneeIds' | 'startDate' | 'endDate' | 'projectId'>) => {
+    // Defensive check for allProjects
+    if (!Array.isArray(allProjects)) return;
     const project = allProjects.find(p => p.id === selectedProjectId);
     if (!project) return;
     
@@ -573,7 +577,7 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
             </div>
             
         </div>
-        <h2 className="text-2xl font-bold text-primary">{allProjects.find(p => p.id === selectedProjectId)?.name || "לוח זמנים"}</h2>
+        <h2 className="text-2xl font-bold text-primary">{Array.isArray(allProjects) ? allProjects.find(p => p.id === selectedProjectId)?.name || "לוח זמנים" : "לוח זמנים"}</h2>
       </div>
 
       {viewMode === 'gantt' ? <GanttView /> : <ListView />}

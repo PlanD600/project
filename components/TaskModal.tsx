@@ -30,6 +30,8 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, onClose, onUpdateTask, onAd
   const [isSummarizing, setIsSummarizing] = useState(false);
 
   const { canEditDetails, canChangeStatus, canComment, assignableUsers } = useMemo(() => {
+    // Defensive check for allProjects
+    if (!Array.isArray(allProjects)) return { canEditDetails: false, canChangeStatus: false, canComment: false, assignableUsers: [] };
     const project = allProjects.find(p => p.id === task.projectId);
 
     const { getUserRoleInActiveOrg } = useDataStore();
