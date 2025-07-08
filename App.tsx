@@ -18,6 +18,7 @@ import FinancesView from './components/FinancesView';
 import PortfolioView from './components/PortfolioView';
 import TabBar from './components/TabBar';
 import OnboardingModal from './components/OnboardingModal';
+import HealthCheck from './components/HealthCheck';
 
 // Lazy-loaded Views
 const LoginView = lazy(() => import('./components/LoginView'));
@@ -172,6 +173,7 @@ const App: React.FC = () => {
                              <Routes>
                                 <Route path="/login" element={<LoginView />} />
                                 <Route path="/reset-password/:token" element={<ResetPasswordView />} />
+                                <Route path="/health" element={<HealthCheck />} />
                                 <Route path="*" element={<Navigate to="/login" replace />} />
                             </Routes>
                         ) : (

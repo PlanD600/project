@@ -4,6 +4,7 @@ import { User, Task, FinancialTransaction, Notification, Comment, Project, Team,
 import { api } from '../services/api';
 import { useAuthStore } from './useAuthStore';
 import { useUIStore } from './useUIStore';
+import healthRoutes from './src/api/bootstrap/health.routes';
 
 // --- Multi-tenant data store interface ---
 interface DataState {

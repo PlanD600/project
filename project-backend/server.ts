@@ -17,6 +17,7 @@ import tasksRoutes from './src/api/tasks/tasks.routes';
 import financesRoutes from './src/api/finances/finances.routes';
 import bootstrapRoutes from './src/api/bootstrap/bootstrap.routes';
 import guestsRoutes from './src/api/guests/guests.routes';
+import healthRoutes from './src/api/bootstrap/health.routes';
 // Corrected import to handle default export
 import logger from './src/logger';
 
@@ -63,6 +64,7 @@ app.use(morgan('dev'));
 // --- API ROUTES ---
 // Public route for authentication
 app.use('/api/auth', authRoutes);
+app.use('/api/health', healthRoutes);
 
 // Protected routes - require a valid token for all subsequent routes
 app.use('/api/users', protect, usersRoutes);
