@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 import { User } from '../types';
 // FIX: Using the api object import as intended in your project
-import { api } from '../frontend/services/api'; 
+import { api } from '../services/api'; 
 import { useDataStore } from './useDataStore';
 import { useUIStore } from './useUIStore';
 // FIX: Using the named logger import
-import { logger } from '../frontend/services/logger'; 
+import { logger } from '../services/logger'; 
 
 // This interface matches your original code structure
 interface AuthState {

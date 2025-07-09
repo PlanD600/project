@@ -1,7 +1,7 @@
 // components/ForgotPasswordModal.tsx
 import React, { useState } from 'react';
-import { useAuthStore } from '../../stores/useAuthStore';
-import { useUIStore } from '../../stores/useUIStore';
+import { useAuthStore } from '../stores/useAuthStore';
+import { useUIStore } from '../stores/useUIStore';
 import Icon from './Icon';
 import Spinner from './Spinner'; // ודא שיש לך קומפוננטת ספינר
 

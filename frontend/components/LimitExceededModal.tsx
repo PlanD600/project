@@ -1,5 +1,5 @@
 import React from 'react';
-import { useUIStore } from '../../stores/useUIStore';
+import { useUIStore } from '../stores/useUIStore';
 import Icon from './Icon';
 
 interface LimitExceededModalProps {
