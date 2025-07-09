@@ -76,31 +76,23 @@ app.use('/api/finances', protect, financesRoutes);
 app.use('/api/bootstrap', protect, bootstrapRoutes);
 app.use('/api/guests', protect, guestsRoutes);
 
-// --- SERVE FRONTEND IN PRODUCTION ---
-if (process.env.NODE_ENV === 'production') {
-  // Resolve the path to the parent directory and then to the 'dist' folder of the frontend.
-  // This assumes the backend is in 'project-backend' and the frontend build is in 'dist' at the root.
-  const frontendDistPath = path.join(__dirname, '..', '..', 'dist');
-  
-  const fs = require('fs');
-  if (fs.existsSync(frontendDistPath)) {
-    app.use(express.static(frontendDistPath));
-    // For any other route that doesn't match an API route, serve the frontend's index.html
-    app.get('*', (req, res) =>
-      res.sendFile(path.resolve(frontendDistPath, 'index.html'))
-    );
-    logger.info(`Serving frontend from: ${frontendDistPath}`);
-  } else {
-    logger.warn(`Frontend build directory not found at: ${frontendDistPath}. The server will only handle API requests.`);
-    app.get('/', (req, res) => {
-        res.send('API is running, but frontend files were not found.');
-    });
-  }
+// --- SERVE FRONTEND STATIC FILES (ALWAYS) ---
+// Use the correct path for Render: backend in project-backend/, dist in project root
+const frontendDistPath = path.join(__dirname, '../dist');
+const fs = require('fs');
+if (fs.existsSync(frontendDistPath)) {
+  app.use(express.static(frontendDistPath));
+  logger.info(`Serving frontend static files from: ${frontendDistPath}`);
+  // Only serve index.html for non-API routes
+  app.get(/^\/(?!api\/).*/, (req, res) => {
+    logger.info(`Serving index.html for route: ${req.originalUrl}`);
+    res.sendFile(path.resolve(frontendDistPath, 'index.html'));
+  });
 } else {
-    // In development, just confirm the API is running
-    app.get('/', (req, res) => {
-        res.send('API is running in development mode...');
-    });
+  logger.warn(`Frontend build directory not found at: ${frontendDistPath}. The server will only handle API requests.`);
+  app.get('/', (req, res) => {
+    res.send('API is running, but frontend files were not found.');
+  });
 }
 
 // --- ERROR HANDLING ---
