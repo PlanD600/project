@@ -39,28 +39,24 @@ const KanbanBoard: React.FC = () => {
             return tasks.filter(task => task.projectId === selectedProjectId);
         }, [tasks, selectedProjectId]);
 
+        // Wrap all handler functions in useCallback with correct dependencies
         const handleTaskClick = useCallback((task: Task) => {
             setSelectedTaskId(task.id);
         }, []);
-
         const handleCloseModal = useCallback(() => {
             setSelectedTaskId(null);
         }, []);
-
         const handleOpenAddTaskModal = useCallback(() => {
             setAddTaskModalOpen(true);
         }, []);
-
         const handleCloseAddTaskModal = useCallback(() => {
             setAddTaskModalOpen(false);
         }, []);
-
         const handleCreateTask = useCallback((taskData: Pick<Task, 'title' | 'description' | 'assigneeIds' | 'startDate' | 'endDate' | 'projectId'>) => {
             if (!activeOrganizationId) return;
             handleAddTask({ ...taskData, organizationId: activeOrganizationId });
             setAddTaskModalOpen(false);
         }, [handleAddTask, activeOrganizationId]);
-        
         const handleUpdateAndCloseModal = useCallback((updatedTask: Task) => {
             handleUpdateTask(updatedTask);
         }, [handleUpdateTask]);
@@ -70,6 +66,15 @@ const KanbanBoard: React.FC = () => {
         const canInvite = selectedProjectId && (userRole === UserRoleEnum.ORG_ADMIN || userRole === UserRoleEnum.TEAM_LEADER);
 
         if (!currentUser) return null;
+
+        if (!selectedProjectId || !project) {
+            return (
+                <div className="flex flex-col items-center justify-center min-h-[300px]">
+                    <h2 className="text-xl font-bold text-primary mb-2">No project selected</h2>
+                    <p className="text-secondary">Please select a project or create a new one to get started.</p>
+                </div>
+            );
+        }
 
         // תיקון: המשימה הנבחרת נלקחת מתוך רשימת המשימות שכבר סוננה לפרויקט הנוכחי
         const selectedTask = selectedTaskId ? tasksInProject.find(t => t.id === selectedTaskId) : null;

@@ -35,7 +35,7 @@ const App: React.FC = () => {
         checkAuthStatus 
     } = useAuthStore();
 
-    const { projects, tasks, selectedProjectId, setSelectedProjectId, getUserRoleInActiveOrg } = useDataStore();
+    const { projects, tasks, selectedProjectId, setSelectedProjectId, getUserRoleInActiveOrg, needsOrganizationSetup } = useDataStore();
     const { notification, setNotification } = useUIStore();
 
     const [activeTab, setActiveTab] = useState<Tab>('Portfolio');
@@ -142,6 +142,16 @@ const App: React.FC = () => {
         );
     }
     
+    if (needsOrganizationSetup) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen">
+                <h1 className="text-2xl font-bold mb-4">No organizations found</h1>
+                <p className="mb-4">Create a new organization to get started.</p>
+                {/* You can add your create organization form/component here */}
+            </div>
+        );
+    }
+
     const renderMainContent = () => {
         if (view === 'settings') {
             return (

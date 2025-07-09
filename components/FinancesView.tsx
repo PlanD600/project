@@ -236,7 +236,8 @@ const FinancesView: React.FC = () => {
     return <div>Loading...</div>;
   }
   try {
-    const { projects, users, tasks, selectedProjectId } = useDataStore();
+    const { projects, users, tasks, selectedProjectId, getUserRoleInActiveOrg } = useDataStore();
+    const userRole = getUserRoleInActiveOrg();
 
     if (!currentUser) return null;
 
@@ -244,14 +245,13 @@ const FinancesView: React.FC = () => {
         return <div>Loading...</div>;
     }
 
-    const { getUserRoleInActiveOrg } = useDataStore();
-    const userRole = getUserRoleInActiveOrg();
-    if (userRole === UserRoleEnum.TEAM_LEADER && !selectedProjectId) {
-        return (
-            <div className="flex items-center justify-center h-full bg-medium p-8 rounded-lg">
-                <p className="text-lg text-dimmed">אנא בחר פרויקט כדי להציג את הנתונים הפיננסיים שלו.</p>
-            </div>
-        );
+    if (!selectedProjectId || !projects.find(p => p.id === selectedProjectId)) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[300px]">
+          <h2 className="text-xl font-bold text-primary mb-2">No project selected</h2>
+          <p className="text-secondary">Please select a project or create a new one to get started.</p>
+        </div>
+      );
     }
     
     if (userRole === UserRoleEnum.ORG_ADMIN) {

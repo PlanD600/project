@@ -108,7 +108,7 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
       if (ganttRef.current && tasks.length > 0) {
         scrollToToday();
       }
-    }, [tasks]);
+    }, [tasks, scrollToToday]);
 
     const scrollToToday = useCallback(() => {
       if (ganttRef.current) {
@@ -122,7 +122,7 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
           behavior: 'smooth'
         });
       }
-    }, []);
+    }, [dateToPosition]);
 
     const hierarchicalTasks = useMemo(() => buildTaskHierarchy(tasks), [tasks]);
 
@@ -197,7 +197,7 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
       } else {
         setGhostPosition({ x: taskPos.startX, width: taskPos.width, y: taskPos.y });
       }
-    }, [getUserRoleInActiveOrg]);
+    }, [getUserRoleInActiveOrg, taskPositions, hierarchicalTasks]);
 
     const handleMouseMove = useCallback((e: MouseEvent) => {
       if (!interaction || !ganttRef.current) return;
@@ -546,6 +546,15 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
       </div>
     );
     
+    if (!selectedProjectId || !allProjects.find(p => p.id === selectedProjectId)) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[300px]">
+          <h2 className="text-xl font-bold text-primary mb-2">No project selected</h2>
+          <p className="text-secondary">Please select a project or create a new one to get started.</p>
+        </div>
+      );
+    }
+
     return (
       <>
         <div className="flex flex-wrap justify-between items-center mb-6 gap-4">

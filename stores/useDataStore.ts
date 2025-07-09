@@ -71,6 +71,9 @@ interface DataState {
     handleGetSubscriptionInfo: () => Promise<void>;
     handleCreateCheckoutSession: (planId: string) => Promise<{ url: string }>;
     handleCreatePortalSession: () => Promise<{ url: string }>;
+
+    // New state properties
+    needsOrganizationSetup: boolean;
 }
 
 const initialState = {
@@ -85,6 +88,7 @@ const initialState = {
     financials: [],
     notifications: [],
     selectedProjectId: null,
+    needsOrganizationSetup: false,
 };
 
 // Utility function to ensure task safety
@@ -156,18 +160,22 @@ export const useDataStore = create<DataState>()((set, get) => ({
         try {
             // Always sync from localStorage
             let activeOrganizationId = localStorage.getItem('activeOrganizationId');
+            let needsOrganizationSetup = false;
             if (!activeOrganizationId) {
                 // Try to get organizations from API and set the first as active
                 const organizations = await api.getOrganizations();
                 if (organizations && organizations.length > 0) {
                     activeOrganizationId = organizations[0].id;
                     localStorage.setItem('activeOrganizationId', activeOrganizationId);
+                    needsOrganizationSetup = false;
                 } else {
                     console.error("No organizations found for user");
+                    needsOrganizationSetup = true;
+                    set({ needsOrganizationSetup });
                     return;
                 }
             }
-            set({ activeOrganizationId });
+            set({ activeOrganizationId, needsOrganizationSetup: false });
 
             const data = await api.getInitialData();
             set(produce((state: DataState) => {
