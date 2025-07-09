@@ -94,7 +94,8 @@ app.use('/api/guests', protect, guestsRoutes);
 
 // --- SERVE FRONTEND STATIC FILES (ALWAYS) ---
 // Use the correct path for Render: backend in project-backend/, dist in project root
-const frontendDistPath = path.join(__dirname, '../dist');
+// Serve frontend from the actual build directory (option B)
+const frontendDistPath = path.join(__dirname, '../../../dist');
 if (fs.existsSync(frontendDistPath)) {
   app.use(express.static(frontendDistPath));
   logger.info(`Serving frontend static files from: ${frontendDistPath}`);
