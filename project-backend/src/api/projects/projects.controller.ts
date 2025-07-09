@@ -4,6 +4,8 @@ import db from '../../db'; // שימוש ב-Prisma client
 import { Prisma, UserRole } from '@prisma/client';
 import logger from '../../logger'; // ייבוא הלוגר
 import { z } from 'zod';
+import fs from 'fs';
+import path from 'path';
 
 /**
  * @desc    Fetch all projects based on user role and permissions
