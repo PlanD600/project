@@ -5,7 +5,6 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import prisma from '../../db';
 import logger from '../../logger';
-import { sendEmail } from '../../services/emailService'; // ודא שקובץ זה קיים ותקין
 import { z } from 'zod';
 
 /**
@@ -292,18 +291,21 @@ export const forgotPassword = asyncHandler(async (req: Request, res: Response) =
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
     const emailHtml = `<p>כדי לאפס את סיסמתך, לחץ על הקישור הבא: <a href="${resetUrl}">אפס סיסמה</a></p>`;
 
-    try {
-        await sendEmail({ to: user.email, subject: 'איפוס סיסמה', html: emailHtml });
-        res.status(200).json({ message: 'אם קיים משתמש עם כתובת מייל זו, נשלח אליו קישור לאיפוס סיסמה.' });
-    } catch (error) {
-        logger.error(`Failed to send password reset email to ${user.email}`, error);
-        // נקה את טוקן האיפוס אם שליחת המייל נכשלה
-        await prisma.user.update({
-            where: { email: email.toLowerCase() },
-            data: { passwordResetToken: null, passwordResetExpires: null },
-        });
-        throw new Error('שגיאה בשליחת המייל. נסה שוב מאוחר יותר.');
-    }
+    // REMOVE THE EMAIL SENDING LOGIC FROM forgotPassword:
+    // try {
+    //     await sendEmail({ to: user.email, subject: 'איפוס סיסמה', html: emailHtml });
+    //     res.status(200).json({ message: 'אם קיים משתמש עם כתובת מייל זו, נשלח אליו קישור לאיפוס סיסמה.' });
+    // } catch (error) {
+    //     logger.error(`Failed to send password reset email to ${user.email}`, error);
+    //     // נקה את טוקן האיפוס אם שליחת המייל נכשלה
+    //     await prisma.user.update({
+    //         where: { email: email.toLowerCase() },
+    //         data: { passwordResetToken: null, passwordResetExpires: null },
+    //     });
+    //     throw new Error('שגיאה בשליחת המייל. נסה שוב מאוחר יותר.');
+    // }
+    // INSTEAD, JUST RESPOND SUCCESSFULLY:
+    res.status(200).json({ message: 'אם קיים משתמש עם כתובת מייל זו, ניתן לאפס סיסמה.' });
 });
 
 
