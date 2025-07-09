@@ -1,8 +1,8 @@
 import React from 'react';
 import KanbanCard from './KanbanCard';
 import { Task, Column, User } from '../types';
-import { useDataStore } from '../stores/useDataStore';
-import { useUIStore } from '../stores/useUIStore';
+import { useDataStore } from '../../stores/useDataStore';
+import { useUIStore } from '../../stores/useUIStore';
 import Icon from './Icon';
 
 interface KanbanColumnProps {

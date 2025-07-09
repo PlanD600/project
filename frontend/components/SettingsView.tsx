@@ -2,9 +2,9 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Team, NotificationPreferences, UserRole } from '../types';
 import Icon from './Icon';
 import Avatar from './Avatar';
-import { useAuthStore } from '../stores/useAuthStore';
-import { useDataStore } from '../stores/useDataStore';
-import { useUIStore } from '../stores/useUIStore';
+import { useAuthStore } from '../../stores/useAuthStore';
+import { useDataStore } from '../../stores/useDataStore';
+import { useUIStore } from '../../stores/useUIStore';
 import SubscriptionView from './SubscriptionView';
 import { GuestManagementView } from './GuestManagementView';
 

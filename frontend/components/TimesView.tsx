@@ -103,12 +103,30 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
         tasksRef.current = tasks;
     }, [tasks]);
 
-    // Auto-scroll to today's position when component mounts
-    useEffect(() => {
-      if (ganttRef.current && tasks.length > 0) {
-        scrollToToday();
+    const ganttStartDate = useMemo(() => {
+      if (tasks.length === 0) {
+        const today = new Date();
+        const nextMonth = new Date();
+        nextMonth.setMonth(today.getMonth() + 1);
+        return today;
       }
-    }, [tasks, scrollToToday]);
+      const dates = tasks.flatMap(t => [new Date(t.startDate), new Date(t.endDate)]);
+      let minDate = new Date(Math.min(...dates.map(d => d.getTime())));
+      let maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
+      
+      minDate.setDate(minDate.getDate() - 7);
+      maxDate.setDate(maxDate.getDate() + 7);
+      minDate.setDate(minDate.getDate() - (minDate.getDay() + 1) % 7); // Start week on Sunday
+      
+      return minDate;
+    }, [tasks]);
+
+    const dateToPosition = useCallback((dateStr: string) => {
+      if (!dateStr) return 0;
+      const date = new Date(dateStr);
+      const diff = (new Date(date.toDateString()).getTime() - new Date(ganttStartDate.toDateString()).getTime()) / (1000 * 3600 * 24);
+      return diff * GANTT_DAY_WIDTH;
+    }, [ganttStartDate]);
 
     const scrollToToday = useCallback(() => {
       if (ganttRef.current) {
@@ -124,14 +142,21 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
       }
     }, [dateToPosition]);
 
+    // Auto-scroll to today's position when component mounts
+    useEffect(() => {
+      if (ganttRef.current && tasks.length > 0) {
+        scrollToToday();
+      }
+    }, [tasks, scrollToToday]);
+
     const hierarchicalTasks = useMemo(() => buildTaskHierarchy(tasks), [tasks]);
 
-    const { ganttStartDate, totalDays } = useMemo(() => {
+    const { totalDays } = useMemo(() => {
       if (tasks.length === 0) {
         const today = new Date();
         const nextMonth = new Date();
         nextMonth.setMonth(today.getMonth() + 1);
-        return { ganttStartDate: today, totalDays: 30 };
+        return { totalDays: 30 };
       }
       const dates = tasks.flatMap(t => [new Date(t.startDate), new Date(t.endDate)]);
       let minDate = new Date(Math.min(...dates.map(d => d.getTime())));
@@ -142,15 +167,8 @@ const TimesView: React.FC<TimesViewProps> = ({ tasks }) => {
       minDate.setDate(minDate.getDate() - (minDate.getDay() + 1) % 7); // Start week on Sunday
       
       const differenceInDays = Math.ceil((maxDate.getTime() - minDate.getTime()) / (1000 * 3600 * 24));
-      return { ganttStartDate: minDate, totalDays: differenceInDays > 0 ? differenceInDays : 30 };
+      return { totalDays: differenceInDays > 0 ? differenceInDays : 30 };
     }, [tasks]);
-
-    const dateToPosition = useCallback((dateStr: string) => {
-      if (!dateStr) return 0;
-      const date = new Date(dateStr);
-      const diff = (new Date(date.toDateString()).getTime() - new Date(ganttStartDate.toDateString()).getTime()) / (1000 * 3600 * 24);
-      return diff * GANTT_DAY_WIDTH;
-    }, [ganttStartDate]);
 
     const positionToDate = useCallback((pos: number) => {
       const date = new Date(ganttStartDate);

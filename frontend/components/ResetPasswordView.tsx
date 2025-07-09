@@ -1,7 +1,7 @@
 // components/ResetPasswordView.tsx
 import React, { useState, useEffect } from 'react';
-import { useAuthStore } from '../stores/useAuthStore';
-import { useUIStore } from '../stores/useUIStore';
+import { useAuthStore } from '../../stores/useAuthStore';
+import { useUIStore } from '../../stores/useUIStore';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Spinner from './Spinner'; // ודא שיש לך קומפוננטת ספינר
 

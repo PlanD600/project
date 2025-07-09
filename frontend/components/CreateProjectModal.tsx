@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Project, User } from '../types';
-import { useAuthStore } from '../stores/useAuthStore';
-import { useDataStore } from '../stores/useDataStore';
-import { useUIStore } from '../stores/useUIStore';
+import { useAuthStore } from '../../stores/useAuthStore';
+import { useDataStore } from '../../stores/useDataStore';
+import { useUIStore } from '../../stores/useUIStore';
 import Icon from './Icon';
 import LimitExceededModal from './LimitExceededModal';
 import Avatar from './Avatar'; // Assuming you have an Avatar component

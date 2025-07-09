@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Project, Task, Comment } from '../types';
 import Icon from './Icon';
-import { useDataStore } from '../stores/useDataStore';
+import { useDataStore } from '../../stores/useDataStore';
 import { UserRoleEnum } from './SettingsView';
 
 type SearchResults = {
