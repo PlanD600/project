@@ -186,7 +186,7 @@ export const api = {
     addFinancialTransaction: (transactionData: Omit<FinancialTransaction, 'id'>): Promise<FinancialTransaction> => requests.post('/finances/entries', transactionData),
 
     // --- Projects ---
-    createProject: (projectData: Omit<Project, 'id' | 'status'>): Promise<Project> => requests.post('/projects', projectData),
+    createProject: (projectData: import('../types').ProjectSubmissionData & { organizationId: string }): Promise<Project> => requests.post('/projects', projectData),
     updateProject: (projectId: string, projectData: Partial<Project>): Promise<Project> => requests.put(`/projects/${projectId}`, projectData),
     deleteProject: (projectId: string): Promise<void> => requests.delete(`/projects/${projectId}`),
 

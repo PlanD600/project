@@ -10,6 +10,7 @@ import { useDataStore } from '../stores/useDataStore';
 import { useUIStore } from '../stores/useUIStore';
 import AddTaskModal from './AddTaskModal';
 import { UserRoleEnum } from './SettingsView';
+import path from 'path';
 
 interface TimesViewProps {
   tasks: Task[];

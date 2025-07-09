@@ -221,14 +221,13 @@ export const useDataStore = create<DataState>()((set, get) => ({
     // ... כל שאר הפונקציות נשארות זהות ...
     handleCreateProject: async (projectData) => {
         try {
-            const { users, activeOrganizationId } = get();
+            const { activeOrganizationId } = get();
             if (!activeOrganizationId) {
                 throw new Error('No active organization selected');
             }
-            const leaders = users.filter(u => projectData.teamLeaderIds.includes(u.id));
-            const projectForApi = { 
-                ...projectData, 
-                teamLeaders: leaders,
+            const projectForApi = {
+                ...projectData,
+                teamLeaderIds: projectData.teamLeaderIds,
                 organizationId: activeOrganizationId
             };
             const newProject = await api.createProject(projectForApi);
