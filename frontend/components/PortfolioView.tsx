@@ -179,8 +179,7 @@ const PortfolioView: React.FC = () => {
         return <div>Loading...</div>;
     }
 
-    try {
-        return (
+    return (
             <div className="space-y-8 p-4">
                 <div className="bg-medium rounded-lg shadow-sm p-6 space-y-6 border border-dark">
                     {/* Header and filters */}
@@ -370,9 +369,6 @@ const PortfolioView: React.FC = () => {
                 )}
             </div>
         );
-    } catch (error) {
-        return <div className="text-danger">שגיאה בטעינת תיק פרויקטים: {String(error)}</div>;
-    }
 };
 
 export default PortfolioView;

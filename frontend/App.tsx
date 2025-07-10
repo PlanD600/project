@@ -181,7 +181,11 @@ const App: React.FC = () => {
         switch (activeTab) {
             case 'Portfolio':
                 const userRole = getUserRoleInActiveOrg();
-                return (userRole === 'SUPER_ADMIN' || userRole === 'ORG_ADMIN') ? <PortfolioView /> : null;
+                return (userRole === 'SUPER_ADMIN' || userRole === 'ORG_ADMIN') ? (
+                    <ErrorBoundary>
+                        <PortfolioView />
+                    </ErrorBoundary>
+                ) : null;
             case 'זמנים':
                 return <TimesView tasks={tasks.filter(task => 
                     projectsForCurrentUser.some(project => project.id === task.projectId)
