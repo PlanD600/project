@@ -165,7 +165,7 @@ const App: React.FC = () => {
         setSettingsInitialSection(null);
     };
 
-    // --- Main render logic fix ---
+    // --- Main render logic: stable and simple ---
     if (isAppLoading) {
         return (
             <div className="flex items-center justify-center h-screen bg-light">
@@ -188,26 +188,10 @@ const App: React.FC = () => {
             </Router>
         );
     }
-    if (!currentUser) {
-        return (
-            <div className="flex items-center justify-center h-screen bg-light">
-                <Spinner className="w-12 h-12 text-primary"/>
-                <p className="text-primary ml-4">טוען משתמש...</p>
-            </div>
-        );
-    }
-    if (!currentUser.memberships) {
-        return (
-            <div className="flex items-center justify-center h-screen bg-light">
-                <Spinner className="w-12 h-12 text-primary"/>
-                <p className="text-primary ml-4">טוען שיוכים...</p>
-            </div>
-        );
-    }
-    // If user has no organization memberships, show onboarding modal as overlay
-    const hasActiveOrganization = Array.isArray(currentUser.memberships) && currentUser.memberships.length > 0;
 
-    // Always show main interface for logged-in users
+    // Always show main interface for authenticated users
+    const showOnboarding = !isAppLoading && isAuthenticated && (!Array.isArray(currentUser?.memberships) || currentUser.memberships.length === 0);
+
     return (
         <ErrorBoundary>
             <Router>
@@ -222,7 +206,7 @@ const App: React.FC = () => {
                             />
                         )}
                         <Header onGoToSettings={handleToggleSettings} projectsForCurrentUser={projectsForCurrentUser} />
-                        {!hasActiveOrganization && (
+                        {showOnboarding && currentUser && (
                             <OnboardingModal
                                 user={currentUser}
                                 onClose={() => {}}
