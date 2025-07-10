@@ -125,6 +125,22 @@ const App: React.FC = () => {
             </div>
         );
     }
+    // Move this block up: if not authenticated, show login routes
+    if (!isAuthenticated) {
+        return (
+            <Router>
+                <Suspense fallback={<div className="flex items-center justify-center h-screen bg-light"><Spinner /></div>}>
+                    <Routes>
+                        <Route path="/login" element={<LoginView />} />
+                        <Route path="/reset-password/:token" element={<ResetPasswordView />} />
+                        <Route path="/health" element={<HealthCheck />} />
+                        <Route path="*" element={<Navigate to="/login" replace />} />
+                    </Routes>
+                </Suspense>
+            </Router>
+        );
+    }
+    // Now, if not authenticated, we never get here. Only check for currentUser if authenticated.
     if (!currentUser) {
         return (
             <div className="flex items-center justify-center h-screen bg-light">
