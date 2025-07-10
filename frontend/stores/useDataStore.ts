@@ -30,7 +30,7 @@ interface DataState {
     
     // Standard functions
     setSelectedProjectId: (id: string | null) => void;
-    bootstrapApp: () => Promise<void>;
+    bootstrapApp: () => Promise<User | null>;
     resetDataState: () => void;
     updateSingleUserInList: (user: User) => void;
     setOrganizationSettings: (settings: { name: string; logoUrl?: string }) => void;
@@ -157,40 +157,21 @@ export const useDataStore = create<DataState>()((set, get) => ({
     updateSingleUserInList: (user) => set(state => ({ users: state.users.map(u => u.id === user.id ? user : u) })),
     
     bootstrapApp: async () => {
-        // No loading state management here; handled by useAuthStore
         try {
-            let activeOrganizationId = localStorage.getItem('activeOrganizationId');
-            let needsOrganizationSetup = false;
-            if (!activeOrganizationId) {
-                const organizations = await api.getOrganizations();
-                if (organizations && organizations.length > 0) {
-                    activeOrganizationId = organizations[0].id;
-                    localStorage.setItem('activeOrganizationId', activeOrganizationId);
-                    needsOrganizationSetup = false;
-                } else {
-                    console.error("No organizations found for user");
-                    needsOrganizationSetup = true;
-                    set({ needsOrganizationSetup });
-                    return;
-                }
-            }
-            set({ activeOrganizationId, needsOrganizationSetup: false });
-
             const data = await api.getInitialData();
-            if (data.user) {
-                useAuthStore.getState().setCurrentUser(data.user);
-            }
-            set(produce((state: DataState) => {
-                state.users = data.users || [];
-                state.teams = data.teams || [];
-                state.projects = data.projects || [];
-                state.tasks = (data.tasks || []).filter(Boolean).map(ensureTaskSafety);
-                state.financials = data.financials || [];
-                state.organization = data.organizationSettings;
-            }));
+            set({
+                users: data.users,
+                teams: data.teams,
+                projects: data.projects,
+                tasks: data.tasks,
+                financials: data.financials,
+            });
+            // Return the updated user so App.tsx can use it
+            return data.user;
         } catch (error) {
-            console.error("Bootstrap failed:", error);
-            useAuthStore.getState().handleLogout();
+            console.error('Failed to bootstrap data:', error);
+            // In case of error, return null
+            return null;
         }
     },
     
