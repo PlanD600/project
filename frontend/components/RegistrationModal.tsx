@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Icon from './Icon';
 import Spinner from './Spinner';
 import LegalDocumentModal from './LegalDocumentModal';
@@ -25,6 +25,19 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ isOpen, onClose, 
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [legalDocToShow, setLegalDocToShow] = useState<'terms' | 'privacy' | null>(null);
+
+  // --- Reset form state when modal opens/closes ---
+  useEffect(() => {
+    if (isOpen) {
+      setFullName('');
+      setEmail('');
+      setPassword('');
+      setConfirmPassword('');
+      setCompanyName('');
+      setTermsAgreed(false);
+      setError(null);
+    }
+  }, [isOpen]);
 
   const passwordsMatch = password && password === confirmPassword;
   const isFormValid = fullName && email && companyName && password && passwordsMatch && termsAgreed;
