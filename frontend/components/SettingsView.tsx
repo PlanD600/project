@@ -290,11 +290,20 @@ const GeneralSettingsSection: React.FC = () => {
 }
 
 const UserManagementSection: React.FC = () => {
-    const { users, teams, handleDeleteUser } = useDataStore();
+    const { users, teams, handleDeleteUser, activeOrganizationId } = useDataStore();
     const [isUserModalOpen, setUserModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [resettingUser, setResettingUser] = useState<User | null>(null);
-    const { activeOrganizationId } = useDataStore();
+    const [showAddUserForm, setShowAddUserForm] = useState(false);
+    const [addUserForm, setAddUserForm] = useState({
+        fullName: '',
+        email: '',
+        password: '',
+        role: 'EMPLOYEE',
+    });
+    const [addUserLoading, setAddUserLoading] = useState(false);
+    const [addUserError, setAddUserError] = useState<string | null>(null);
+    const { setNotification } = useUIStore();
 
     const handleOpenCreate = () => {
         setEditingUser(null);
@@ -314,13 +323,76 @@ const UserManagementSection: React.FC = () => {
         setResettingUser(null);
     };
 
+    // --- Add User Form Submission ---
+    const handleAddUserSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setAddUserError(null);
+        setAddUserLoading(true);
+        try {
+            const response = await fetch(`/api/organizations/${activeOrganizationId}/users`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(addUserForm),
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                setAddUserError(data.error || 'שגיאה בהוספת משתמש');
+                setAddUserLoading(false);
+                return;
+            }
+            setNotification({ message: 'המשתמש נוסף בהצלחה!', type: 'success' });
+            setShowAddUserForm(false);
+            setAddUserForm({ fullName: '', email: '', password: '', role: 'EMPLOYEE' });
+            // Optionally, update users list in store (or refetch)
+            // For now, reload page or refetch users if needed
+        } catch (err) {
+            setAddUserError('שגיאה בהוספת משתמש');
+        } finally {
+            setAddUserLoading(false);
+        }
+    };
+
     return(
         <SectionWrapper title="ניהול משתמשים">
              <div className="bg-light p-6 rounded-lg border border-dark">
                 <div className="flex justify-between items-center mb-4">
-                    <button onClick={handleOpenCreate} className="flex items-center space-x-2 space-x-reverse px-3 py-1.5 bg-primary text-light rounded-md text-sm"><Icon name="plus" className="w-4 h-4" /> <span>הוסף משתמש</span></button>
+                    <button onClick={() => setShowAddUserForm(f => !f)} className="flex items-center space-x-2 space-x-reverse px-3 py-1.5 bg-primary text-light rounded-md text-sm"><Icon name="plus" className="w-4 h-4" /> <span>הוסף משתמש</span></button>
                     <h4 className="text-lg font-semibold text-primary">כל המשתמשים</h4>
                 </div>
+                {showAddUserForm && (
+                    <form onSubmit={handleAddUserSubmit} className="mb-6 bg-medium p-4 rounded-lg border border-dark flex flex-col gap-4">
+                        <div className="flex flex-col md:flex-row gap-4">
+                            <div className="flex-1">
+                                <label className="block text-sm font-medium mb-1">שם מלא</label>
+                                <input type="text" value={addUserForm.fullName} onChange={e => setAddUserForm(f => ({ ...f, fullName: e.target.value }))} required className="w-full p-2 rounded-md border border-dark" />
+                            </div>
+                            <div className="flex-1">
+                                <label className="block text-sm font-medium mb-1">אימייל</label>
+                                <input type="email" value={addUserForm.email} onChange={e => setAddUserForm(f => ({ ...f, email: e.target.value }))} required className="w-full p-2 rounded-md border border-dark" />
+                            </div>
+                        </div>
+                        <div className="flex flex-col md:flex-row gap-4">
+                            <div className="flex-1">
+                                <label className="block text-sm font-medium mb-1">סיסמה ראשונית</label>
+                                <input type="password" value={addUserForm.password} onChange={e => setAddUserForm(f => ({ ...f, password: e.target.value }))} required className="w-full p-2 rounded-md border border-dark" />
+                            </div>
+                            <div className="flex-1">
+                                <label className="block text-sm font-medium mb-1">תפקיד</label>
+                                <select value={addUserForm.role} onChange={e => setAddUserForm(f => ({ ...f, role: e.target.value }))} required className="w-full p-2 rounded-md border border-dark">
+                                    <option value="ORG_ADMIN">מנהל מערכת</option>
+                                    <option value="TEAM_LEADER">ראש צוות</option>
+                                    <option value="EMPLOYEE">עובד</option>
+                                    <option value="GUEST">אורח</option>
+                                </select>
+                            </div>
+                        </div>
+                        {addUserError && <div className="text-danger text-sm">{addUserError}</div>}
+                        <div className="flex gap-2">
+                            <button type="submit" disabled={addUserLoading} className="bg-primary text-light px-6 py-2 rounded-md text-sm font-semibold disabled:opacity-50">{addUserLoading ? 'מוסיף...' : 'הוסף משתמש'}</button>
+                            <button type="button" onClick={() => setShowAddUserForm(false)} className="bg-dark/20 text-primary px-6 py-2 rounded-md text-sm font-semibold">ביטול</button>
+                        </div>
+                    </form>
+                )}
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-right text-primary">
                         <thead className="text-xs uppercase bg-medium text-dimmed">

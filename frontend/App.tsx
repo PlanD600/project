@@ -65,6 +65,38 @@ const App: React.FC = () => {
         return hasTasksInProject ? [project] : [];
     }, [currentUser, projects, tasks, selectedProjectId, getUserRoleInActiveOrg]);
 
+    // Define renderMainContent before main return
+    const renderMainContent = () => {
+        if (view === 'settings') {
+            return (
+                <SettingsView 
+                    onBackToDashboard={handleBackToDashboard}
+                    initialSection={settingsInitialSection}
+                />
+            );
+        }
+        switch (activeTab) {
+            case 'Portfolio':
+                const userRole = getUserRoleInActiveOrg();
+                return (userRole === 'SUPER_ADMIN' || userRole === 'ORG_ADMIN') ? (
+                    <ErrorBoundary>
+                        <PortfolioView />
+                    </ErrorBoundary>
+                ) : null;
+            case 'זמנים':
+                return <TimesView tasks={tasks.filter(task => 
+                    projectsForCurrentUser.some(project => project.id === task.projectId)
+                )} />;
+            case 'כספים':
+                const financeUserRole = getUserRoleInActiveOrg();
+                return ['SUPER_ADMIN', 'ORG_ADMIN', 'TEAM_LEADER'].includes(financeUserRole || '') ? <FinancesView /> : null;
+            case 'משימות':
+                return <KanbanBoard />;
+            default:
+                return null;
+        }
+    };
+
     // --- Add detailed state log for debugging ---
     console.log('[App.tsx State]', {
         isAppLoading,
@@ -133,6 +165,7 @@ const App: React.FC = () => {
         setSettingsInitialSection(null);
     };
 
+    // --- Main render logic fix ---
     if (isAppLoading) {
         return (
             <div className="flex items-center justify-center h-screen bg-light">
@@ -141,7 +174,6 @@ const App: React.FC = () => {
             </div>
         );
     }
-    // Move this block up: if not authenticated, show login routes
     if (!isAuthenticated) {
         return (
             <Router>
@@ -156,7 +188,6 @@ const App: React.FC = () => {
             </Router>
         );
     }
-    // Now, if not authenticated, we never get here. Only check for currentUser if authenticated.
     if (!currentUser) {
         return (
             <div className="flex items-center justify-center h-screen bg-light">
@@ -173,49 +204,18 @@ const App: React.FC = () => {
             </div>
         );
     }
-    
-    if (needsOrganizationSetup) {
+    // If user has no organization memberships, show onboarding modal (rare edge case)
+    const hasActiveOrganization = Array.isArray(currentUser.memberships) && currentUser.memberships.length > 0;
+    if (!hasActiveOrganization) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen">
-                <h1 className="text-2xl font-bold mb-4">No organizations found</h1>
-                <p className="mb-4">Create a new organization to get started.</p>
-                {/* You can add your create organization form/component here */}
-            </div>
+            <OnboardingModal
+                user={currentUser}
+                onClose={() => {}}
+                onGoToCreateTeam={handleGoToCreateTeam}
+            />
         );
     }
-
-    const renderMainContent = () => {
-        if (view === 'settings') {
-            return (
-                <SettingsView 
-                    onBackToDashboard={handleBackToDashboard}
-                    initialSection={settingsInitialSection}
-                />
-            );
-        }
-        
-        switch (activeTab) {
-            case 'Portfolio':
-                const userRole = getUserRoleInActiveOrg();
-                return (userRole === 'SUPER_ADMIN' || userRole === 'ORG_ADMIN') ? (
-                    <ErrorBoundary>
-                        <PortfolioView />
-                    </ErrorBoundary>
-                ) : null;
-            case 'זמנים':
-                return <TimesView tasks={tasks.filter(task => 
-                    projectsForCurrentUser.some(project => project.id === task.projectId)
-                )} />;
-            case 'כספים':
-                const financeUserRole = getUserRoleInActiveOrg();
-                return ['SUPER_ADMIN', 'ORG_ADMIN', 'TEAM_LEADER'].includes(financeUserRole || '') ? <FinancesView /> : null;
-            case 'משימות':
-                return <KanbanBoard />;
-            default:
-                return null;
-        }
-    };
-
+    // Otherwise, show main interface
     return (
         <ErrorBoundary>
             <Router>
@@ -229,35 +229,15 @@ const App: React.FC = () => {
                                 onClose={() => setNotification(null)}
                             />
                         )}
-
-                        {/* FIX: שינינו את לוגיקת הניתוב להשתמש ב-isAuthenticated */}
-                        {!isAuthenticated ? (
-                             <Routes>
-                                <Route path="/login" element={<LoginView />} />
-                                <Route path="/reset-password/:token" element={<ResetPasswordView />} />
-                                <Route path="/health" element={<HealthCheck />} />
-                                <Route path="*" element={<Navigate to="/login" replace />} />
-                            </Routes>
-                        ) : (
-                            <>
-                                <Header onGoToSettings={handleToggleSettings} projectsForCurrentUser={projectsForCurrentUser} />
-                                {showOnboardingModal && currentUser && (
-                                    <OnboardingModal
-                                        user={currentUser}
-                                        onClose={() => setShowOnboardingModal(false)}
-                                        onGoToCreateTeam={handleGoToCreateTeam}
-                                    />
-                                )}
-                                <div className="p-4 sm:p-6 lg:p-8 flex-grow">
-                                    {view === 'dashboard' && currentUser && (
-                                        <TabBar activeTab={activeTab} setActiveTab={setActiveTab} currentUser={currentUser} />
-                                    )}
-                                    <main id="main-content" className="mt-6 flex-grow">
-                                       {renderMainContent()}
-                                    </main>
-                                </div>
-                            </>
-                        )}
+                        <Header onGoToSettings={handleToggleSettings} projectsForCurrentUser={projectsForCurrentUser} />
+                        <div className="p-4 sm:p-6 lg:p-8 flex-grow">
+                            {view === 'dashboard' && currentUser && (
+                                <TabBar activeTab={activeTab} setActiveTab={setActiveTab} currentUser={currentUser} />
+                            )}
+                            <main id="main-content" className="mt-6 flex-grow">
+                               {renderMainContent()}
+                            </main>
+                        </div>
                     </div>
                 </Suspense>
             </Router>

@@ -7,7 +7,8 @@ import {
   switchOrganization,
   getUserMemberships,
   inviteUserToOrganization,
-  removeUserFromOrganization
+  removeUserFromOrganization,
+  addUserToOrganization
 } from './organizations.controller';
 
 const router = express.Router();
@@ -29,6 +30,9 @@ router.get('/memberships', getUserMemberships);
 
 // A POST request to /api/organizations/:organizationId/invite will trigger the inviteUserToOrganization function
 router.post('/:organizationId/invite', inviteUserToOrganization);
+
+// A POST request to /api/organizations/:organizationId/users will trigger the addUserToOrganization function
+router.post('/:organizationId/users', addUserToOrganization);
 
 // A DELETE request to /api/organizations/:organizationId/members/:userId will trigger the removeUserFromOrganization function
 router.delete('/:organizationId/members/:userId', removeUserFromOrganization);

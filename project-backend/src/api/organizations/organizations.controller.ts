@@ -5,6 +5,7 @@ import prisma from '../../db';
 import logger from '../../logger';
 import { UserRole } from '@prisma/client';
 import { z } from 'zod';
+import bcrypt from 'bcrypt';
 
 const createOrganizationSchema = z.object({
   name: z.string().min(1, 'Organization name is required'),
@@ -358,4 +359,68 @@ export const removeUserFromOrganization: RequestHandler = asyncHandler(async (re
 
   logger.info({ message: 'User removed from organization.', removedUserId: userId, orgId: organizationId, removedBy: user.id });
   res.status(200).json({ message: 'User removed from organization successfully' });
+});
+
+// --- Add User to Organization ---
+export const addUserToOrganization: RequestHandler = asyncHandler(async (req, res) => {
+    const user = req.user;
+    const { organizationId } = req.params;
+
+    if (!user) {
+        res.status(401);
+        throw new Error('Not authorized');
+    }
+
+    // Check if user is ORG_ADMIN in this org
+    const membership = user.memberships.find(m => m.organizationId === organizationId);
+    if (!membership || membership.role !== 'ORG_ADMIN') {
+        res.status(403);
+        throw new Error('Only organization admins can add users');
+    }
+
+    // Validate input
+    const addUserSchema = z.object({
+        fullName: z.string().min(1),
+        email: z.string().email(),
+        password: z.string().min(8),
+        role: z.enum(['ORG_ADMIN', 'TEAM_LEADER', 'EMPLOYEE', 'GUEST'])
+    });
+    const parsed = addUserSchema.safeParse(req.body);
+    if (!parsed.success) {
+        res.status(400).json({ error: 'Invalid input', details: parsed.error.errors });
+        return;
+    }
+    const { fullName, email, password, role } = parsed.data;
+
+    // Check if user already exists
+    let newUser = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    if (newUser) {
+        res.status(400).json({ error: 'User with this email already exists.' });
+        return;
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Create user
+    newUser = await prisma.user.create({
+        data: {
+            name: fullName,
+            email: email.toLowerCase(),
+            password: hashedPassword,
+        }
+    });
+
+    // Create membership
+    const newMembership = await prisma.membership.create({
+        data: {
+            userId: newUser.id,
+            organizationId,
+            role,
+        }
+    });
+
+    logger.info({ message: 'User added to organization', orgId: organizationId, userId: newUser.id, addedBy: user.id, role });
+    res.status(201).json({ user: newUser, membership: newMembership });
 });
