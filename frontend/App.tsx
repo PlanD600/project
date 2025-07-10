@@ -2,7 +2,6 @@ import React, { useEffect, Suspense, lazy, useState, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/useAuthStore';
 import { useDataStore } from './stores/useDataStore';
-import { UserRole } from './types';
 import { useUIStore } from './stores/useUIStore';
 
 // Components & Types
@@ -41,7 +40,6 @@ const App: React.FC = () => {
     const [activeTab, setActiveTab] = useState<Tab>('Portfolio');
     const [view, setView] = useState<'dashboard' | 'settings'>('dashboard');
     const [settingsInitialSection, setSettingsInitialSection] = useState<ActiveSection | null>(null);
-    const [showOnboardingModal, setShowOnboardingModal] = useState(false);
 
     // Centralized loading/auth/data logic
     useEffect(() => {
@@ -49,11 +47,9 @@ const App: React.FC = () => {
             setIsAppLoading(true);
             await checkAuthStatus();
             if (localStorage.getItem('token')) {
-                const user = await bootstrapApp();
-                if (user) {
-                    setCurrentUser(user);
-                    setIsAuthenticated(true);
-                }
+                await bootstrapApp();
+                setCurrentUser(currentUser);
+                setIsAuthenticated(true);
             }
             setIsAppLoading(false);
         };
@@ -167,7 +163,6 @@ const App: React.FC = () => {
     };
 
     const handleGoToCreateTeam = () => {
-        setShowOnboardingModal(false);
         setView('settings');
         setSettingsInitialSection('team-management');
     };
