@@ -35,13 +35,26 @@ export const useAuthStore = create<AuthState>()(
     setIsAuthenticated: (auth) => set({ isAuthenticated: auth }),
 
     checkAuthStatus: async () => {
-        try {
-            const user = await api.getMe();
-            set({ currentUser: user, isAuthenticated: true });
-        } catch (error) {
-            set({ currentUser: null, isAuthenticated: false });
-            api.removeAuthToken();
-        }
+      set({ isAppLoading: true });
+      const token = localStorage.getItem('token');
+      if (!token) {
+        set({ currentUser: null, isAuthenticated: false, isAppLoading: false });
+        api.removeAuthToken();
+        return;
+      }
+      api.setAuthToken(token);
+      try {
+        const user = await api.getMe();
+        set({ currentUser: user, isAuthenticated: true });
+        await useDataStore.getState().bootstrapApp();
+      } catch (error) {
+        logger.error("Authentication check failed:", { error });
+        localStorage.removeItem('token');
+        api.removeAuthToken();
+        set({ currentUser: null, isAuthenticated: false });
+      } finally {
+        set({ isAppLoading: false });
+      }
     },
 
     handleLogin: async (email, password) => {
