@@ -38,24 +38,20 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
 
         if (!token) {
             set({ currentUser: null, isAuthenticated: false, isAppLoading: false });
-            // FIX: Calling the method from the imported api object
             api.removeAuthToken();
             return;
         }
 
-        // FIX: Calling the method from the imported api object
         api.setAuthToken(token); 
 
         try {
-            // FIX: Calling the method from the imported api object
             const user = await api.getMe();
             set({ currentUser: user, isAuthenticated: true });
+            // Wait for all bootstrap data to load before setting isAppLoading false
             await useDataStore.getState().bootstrapApp();
         } catch (error) {
-            // FIX: Wrap the 'unknown' error in an object to satisfy the logger's type requirement.
             logger.error("Authentication check failed:", { error });
             localStorage.removeItem('token');
-            // FIX: Calling the method from the imported api object
             api.removeAuthToken();
             set({ currentUser: null, isAuthenticated: false });
         } finally {

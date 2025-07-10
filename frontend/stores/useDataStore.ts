@@ -157,12 +157,11 @@ export const useDataStore = create<DataState>()((set, get) => ({
     updateSingleUserInList: (user) => set(state => ({ users: state.users.map(u => u.id === user.id ? user : u) })),
     
     bootstrapApp: async () => {
+        // No loading state management here; handled by useAuthStore
         try {
-            // Always sync from localStorage
             let activeOrganizationId = localStorage.getItem('activeOrganizationId');
             let needsOrganizationSetup = false;
             if (!activeOrganizationId) {
-                // Try to get organizations from API and set the first as active
                 const organizations = await api.getOrganizations();
                 if (organizations && organizations.length > 0) {
                     activeOrganizationId = organizations[0].id;
@@ -178,7 +177,6 @@ export const useDataStore = create<DataState>()((set, get) => ({
             set({ activeOrganizationId, needsOrganizationSetup: false });
 
             const data = await api.getInitialData();
-            // Update the currentUser in useAuthStore with the full user object from bootstrap
             if (data.user) {
                 useAuthStore.getState().setCurrentUser(data.user);
             }
@@ -186,7 +184,6 @@ export const useDataStore = create<DataState>()((set, get) => ({
                 state.users = data.users || [];
                 state.teams = data.teams || [];
                 state.projects = data.projects || [];
-                // Ensure all tasks have assigneeIds as an array
                 state.tasks = (data.tasks || []).filter(Boolean).map(ensureTaskSafety);
                 state.financials = data.financials || [];
                 state.organization = data.organizationSettings;
