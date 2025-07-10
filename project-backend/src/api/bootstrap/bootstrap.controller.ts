@@ -100,6 +100,25 @@ export const getInitialData: RequestHandler = async (req, res, next) => {
         // שולפים את שם הארגון האמיתי
         const organizationSettings = { name: organization?.name || 'My Company', logoUrl: '' };
 
+        // Fetch the full user object with memberships and activeOrganizationId
+        const fullUser = await prisma.user.findUnique({
+            where: { id: user.id },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                avatarUrl: true,
+                teamId: true,
+                activeOrganizationId: true,
+                memberships: {
+                    select: {
+                        organizationId: true,
+                        role: true
+                    }
+                }
+            }
+        });
+
         logger.info({ message: 'Initial data fetched successfully.', userId: user.id, dataCounts: { users: allUsers.length, teams: teams.length, projects: projects.length, tasks: tasksWithoutAssignees.length, financials: financials.length } });
 
         res.json({
@@ -109,6 +128,7 @@ export const getInitialData: RequestHandler = async (req, res, next) => {
             tasks: tasksWithoutAssignees,
             financials: financials,
             organizationSettings,
+            user: fullUser, // <-- Add the full user object to the response
         });
 
     } catch (error) {

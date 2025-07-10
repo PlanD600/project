@@ -178,6 +178,10 @@ export const useDataStore = create<DataState>()((set, get) => ({
             set({ activeOrganizationId, needsOrganizationSetup: false });
 
             const data = await api.getInitialData();
+            // Update the currentUser in useAuthStore with the full user object from bootstrap
+            if (data.user) {
+                useAuthStore.getState().setCurrentUser(data.user);
+            }
             set(produce((state: DataState) => {
                 state.users = data.users || [];
                 state.teams = data.teams || [];

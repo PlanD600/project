@@ -170,7 +170,7 @@ export const api = {
     },
 
     // --- Initial Data Fetch ---
-    getInitialData: (): Promise<{users: User[], teams: Team[], projects: Project[], tasks: Task[], financials: FinancialTransaction[], organizationSettings: {name: string, logoUrl: string}}> => requests.get('/bootstrap'),
+    getInitialData: (): Promise<{users: User[], teams: Team[], projects: Project[], tasks: Task[], financials: FinancialTransaction[], organizationSettings: {name: string, logoUrl: string}, user: User}> => requests.get('/bootstrap'),
     
     // --- Tasks ---
     getTask: (taskId: string): Promise<Task> => requests.get(`/tasks/${taskId}`),

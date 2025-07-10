@@ -43,6 +43,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ isOpen, onClose, 
     }
 
     setIsLoading(true);
+    console.log('Data being sent to register:', { fullName, email, password, companyName });
     const registrationError = await onRegister({ fullName, email, password, companyName });
     if (registrationError) {
       setError(registrationError);
