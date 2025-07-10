@@ -160,7 +160,6 @@ export const useDataStore = create<DataState>()(
         updateSingleUserInList: (user) => set(state => ({ users: state.users.map(u => u.id === user.id ? user : u) })),
         
         bootstrapApp: async () => {
-            // No loading state management here; handled by useAuthStore
             try {
                 let activeOrganizationId = localStorage.getItem('activeOrganizationId');
                 let needsOrganizationSetup = false;
@@ -196,19 +195,15 @@ export const useDataStore = create<DataState>()(
                 useAuthStore.getState().handleLogout();
             }
         },
-        
         resetDataState: () => set(initialState),
         setOrganizationSettings: (settings) => set({ organization: settings }),
-
         handleGlobalSearch: (query, currentUser) => {
             const { projects, tasks, activeOrganizationId } = get();
             // currentUser must be passed in from a component using the hook, not from getState()
             const projectsForCurrentUser = calculateProjectsForCurrentUser(currentUser, projects, tasks, activeOrganizationId);
-
             if (query.length < 3) return { projects: [], tasks: [], comments: [] };
             const lowerQuery = query.toLowerCase();
             const accessibleProjectIds = new Set(projectsForCurrentUser.map(p => p.id));
-            
             const foundProjects = projectsForCurrentUser.filter(p => 
                 p.name.toLowerCase().includes(lowerQuery) || 
                 (p.description || '').toLowerCase().includes(lowerQuery)
@@ -219,10 +214,9 @@ export const useDataStore = create<DataState>()(
                 (t.description || '').toLowerCase().includes(lowerQuery))
             );
             const foundComments = tasks.flatMap(t => (t.comments || []).map(c => ({ ...c, task: t }))).filter(c => accessibleProjectIds.has(c.task.projectId) && c.text.toLowerCase().includes(lowerQuery));
-            
             return { projects: foundProjects, tasks: foundTasks, comments: foundComments };
         },
-        // ... כל שאר הפונקציות נשארות זהות ...
+        // ... rest of the store logic ...
         handleCreateProject: async (projectData) => {
             try {
                 const { activeOrganizationId } = get();
