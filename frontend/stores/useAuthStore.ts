@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { devtools } from 'zustand/middleware';
 import { User } from '../types';
 // FIX: Using the api object import as intended in your project
 import { api } from '../services/api'; 
@@ -24,7 +25,8 @@ interface AuthState {
 }
 
 // FIX: Changed 'get' to '_get' as it's not used, to prevent linting errors.
-export const useAuthStore = create<AuthState>((set, _get) => ({
+export const useAuthStore = create<AuthState>()(
+  devtools<AuthState>((set, _get) => ({
     currentUser: null,
     isAuthenticated: false,
     isAppLoading: true,
@@ -137,4 +139,5 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
             return { success: false, message: (error as Error).message || 'Failed to reset password.' };
         }
     },
-}));
+  }), { name: 'AuthStore' })
+);
