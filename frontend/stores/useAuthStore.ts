@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { devtools } from 'zustand/middleware';
 import { User } from '../types';
 // FIX: Using the api object import as intended in your project
 import { api } from '../services/api'; 
@@ -24,7 +25,8 @@ interface AuthState {
 }
 
 // FIX: Changed 'get' to '_get' as it's not used, to prevent linting errors.
-export const useAuthStore = create<AuthState>((set, _get) => ({
+export const useAuthStore = create<AuthState>()(
+  devtools<AuthState>((set, _get) => ({
     currentUser: null,
     isAuthenticated: false,
     isAppLoading: true,
@@ -33,30 +35,26 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
     setIsAuthenticated: (auth) => set({ isAuthenticated: auth }),
 
     checkAuthStatus: async () => {
-        set({ isAppLoading: true });
-        const token = localStorage.getItem('token');
-
-        if (!token) {
-            set({ currentUser: null, isAuthenticated: false, isAppLoading: false });
-            api.removeAuthToken();
-            return;
-        }
-
-        api.setAuthToken(token); 
-
-        try {
-            const user = await api.getMe();
-            set({ currentUser: user, isAuthenticated: true });
-            // Wait for all bootstrap data to load before setting isAppLoading false
-            await useDataStore.getState().bootstrapApp();
-        } catch (error) {
-            logger.error("Authentication check failed:", { error });
-            localStorage.removeItem('token');
-            api.removeAuthToken();
-            set({ currentUser: null, isAuthenticated: false });
-        } finally {
-            set({ isAppLoading: false });
-        }
+      set({ isAppLoading: true });
+      const token = localStorage.getItem('token');
+      if (!token) {
+        set({ currentUser: null, isAuthenticated: false, isAppLoading: false });
+        api.removeAuthToken();
+        return;
+      }
+      api.setAuthToken(token);
+      try {
+        const user = await api.getMe();
+        set({ currentUser: user, isAuthenticated: true });
+        await useDataStore.getState().bootstrapApp();
+      } catch (error) {
+        logger.error("Authentication check failed:", { error });
+        localStorage.removeItem('token');
+        api.removeAuthToken();
+        set({ currentUser: null, isAuthenticated: false });
+      } finally {
+        set({ isAppLoading: false });
+      }
     },
 
     handleLogin: async (email, password) => {
@@ -137,4 +135,5 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
             return { success: false, message: (error as Error).message || 'Failed to reset password.' };
         }
     },
-}));
+  }), { name: 'AuthStore' })
+);
