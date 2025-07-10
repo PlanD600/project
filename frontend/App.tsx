@@ -27,21 +27,39 @@ const SettingsView = lazy(() => import('./components/SettingsView'));
 
 
 const App: React.FC = () => {
-    // FIX: שלפנו את כל המשתנים הנדרשים מה-store בקריאה אחת, כולל isAuthenticated
     const { 
         currentUser, 
         isAuthenticated, 
-        isAppLoading, 
-        checkAuthStatus 
+        checkAuthStatus, 
+        setCurrentUser, 
+        setIsAuthenticated 
     } = useAuthStore();
-
-    const { projects, tasks, selectedProjectId, setSelectedProjectId, getUserRoleInActiveOrg, needsOrganizationSetup } = useDataStore();
+    const { projects, tasks, selectedProjectId, setSelectedProjectId, getUserRoleInActiveOrg, needsOrganizationSetup, bootstrapApp } = useDataStore();
     const { notification, setNotification } = useUIStore();
 
+    const [isAppLoading, setIsAppLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<Tab>('Portfolio');
     const [view, setView] = useState<'dashboard' | 'settings'>('dashboard');
     const [settingsInitialSection, setSettingsInitialSection] = useState<ActiveSection | null>(null);
     const [showOnboardingModal, setShowOnboardingModal] = useState(false);
+
+    // Centralized loading/auth/data logic
+    useEffect(() => {
+        const load = async () => {
+            setIsAppLoading(true);
+            await checkAuthStatus();
+            if (localStorage.getItem('token')) {
+                const user = await bootstrapApp();
+                if (user) {
+                    setCurrentUser(user);
+                    setIsAuthenticated(true);
+                }
+            }
+            setIsAppLoading(false);
+        };
+        load();
+        // eslint-disable-next-line
+    }, []);
 
     const projectsForCurrentUser = useMemo(() => {
         if (!currentUser) return [];
@@ -54,11 +72,9 @@ const App: React.FC = () => {
         }
         const project = projects.find(p => p.id === selectedProjectId);
         if (!project) return [];
-        
         if (['GUEST', 'SUPER_ADMIN', 'ORG_ADMIN', 'TEAM_LEADER'].includes(userRole || '')) {
             return [project];
         }
-        // For EMPLOYEE, only return project if they have tasks in it
         const hasTasksInProject = tasks.some(task => 
             task.projectId === project.id && task.assigneeIds && task.assigneeIds.includes(currentUser.id)
         );
@@ -114,10 +130,6 @@ const App: React.FC = () => {
     });
 
     useEffect(() => {
-        checkAuthStatus();
-    }, [checkAuthStatus]);
-
-    useEffect(() => {
         if (projectsForCurrentUser.length > 0 && !projectsForCurrentUser.find(p => p.id === selectedProjectId)) {
             setSelectedProjectId(projectsForCurrentUser[0].id);
         } else if (projectsForCurrentUser.length === 0) {
@@ -166,6 +178,8 @@ const App: React.FC = () => {
     };
 
     // --- Main render logic: stable and simple ---
+    const showOnboarding = !isAppLoading && isAuthenticated && (!Array.isArray(currentUser?.memberships) || currentUser.memberships.length === 0);
+
     if (isAppLoading) {
         return (
             <div className="flex items-center justify-center h-screen bg-light">
@@ -188,10 +202,6 @@ const App: React.FC = () => {
             </Router>
         );
     }
-
-    // Always show main interface for authenticated users
-    const showOnboarding = !isAppLoading && isAuthenticated && (!Array.isArray(currentUser?.memberships) || currentUser.memberships.length === 0);
-
     return (
         <ErrorBoundary>
             <Router>
