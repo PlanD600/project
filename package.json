@@ -1,0 +1,12 @@
+{
+    "name": "pland-monorepo",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+      "build": "echo '--- Building Frontend ---' && cd frontend && npm install && npm run build && cd .. && echo '--- Building Backend ---' && cd project-backend && npm install && npm run build",
+      "start": "cd project-backend && npm start"
+    },
+    "engines": {
+      "node": "18.x"
+    }
+  }
