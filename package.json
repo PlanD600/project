@@ -3,10 +3,17 @@
     "version": "1.0.0",
     "private": true,
     "scripts": {
-      "build": "echo '--- Building Frontend ---' && cd frontend && npm install && npm run build && cd .. && echo '--- Building Backend ---' && cd project-backend && npm install && npm run build && echo '--- Running Migrations ---' && npx prisma migrate deploy",
-      "start": "cd project-backend && npm start"
+        "build": "echo '--- Building Frontend ---' && cd frontend && npm install && npm run build && cd .. && echo '--- Building Backend ---' && cd project-backend && npm install && npm run build && echo '--- Running Migrations ---' && npx prisma migrate deploy",
+        "start": "cd project-backend && npm start"
     },
     "engines": {
-      "node": "18.x"
+        "node": "18.x"
+    },
+    "devDependencies": {
+        "@testing-library/jest-dom": "^6.6.3",
+        "@testing-library/react": "^16.3.0",
+        "@types/jest": "^30.0.0",
+        "jest": "^30.0.4",
+        "ts-jest": "^29.4.0"
     }
-  }
+}

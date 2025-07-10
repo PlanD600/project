@@ -4,6 +4,7 @@ import { useAuthStore } from './stores/useAuthStore';
 import { useDataStore } from './stores/useDataStore';
 import { UserRole } from './types';
 import { useUIStore } from './stores/useUIStore';
+import { useInitializeApp } from './hooks/useInitializeApp';
 
 // Components & Types
 import Spinner from './components/Spinner';
@@ -42,6 +43,10 @@ const App: React.FC = () => {
     const [view, setView] = useState<'dashboard' | 'settings'>('dashboard');
     const [settingsInitialSection, setSettingsInitialSection] = useState<ActiveSection | null>(null);
     const [showOnboardingModal, setShowOnboardingModal] = useState(false);
+
+    // Use the new initialization hook
+    const { isLoading, error, ready, initialize, isAuthenticated: appIsAuthenticated } = useInitializeApp();
+    useEffect(() => { initialize(); }, [initialize]);
 
     const projectsForCurrentUser = useMemo(() => {
         if (!currentUser) return [];
@@ -166,7 +171,7 @@ const App: React.FC = () => {
     };
 
     // --- Main render logic: stable and simple ---
-    if (isAppLoading) {
+    if (isLoading) {
         return (
             <div className="flex items-center justify-center h-screen bg-light">
                 <Spinner className="w-12 h-12 text-primary"/>
@@ -174,7 +179,18 @@ const App: React.FC = () => {
             </div>
         );
     }
-    if (!isAuthenticated) {
+    if (error) {
+        return (
+            <div className="flex items-center justify-center h-screen bg-light">
+                <div className="bg-red-100 text-red-800 p-6 rounded shadow">
+                    <h2 className="text-lg font-bold mb-2">שגיאה בטעינת האפליקציה</h2>
+                    <p>{error}</p>
+                    <button className="mt-4 px-4 py-2 bg-primary text-white rounded" onClick={initialize}>נסה שוב</button>
+                </div>
+            </div>
+        );
+    }
+    if (!appIsAuthenticated) {
         return (
             <Router>
                 <Suspense fallback={<div className="flex items-center justify-center h-screen bg-light"><Spinner /></div>}>
@@ -190,7 +206,7 @@ const App: React.FC = () => {
     }
 
     // Always show main interface for authenticated users
-    const showOnboarding = !isAppLoading && isAuthenticated && (!Array.isArray(currentUser?.memberships) || currentUser.memberships.length === 0);
+    const showOnboarding = !isLoading && appIsAuthenticated && (!Array.isArray(currentUser?.memberships) || currentUser.memberships.length === 0);
 
     return (
         <ErrorBoundary>
