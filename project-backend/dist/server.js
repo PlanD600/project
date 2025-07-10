@@ -58,6 +58,23 @@ app.use(express_1.default.json({ limit: '10mb' }));
 app.use(express_1.default.urlencoded({ limit: '10mb', extended: true }));
 // Use morgan for request logging. Make sure it's installed (`npm install morgan @types/morgan`)
 app.use((0, morgan_1.default)('dev'));
+// --- DEBUG: Print working directory and list files ---
+const fs = require('fs');
+console.log('Current working directory:', process.cwd());
+console.log('Backend __dirname:', __dirname);
+try {
+    console.log('Files in backend directory:', fs.readdirSync(__dirname));
+}
+catch (e) {
+    console.log('Could not list backend directory:', e);
+}
+try {
+    const distPath = path_1.default.join(__dirname, '../dist');
+    console.log('Files in dist directory:', fs.readdirSync(distPath));
+}
+catch (e) {
+    console.log('Could not list dist directory:', e);
+}
 // --- API ROUTES ---
 // Public route for authentication
 app.use('/api/auth', auth_routes_1.default);
@@ -74,8 +91,9 @@ app.use('/api/bootstrap', auth_middleware_1.protect, bootstrap_routes_1.default)
 app.use('/api/guests', auth_middleware_1.protect, guests_routes_1.default);
 // --- SERVE FRONTEND STATIC FILES (ALWAYS) ---
 // Use the correct path for Render: backend in project-backend/, dist in project root
-const frontendDistPath = path_1.default.join(__dirname, '../dist');
-const fs = require('fs');
+// Serve frontend from frontend/dist at the project root
+const frontendDistPath = path_1.default.join(__dirname, '../../frontend/dist');
+logger_1.default.info(`Looking for frontend static files at: ${frontendDistPath}`);
 if (fs.existsSync(frontendDistPath)) {
     app.use(express_1.default.static(frontendDistPath));
     logger_1.default.info(`Serving frontend static files from: ${frontendDistPath}`);
