@@ -58,6 +58,7 @@ const PortfolioView: React.FC = () => {
         handleRevokeGuest,
     } = useDataStore();
 
+    console.log('Data in PortfolioView:', { allProjects, allTasks, allFinancials, allUsers });
     const { getUserRoleInActiveOrg } = useDataStore();
     const userRole = getUserRoleInActiveOrg();
 
