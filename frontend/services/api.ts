@@ -3,7 +3,7 @@ import axios, { AxiosError } from 'axios';
 import { User, Task, Project, Team, FinancialTransaction, Comment, Organization, SubscriptionInfo, Membership } from '../types';
 import { logger } from './logger';
 
-const apiBaseURL = (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+const apiBaseURL = (import.meta as any).env.VITE_API_BASE_URL || '/api';
 console.log(`[API] Initializing with base URL: ${apiBaseURL}`); // Helpful log for debugging
 
 const apiClient = axios.create({
