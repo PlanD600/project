@@ -30,18 +30,19 @@ const App: React.FC = () => {
     const { 
         currentUser, 
         isAuthenticated, 
-        checkAuthStatus, 
         setCurrentUser, 
         setIsAuthenticated 
     } = useAuthStore();
-    const { projects, tasks, selectedProjectId, setSelectedProjectId, getUserRoleInActiveOrg, needsOrganizationSetup, bootstrapApp } = useDataStore();
+    const { projects, tasks, selectedProjectId, setSelectedProjectId, getUserRoleInActiveOrg, needsOrganizationSetup } = useDataStore();
     const { notification, setNotification } = useUIStore();
 
-    const [isAppLoading, setIsAppLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<Tab>('Portfolio');
     const [view, setView] = useState<'dashboard' | 'settings'>('dashboard');
     const [settingsInitialSection, setSettingsInitialSection] = useState<ActiveSection | null>(null);
-    const [showOnboardingModal, setShowOnboardingModal] = useState(false);
+
+    // Use the new initialization hook
+    const { isLoading, error, ready, initialize, isAuthenticated: appIsAuthenticated } = useInitializeApp();
+    useEffect(() => { initialize(); }, [initialize]);
 
     const projectsForCurrentUser = useMemo(() => {
         if (!currentUser) return [];
@@ -97,7 +98,7 @@ const App: React.FC = () => {
 
     // --- Add detailed state log for debugging ---
     console.log('[App.tsx State]', {
-        isAppLoading,
+        isLoading,
         isAuthenticated,
         currentUser,
         currentUserMemberships: currentUser?.memberships,
@@ -159,7 +160,7 @@ const App: React.FC = () => {
     };
 
     // --- Main render logic: stable and simple ---
-    if (isAppLoading) {
+    if (isLoading) {
         return (
             <div className="flex items-center justify-center h-screen bg-light">
                 <Spinner className="w-12 h-12 text-primary"/>
@@ -178,7 +179,7 @@ const App: React.FC = () => {
             </div>
         );
     }
-    if (!appIsAuthenticated) {
+    if (!isAuthenticated) {
         return (
             <Router>
                 <Suspense fallback={<div className="flex items-center justify-center h-screen bg-light"><Spinner /></div>}>
@@ -194,7 +195,7 @@ const App: React.FC = () => {
     }
 
     // Always show main interface for authenticated users
-    const showOnboarding = !isAppLoading && isAuthenticated && (!Array.isArray(currentUser?.memberships) || currentUser.memberships.length === 0);
+    const showOnboarding = !isLoading && isAuthenticated && (!Array.isArray(currentUser?.memberships) || currentUser.memberships.length === 0);
 
     return (
         <ErrorBoundary>
