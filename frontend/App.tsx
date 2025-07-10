@@ -65,6 +65,22 @@ const App: React.FC = () => {
         return hasTasksInProject ? [project] : [];
     }, [currentUser, projects, tasks, selectedProjectId, getUserRoleInActiveOrg]);
 
+    // --- Add detailed state log for debugging ---
+    console.log('[App.tsx State]', {
+        isAppLoading,
+        isAuthenticated,
+        currentUser,
+        currentUserMemberships: currentUser?.memberships,
+        needsOrganizationSetup,
+        activeTab,
+        view,
+        selectedProjectId,
+        projectsForCurrentUser,
+        projects,
+        tasks,
+        notification
+    });
+
     useEffect(() => {
         checkAuthStatus();
     }, [checkAuthStatus]);
