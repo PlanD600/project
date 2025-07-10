@@ -204,18 +204,10 @@ const App: React.FC = () => {
             </div>
         );
     }
-    // If user has no organization memberships, show onboarding modal (rare edge case)
+    // If user has no organization memberships, show onboarding modal as overlay
     const hasActiveOrganization = Array.isArray(currentUser.memberships) && currentUser.memberships.length > 0;
-    if (!hasActiveOrganization) {
-        return (
-            <OnboardingModal
-                user={currentUser}
-                onClose={() => {}}
-                onGoToCreateTeam={handleGoToCreateTeam}
-            />
-        );
-    }
-    // Otherwise, show main interface
+
+    // Always show main interface for logged-in users
     return (
         <ErrorBoundary>
             <Router>
@@ -230,6 +222,13 @@ const App: React.FC = () => {
                             />
                         )}
                         <Header onGoToSettings={handleToggleSettings} projectsForCurrentUser={projectsForCurrentUser} />
+                        {!hasActiveOrganization && (
+                            <OnboardingModal
+                                user={currentUser}
+                                onClose={() => {}}
+                                onGoToCreateTeam={handleGoToCreateTeam}
+                            />
+                        )}
                         <div className="p-4 sm:p-6 lg:p-8 flex-grow">
                             {view === 'dashboard' && currentUser && (
                                 <TabBar activeTab={activeTab} setActiveTab={setActiveTab} currentUser={currentUser} />
